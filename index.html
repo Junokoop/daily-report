@@ -147,13 +147,12 @@ table.st{width:100%;border-collapse:collapse;border-top:1.5px solid var(--bd)}
     <div class="sh">本日接收公款</div>
     <div class="rb">
       <div class="rr"><span class="rl">現金</span><input id="rc" type="number" placeholder="0" min="0" inputmode="numeric"><span style="font-size:14px">元</span></div>
-      <div class="rr"><span class="rl">刷卡</span><input id="rk" type="number" placeholder="0" min="0" inputmode="numeric"><span style="font-size:14px">元</span></div>
-      <div class="rr"><span class="rl">備考</span><input id="rn" type="text"></div>
+            <div class="rr"><span class="rl">備考</span><input id="rn" type="text"></div>
     </div>
     <table class="st">
       <tr><td class="lc">本日支出合計</td><td class="vc" id="tca">$0</td></tr>
       <tr><td class="lc">刷卡支出合計</td><td class="vc" id="tcd">$0</td></tr>
-      <tr><td class="lc">剩餘公款</td><td class="vc" id="trm">$0</td></tr>
+      <tr><td class="lc">現金剩餘公款</td><td class="vc" id="trm">$0</td></tr>
     </table>
   </div>
   <div class="bottom-bar">
@@ -194,7 +193,6 @@ var attList,expList,addAttBtn,addExpBtn;
   document.getElementById('M').value=d.getMonth()+1;
   document.getElementById('D').value=d.getDate();
   document.getElementById('rc').oninput=calc;
-  document.getElementById('rk').oninput=calc;
 
   attList=document.getElementById('attList');
   addAttBtn=document.createElement('button');
@@ -228,7 +226,7 @@ function checkPw(){
 
 function clearForm(){
   if(!confirm('確定要清除所有填寫內容嗎？'))return;
-  ['reporter','pname','witem','rc','rk','rn'].forEach(function(id){document.getElementById(id).value='';});
+  ['reporter','pname','witem','rc','rn'].forEach(function(id){document.getElementById(id).value='';});
   var d=new Date();
   document.getElementById('Y').value=d.getFullYear()-1911;
   document.getElementById('M').value=d.getMonth()+1;
@@ -264,10 +262,9 @@ function calc(){
   document.querySelectorAll('.cc').forEach(function(el){cash+=parseFloat(el.value)||0;});
   document.querySelectorAll('.kk').forEach(function(el){card+=parseFloat(el.value)||0;});
   var rC=parseFloat(document.getElementById('rc').value)||0;
-  var rK=parseFloat(document.getElementById('rk').value)||0;
   document.getElementById('tca').textContent='$'+cash.toLocaleString();
   document.getElementById('tcd').textContent='$'+card.toLocaleString();
-  document.getElementById('trm').textContent='$'+((rC+rK)-(cash+card)).toLocaleString();
+  document.getElementById('trm').textContent='$'+(rC-cash).toLocaleString();
 }
 
 function submitReport(){
@@ -383,10 +380,8 @@ function printReport(rpt){
     '<div class="print-sh">公款結算</div>'+
     '<table class="print-sum">'+
     '<tr><td>本日接收現金</td><td>$'+Number(rpt.receiptCash||0).toLocaleString()+'</td></tr>'+
-    '<tr><td>本日接收刷卡</td><td>$'+Number(rpt.receiptCard||0).toLocaleString()+'</td></tr>'+
     '<tr><td>本日支出合計</td><td>$'+Number(rpt.totalCash||0).toLocaleString()+'</td></tr>'+
-    '<tr><td>刷卡支出合計</td><td>$'+Number(rpt.totalCard||0).toLocaleString()+'</td></tr>'+
-    '<tr><td><strong>剩餘公款</strong></td><td><strong>$'+Number(rpt.remaining||0).toLocaleString()+'</strong></td></tr>'+
+    '<tr><td><strong>現金剩餘公款</strong></td><td><strong>$'+Number(rpt.remaining||0).toLocaleString()+'</strong></td></tr>'+
     (rpt.receiptNote?'<tr><td>備考</td><td>'+esc(rpt.receiptNote)+'</td></tr>':'')+
     '</table>'+
     '<div style="margin-top:12px;font-size:11px;color:#888">上傳時間：'+esc(rpt.uploadedAt)+'</div>';

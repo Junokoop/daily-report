@@ -3,21 +3,19 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<meta name="apple-mobile-web-app-capable" content="yes">
 <title>施工日報表</title>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap');
-*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+*{box-sizing:border-box;margin:0;padding:0}
 :root{--bd:#5c5347;--hbg:#cec6b5;--ac:#4a3f35;--tx:#2a2218;--mu:#8a806e;--ib:#fdfcfa;--st:#f5f2ed;--br:#c0b8aa;--grn:#2d6a4f;--red:#9b2226}
-body{background:#f0ede8;font-family:'Noto Sans TC',sans-serif;color:var(--tx);font-size:15px;padding:0 0 40px}
+body{background:#f0ede8;font-family:sans-serif;color:var(--tx);font-size:15px;padding:0 0 40px}
 .nav{display:flex;background:var(--bd);padding:10px 12px;gap:8px;align-items:center;position:sticky;top:0;z-index:100}
 .nav-title{color:#fff;font-weight:700;font-size:16px;flex:1}
-.nav-btn{padding:8px 16px;border:1.5px solid rgba(255,255,255,.5);border-radius:6px;background:transparent;color:#fff;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap;-webkit-appearance:none}
+.nav-btn{padding:8px 16px;border:1.5px solid rgba(255,255,255,.5);border-radius:6px;background:transparent;color:#fff;font-size:14px;font-weight:600;cursor:pointer}
 .nav-btn.active{background:#fff;color:var(--bd)}
 .page{display:none;padding:12px 10px}
 .page.show{display:block}
 .bottom-bar{display:flex;gap:10px;margin-top:12px;padding:0 0 20px}
-.bottom-bar button{flex:1;height:60px;border:2px solid var(--bd);border-radius:10px;font-family:inherit;font-size:18px;font-weight:700;cursor:pointer;-webkit-appearance:none;letter-spacing:.05em}
+.bottom-bar button{flex:1;height:60px;border:2px solid var(--bd);border-radius:10px;font-size:18px;font-weight:700;cursor:pointer}
 .btn-clear{background:#fff;color:var(--ac)}
 .btn-submit{background:var(--grn);color:#fff;border-color:var(--grn)}
 .card{background:#fff;border:1.5px solid var(--bd);border-radius:10px;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,.1)}
@@ -27,39 +25,38 @@ body{background:#f0ede8;font-family:'Noto Sans TC',sans-serif;color:var(--tx);fo
 .mrow{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .mlbl{font-weight:600;font-size:14px;white-space:nowrap}
 .dgrp{display:flex;align-items:center;gap:4px}
-input.di{width:56px;height:44px;border:1.5px solid var(--br);border-radius:6px;background:var(--ib);font-family:inherit;font-size:15px;text-align:center;color:var(--tx);outline:none}
-input.ti{flex:1;min-width:0;height:44px;border:1.5px solid var(--br);border-radius:6px;background:var(--ib);font-family:inherit;font-size:15px;padding:0 10px;color:var(--tx);outline:none}
+input.di{width:56px;height:44px;border:1.5px solid var(--br);border-radius:6px;background:var(--ib);font-size:15px;text-align:center;color:var(--tx);outline:none}
+input.ti{flex:1;min-width:0;height:44px;border:1.5px solid var(--br);border-radius:6px;background:var(--ib);font-size:15px;padding:0 10px;color:var(--tx);outline:none}
 input.ti:focus,input.di:focus{border-color:var(--ac)}
 .wa{padding:10px 14px;border-bottom:1px solid var(--br)}
-.wa textarea{width:100%;min-height:110px;border:1.5px solid var(--br);border-radius:6px;background:var(--ib);font-family:inherit;font-size:15px;color:var(--tx);padding:10px;resize:vertical;outline:none;line-height:1.8}
+.wa textarea{width:100%;min-height:110px;border:1.5px solid var(--br);border-radius:6px;background:var(--ib);font-size:15px;color:var(--tx);padding:10px;resize:vertical;outline:none;line-height:1.8}
 .awrap,.ewrap{padding:10px 14px;border-bottom:1px solid var(--bd);display:flex;flex-direction:column;gap:8px}
 .ac{border:1px solid var(--br);border-radius:8px;overflow:hidden;background:var(--ib)}
 .atop{display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid var(--br);background:var(--st)}
 .atop .no{font-size:12px;color:var(--mu);white-space:nowrap}
-.atop input{flex:1;border:none;background:transparent;font-family:inherit;font-size:15px;color:var(--tx);outline:none;height:36px}
+.atop input{flex:1;border:none;background:transparent;font-size:15px;color:var(--tx);outline:none;height:36px}
 .achks{display:flex}
-.ci{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px 4px;gap:4px;border-right:1px solid var(--br);cursor:pointer;user-select:none}
+.ci{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px 4px;gap:4px;border-right:1px solid var(--br)}
 .ci:last-child{border-right:none}
-.ci span{font-size:12px;color:var(--mu);pointer-events:none}
+.ci span{font-size:12px;color:var(--mu)}
 .ci input[type=checkbox]{width:22px;height:22px;accent-color:var(--ac);cursor:pointer}
 .ci-ot{flex:1.4;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px 4px;gap:4px}
 .ci-ot span{font-size:12px;color:var(--mu)}
-.ci-ot input{width:54px;height:28px;border:1.5px solid var(--br);border-radius:5px;background:var(--ib);font-family:inherit;font-size:14px;text-align:center;color:var(--tx);outline:none;padding:0 4px}
+.ci-ot input{width:54px;height:28px;border:1.5px solid var(--br);border-radius:5px;background:var(--ib);font-size:14px;text-align:center;color:var(--tx);outline:none;padding:0 4px}
 .ec{border:1px solid var(--br);border-radius:8px;overflow:hidden;background:var(--ib)}
 .er{display:flex;align-items:center;border-bottom:1px solid var(--br);min-height:44px}
 .er:last-child{border-bottom:none}
 .el{font-size:12px;color:var(--mu);white-space:nowrap;padding:0 10px;min-width:68px;background:var(--st);align-self:stretch;display:flex;align-items:center;border-right:1px solid var(--br);flex-shrink:0}
-.er input[type=text],.er input[type=number]{flex:1;border:none;background:transparent;font-family:inherit;font-size:15px;color:var(--tx);outline:none;height:44px;padding:0 10px;min-width:0}
+.er input[type=text],.er input[type=number]{flex:1;border:none;background:transparent;font-size:15px;color:var(--tx);outline:none;height:44px;padding:0 10px;min-width:0}
 .ivw{flex:1;display:flex;align-items:center;gap:8px;padding:0 12px;height:44px}
 .ivw input[type=checkbox]{width:22px;height:22px;accent-color:var(--ac);cursor:pointer;flex-shrink:0}
 .ivw span{font-size:13px;color:var(--mu)}
 .db{background:none;border:none;color:#c0a090;font-size:20px;padding:0 8px;cursor:pointer;line-height:1;flex-shrink:0}
-.ab{display:flex;align-items:center;justify-content:center;width:100%;height:44px;border:1.5px dashed var(--br);border-radius:8px;background:none;color:var(--mu);font-family:inherit;font-size:14px;cursor:pointer;-webkit-appearance:none}
-.ab:active{color:var(--ac);border-color:var(--ac)}
+.ab{display:flex;align-items:center;justify-content:center;width:100%;height:44px;border:1.5px dashed var(--br);border-radius:8px;background:none;color:var(--mu);font-size:14px;cursor:pointer}
 .rb{padding:12px 14px;border-bottom:1px solid var(--bd);display:flex;flex-direction:column;gap:10px}
 .rr{display:flex;align-items:center;gap:8px}
 .rr .rl{font-size:14px;white-space:nowrap;min-width:30px}
-.rr input{flex:1;height:44px;min-width:0;border:1.5px solid var(--br);border-radius:6px;background:var(--ib);font-family:inherit;font-size:15px;padding:0 10px;color:var(--tx);outline:none}
+.rr input{flex:1;height:44px;min-width:0;border:1.5px solid var(--br);border-radius:6px;background:var(--ib);font-size:15px;padding:0 10px;color:var(--tx);outline:none}
 table.st{width:100%;border-collapse:collapse;border-top:1.5px solid var(--bd)}
 .st td{padding:13px 14px;border-bottom:1px solid var(--br);vertical-align:middle}
 .st tr:last-child td{border-bottom:none;border-top:1.5px solid var(--bd)}
@@ -89,14 +86,14 @@ table.st{width:100%;border-collapse:collapse;border-top:1.5px solid var(--bd)}
 .rbt td{padding:6px 8px;border:1px solid var(--br);text-align:center}
 .rbt tr:nth-child(even) td{background:var(--st)}
 .action-wrap{display:flex;gap:8px;justify-content:flex-end;padding:10px 14px}
-.action-wrap button{border-radius:6px;padding:8px 14px;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;-webkit-appearance:none;border:1.5px solid}
+.action-wrap button{border-radius:6px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer;border:1.5px solid}
 .btn-pdf{background:var(--ac);color:#fff;border-color:var(--ac)}
 .btn-del{background:none;color:var(--red);border-color:var(--red)}
 .empty{text-align:center;padding:48px 20px;color:var(--mu)}
 .empty .ei{font-size:48px;margin-bottom:12px}
 .pw-wrap{padding:24px 16px}
-.pw-wrap input{width:100%;height:48px;border:1.5px solid var(--br);border-radius:8px;background:var(--ib);font-family:inherit;font-size:16px;padding:0 14px;color:var(--tx);outline:none;margin-bottom:12px;display:block}
-.pw-wrap button{width:100%;height:48px;background:var(--ac);color:#fff;border:none;border-radius:8px;font-family:inherit;font-size:16px;font-weight:700;cursor:pointer;-webkit-appearance:none}
+.pw-wrap input{width:100%;height:48px;border:1.5px solid var(--br);border-radius:8px;background:var(--ib);font-size:16px;padding:0 14px;color:var(--tx);outline:none;margin-bottom:12px;display:block}
+.pw-wrap button{width:100%;height:48px;background:var(--ac);color:#fff;border:none;border-radius:8px;font-size:16px;font-weight:700;cursor:pointer}
 @media print{
   @page{margin:10mm;size:A4 portrait}
   body{background:#fff!important;padding:0!important}
@@ -160,8 +157,8 @@ table.st{width:100%;border-collapse:collapse;border-top:1.5px solid var(--bd)}
     </table>
   </div>
   <div class="bottom-bar">
-    <button class="btn-clear" id="btnClear">清除表單</button>
-    <button class="btn-submit" id="btnSubmit">&#x1F4E4; 上傳報表</button>
+    <button class="btn-clear" onclick="clearForm()">清除表單</button>
+    <button class="btn-submit" id="btnSubmit" onclick="submitReport()">&#x1F4E4; 上傳報表</button>
   </div>
 </div>
 
@@ -169,8 +166,8 @@ table.st{width:100%;border-collapse:collapse;border-top:1.5px solid var(--bd)}
   <div class="card">
     <div class="sh">管理者登入</div>
     <div class="pw-wrap">
-      <input type="password" id="pwInput" placeholder="請輸入管理密碼">
-      <button id="pwBtn">進入管理頁面</button>
+      <input type="password" id="pwInput" placeholder="請輸入管理密碼" onkeydown="if(event.key==='Enter')checkPw()">
+      <button onclick="checkPw()">進入管理頁面</button>
     </div>
   </div>
 </div>
@@ -186,332 +183,218 @@ table.st{width:100%;border-collapse:collapse;border-top:1.5px solid var(--bd)}
 <div id="printArea"></div>
 
 <script>
-var API = 'https://script.google.com/macros/s/AKfycbzK4k3meUJbAN7F7NaVMhekf-GbxI-3H0qZw9gHE6B5RzMSodH5Xx0Irhgr2FKYzM7S/exec';
-var ADMIN_PW = '1234';
-var attList, expList, addAttBtn, addExpBtn;
+var API='https://script.google.com/macros/s/AKfycbzK4k3meUJbAN7F7NaVMhekf-GbxI-3H0qZw9gHE6B5RzMSodH5Xx0Irhgr2FKYzM7S/exec';
+var ADMIN_PW='1234';
+var attList,expList,addAttBtn,addExpBtn;
 
-function init() {
-  initDate();
-  document.getElementById('rc').oninput = calc;
-  document.getElementById('rk').oninput = calc;
-  document.getElementById('btnClear').onclick = function() {
-    if (!confirm('確定要清除所有填寫內容嗎？')) return;
-    doReset();
-  };
-  document.getElementById('btnSubmit').onclick = submitReport;
-  document.getElementById('pwBtn').onclick = checkPw;
-  document.getElementById('pwInput').onkeydown = function(e) { if (e.key === 'Enter') checkPw(); };
+// 初始化
+(function init(){
+  var d=new Date();
+  document.getElementById('Y').value=d.getFullYear()-1911;
+  document.getElementById('M').value=d.getMonth()+1;
+  document.getElementById('D').value=d.getDate();
+  document.getElementById('rc').oninput=calc;
+  document.getElementById('rk').oninput=calc;
 
-  attList = document.getElementById('attList');
-  addAttBtn = document.createElement('button');
-  addAttBtn.className = 'ab';
-  addAttBtn.type = 'button';
-  addAttBtn.textContent = '＋ 新增人員';
-  addAttBtn.onclick = addAtt;
+  attList=document.getElementById('attList');
+  addAttBtn=document.createElement('button');
+  addAttBtn.className='ab';addAttBtn.type='button';
+  addAttBtn.textContent='＋ 新增人員';
+  addAttBtn.onclick=addAtt;
   attList.appendChild(addAttBtn);
-  addAtt(); addAtt(); addAtt(); addAtt();
+  addAtt();addAtt();addAtt();addAtt();
 
-  expList = document.getElementById('expList');
-  addExpBtn = document.createElement('button');
-  addExpBtn.className = 'ab';
-  addExpBtn.type = 'button';
-  addExpBtn.textContent = '＋ 新增支出項目';
-  addExpBtn.onclick = addExp;
+  expList=document.getElementById('expList');
+  addExpBtn=document.createElement('button');
+  addExpBtn.className='ab';addExpBtn.type='button';
+  addExpBtn.textContent='＋ 新增支出項目';
+  addExpBtn.onclick=addExp;
   expList.appendChild(addExpBtn);
-  addExp(); addExp(); addExp(); addExp();
+  addExp();addExp();addExp();addExp();
+})();
+
+function showPage(p){
+  ['pageForm','pageAdminLogin','pageAdmin'].forEach(function(id){document.getElementById(id).classList.remove('show');});
+  ['navForm','navAdmin'].forEach(function(id){document.getElementById(id).classList.remove('active');});
+  if(p==='form'){document.getElementById('pageForm').classList.add('show');document.getElementById('navForm').classList.add('active');}
+  else if(p==='adminLogin'){document.getElementById('pageAdminLogin').classList.add('show');document.getElementById('navAdmin').classList.add('active');document.getElementById('pwInput').value='';}
+  else if(p==='admin'){document.getElementById('pageAdmin').classList.add('show');document.getElementById('navAdmin').classList.add('active');loadReports();}
 }
 
-document.addEventListener('DOMContentLoaded', init);
-
-function showPage(p) {
-  ['pageForm','pageAdminLogin','pageAdmin'].forEach(function(id) {
-    document.getElementById(id).classList.remove('show');
-  });
-  ['navForm','navAdmin'].forEach(function(id) {
-    document.getElementById(id).classList.remove('active');
-  });
-  if (p === 'form') {
-    document.getElementById('pageForm').classList.add('show');
-    document.getElementById('navForm').classList.add('active');
-  } else if (p === 'adminLogin') {
-    document.getElementById('pageAdminLogin').classList.add('show');
-    document.getElementById('navAdmin').classList.add('active');
-    document.getElementById('pwInput').value = '';
-  } else if (p === 'admin') {
-    document.getElementById('pageAdmin').classList.add('show');
-    document.getElementById('navAdmin').classList.add('active');
-    loadReports();
-  }
+function checkPw(){
+  if(document.getElementById('pwInput').value===ADMIN_PW){showPage('admin');}
+  else{showToast('密碼錯誤');document.getElementById('pwInput').value='';}
 }
 
-function checkPw() {
-  if (document.getElementById('pwInput').value === ADMIN_PW) {
-    showPage('admin');
-  } else {
-    showToast('密碼錯誤');
-    document.getElementById('pwInput').value = '';
-  }
-}
-
-function initDate() {
-  var d = new Date();
-  document.getElementById('Y').value = d.getFullYear() - 1911;
-  document.getElementById('M').value = d.getMonth() + 1;
-  document.getElementById('D').value = d.getDate();
-}
-
-function doReset() {
-  ['reporter','pname','witem','rc','rk','rn'].forEach(function(id) {
-    document.getElementById(id).value = '';
-  });
-  initDate();
-  while (attList.firstChild) attList.removeChild(attList.firstChild);
+function clearForm(){
+  if(!confirm('確定要清除所有填寫內容嗎？'))return;
+  ['reporter','pname','witem','rc','rk','rn'].forEach(function(id){document.getElementById(id).value='';});
+  var d=new Date();
+  document.getElementById('Y').value=d.getFullYear()-1911;
+  document.getElementById('M').value=d.getMonth()+1;
+  document.getElementById('D').value=d.getDate();
+  while(attList.firstChild)attList.removeChild(attList.firstChild);
   attList.appendChild(addAttBtn);
-  addAtt(); addAtt(); addAtt(); addAtt();
-  while (expList.firstChild) expList.removeChild(expList.firstChild);
+  addAtt();addAtt();addAtt();addAtt();
+  while(expList.firstChild)expList.removeChild(expList.firstChild);
   expList.appendChild(addExpBtn);
-  addExp(); addExp(); addExp(); addExp();
+  addExp();addExp();addExp();addExp();
   calc();
 }
 
-function addAtt() {
-  var n = attList.querySelectorAll('.ac').length + 1;
-  var c = document.createElement('div');
-  c.className = 'ac';
-  c.innerHTML =
-    '<div class="atop">' +
-      '<span class="no">人員 ' + n + '</span>' +
-      '<input type="text" placeholder="請輸入姓名">' +
-      '<button class="db" type="button">✕</button>' +
-    '</div>' +
-    '<div class="achks">' +
-      '<label class="ci"><input type="checkbox"><span>上午</span></label>' +
-      '<label class="ci"><input type="checkbox"><span>下午</span></label>' +
-      '<div class="ci-ot"><span>加班(時)</span><input type="number" min="0" max="24" step="0.5" placeholder="0" class="ot-input"></div>' +
-    '</div>';
-  c.querySelector('.db').onclick = function() { attList.removeChild(c); };
-  attList.insertBefore(c, addAttBtn);
+function addAtt(){
+  var n=attList.querySelectorAll('.ac').length+1;
+  var c=document.createElement('div');c.className='ac';
+  c.innerHTML='<div class="atop"><span class="no">人員 '+n+'</span><input type="text" placeholder="請輸入姓名"><button class="db" type="button">✕</button></div><div class="achks"><label class="ci"><input type="checkbox"><span>上午</span></label><label class="ci"><input type="checkbox"><span>下午</span></label><div class="ci-ot"><span>加班(時)</span><input type="number" class="ot-input" min="0" max="24" step="0.5" placeholder="0"></div></div>';
+  c.querySelector('.db').onclick=function(){attList.removeChild(c);};
+  attList.insertBefore(c,addAttBtn);
 }
 
-function addExp() {
-  var c = document.createElement('div');
-  c.className = 'ec';
-  c.innerHTML =
-    '<div class="er"><span class="el">購買項目</span><input type="text" placeholder="項目名稱"><button class="db" type="button">✕</button></div>' +
-    '<div class="er"><span class="el">發票</span><div class="ivw"><input type="checkbox"><span>已附發票</span></div></div>' +
-    '<div class="er"><span class="el">現金金額</span><input type="number" class="cc" placeholder="0" min="0" inputmode="numeric"></div>' +
-    '<div class="er"><span class="el">刷卡金額</span><input type="number" class="kk" placeholder="0" min="0" inputmode="numeric"></div>';
-  c.querySelector('.db').onclick = function() { expList.removeChild(c); calc(); };
-  c.querySelectorAll('.cc,.kk').forEach(function(el) { el.oninput = calc; });
-  expList.insertBefore(c, addExpBtn);
+function addExp(){
+  var c=document.createElement('div');c.className='ec';
+  c.innerHTML='<div class="er"><span class="el">購買項目</span><input type="text" placeholder="項目名稱"><button class="db" type="button">✕</button></div><div class="er"><span class="el">發票</span><div class="ivw"><input type="checkbox"><span>已附發票</span></div></div><div class="er"><span class="el">現金金額</span><input type="number" class="cc" placeholder="0" min="0" inputmode="numeric"></div><div class="er"><span class="el">刷卡金額</span><input type="number" class="kk" placeholder="0" min="0" inputmode="numeric"></div>';
+  c.querySelector('.db').onclick=function(){expList.removeChild(c);calc();};
+  c.querySelectorAll('.cc,.kk').forEach(function(el){el.oninput=calc;});
+  expList.insertBefore(c,addExpBtn);
   calc();
 }
 
-function calc() {
-  var cash = 0, card = 0;
-  document.querySelectorAll('.cc').forEach(function(el) { cash += parseFloat(el.value) || 0; });
-  document.querySelectorAll('.kk').forEach(function(el) { card += parseFloat(el.value) || 0; });
-  var rC = parseFloat(document.getElementById('rc').value) || 0;
-  var rK = parseFloat(document.getElementById('rk').value) || 0;
-  document.getElementById('tca').textContent = '$' + cash.toLocaleString();
-  document.getElementById('tcd').textContent = '$' + card.toLocaleString();
-  document.getElementById('trm').textContent = '$' + ((rC + rK) - (cash + card)).toLocaleString();
+function calc(){
+  var cash=0,card=0;
+  document.querySelectorAll('.cc').forEach(function(el){cash+=parseFloat(el.value)||0;});
+  document.querySelectorAll('.kk').forEach(function(el){card+=parseFloat(el.value)||0;});
+  var rC=parseFloat(document.getElementById('rc').value)||0;
+  var rK=parseFloat(document.getElementById('rk').value)||0;
+  document.getElementById('tca').textContent='$'+cash.toLocaleString();
+  document.getElementById('tcd').textContent='$'+card.toLocaleString();
+  document.getElementById('trm').textContent='$'+((rC+rK)-(cash+card)).toLocaleString();
 }
 
-function submitReport() {
-  var reporter = document.getElementById('reporter').value.trim();
-  var pname = document.getElementById('pname').value.trim();
-  if (!reporter) { showToast('請填寫填報者姓名'); return; }
-  if (!pname) { showToast('請填寫工程名稱'); return; }
-
-  var Y = document.getElementById('Y').value;
-  var M = document.getElementById('M').value;
-  var D = document.getElementById('D').value;
-
-  var attendance = [];
-  attList.querySelectorAll('.ac').forEach(function(card) {
-    var name = card.querySelector('input[type=text]').value.trim();
-    if (!name) return;
-    var chks = card.querySelectorAll('input[type=checkbox]');
-    var otEl = card.querySelector('.ot-input');
-    var ot = otEl ? (parseFloat(otEl.value) || 0) : 0;
-    attendance.push({ name: name, am: chks[0].checked, pm: chks[1].checked, ot: ot });
+function submitReport(){
+  var reporter=document.getElementById('reporter').value.trim();
+  var pname=document.getElementById('pname').value.trim();
+  if(!reporter){showToast('請填寫填報者姓名');return;}
+  if(!pname){showToast('請填寫工程名稱');return;}
+  var Y=document.getElementById('Y').value,M=document.getElementById('M').value,D=document.getElementById('D').value;
+  var attendance=[];
+  attList.querySelectorAll('.ac').forEach(function(card){
+    var name=card.querySelector('input[type=text]').value.trim();if(!name)return;
+    var chks=card.querySelectorAll('input[type=checkbox]');
+    var otEl=card.querySelector('.ot-input');
+    attendance.push({name:name,am:chks[0].checked,pm:chks[1].checked,ot:otEl?parseFloat(otEl.value)||0:0});
   });
-
-  var expenses = [];
-  expList.querySelectorAll('.ec').forEach(function(card) {
-    var item = card.querySelector('input[type=text]').value.trim();
-    if (!item) return;
-    expenses.push({
-      item: item,
-      inv: card.querySelector('input[type=checkbox]').checked,
-      cash: parseFloat(card.querySelector('.cc').value) || 0,
-      card: parseFloat(card.querySelector('.kk').value) || 0
-    });
+  var expenses=[];
+  expList.querySelectorAll('.ec').forEach(function(card){
+    var item=card.querySelector('input[type=text]').value.trim();if(!item)return;
+    expenses.push({item:item,inv:card.querySelector('input[type=checkbox]').checked,cash:parseFloat(card.querySelector('.cc').value)||0,card:parseFloat(card.querySelector('.kk').value)||0});
   });
-
-  var report = {
-    id: Date.now(),
-    date: Y + '年' + M + '月' + D + '日',
-    reporter: reporter,
-    project: pname,
-    workItems: document.getElementById('witem').value.trim(),
-    attendance: attendance,
-    expenses: expenses,
-    receiptCash: parseFloat(document.getElementById('rc').value) || 0,
-    receiptCard: parseFloat(document.getElementById('rk').value) || 0,
-    receiptNote: document.getElementById('rn').value.trim(),
-    totalCash: parseFloat(document.getElementById('tca').textContent.replace(/[$,]/g,'')) || 0,
-    totalCard: parseFloat(document.getElementById('tcd').textContent.replace(/[$,]/g,'')) || 0,
-    remaining: parseFloat(document.getElementById('trm').textContent.replace(/[$,]/g,'')) || 0,
-    uploadedAt: new Date().toLocaleString('zh-TW')
+  var report={
+    id:Date.now(),date:Y+'年'+M+'月'+D+'日',reporter:reporter,project:pname,
+    workItems:document.getElementById('witem').value.trim(),
+    attendance:attendance,expenses:expenses,
+    receiptCash:parseFloat(document.getElementById('rc').value)||0,
+    receiptCard:parseFloat(document.getElementById('rk').value)||0,
+    receiptNote:document.getElementById('rn').value.trim(),
+    totalCash:parseFloat(document.getElementById('tca').textContent.replace(/[$,]/g,''))||0,
+    totalCard:parseFloat(document.getElementById('tcd').textContent.replace(/[$,]/g,''))||0,
+    remaining:parseFloat(document.getElementById('trm').textContent.replace(/[$,]/g,''))||0,
+    uploadedAt:new Date().toLocaleString('zh-TW')
   };
-
-  var btn = document.getElementById('btnSubmit');
-  btn.textContent = '上傳中…';
-  btn.disabled = true;
-
-  fetch(API, { method: 'POST', body: JSON.stringify(report) })
-    .then(function(r) { return r.json(); })
-    .then(function(res) {
-      if (res.ok) { showToast('✅ 報表已成功上傳！'); doReset(); }
-      else { showToast('上傳失敗：' + (res.error || '請稍後再試')); }
+  var btn=document.getElementById('btnSubmit');
+  btn.textContent='上傳中…';btn.disabled=true;
+  fetch(API,{method:'POST',body:JSON.stringify(report)})
+    .then(function(r){return r.json();})
+    .then(function(res){
+      if(res.ok){showToast('✅ 報表已成功上傳！');clearForm();}
+      else{showToast('上傳失敗：'+(res.error||'請稍後再試'));}
     })
-    .catch(function() { showToast('網路錯誤，請重試'); })
-    .finally(function() { btn.textContent = '📤 上傳報表'; btn.disabled = false; });
+    .catch(function(){showToast('網路錯誤，請重試');})
+    .finally(function(){btn.textContent='📤 上傳報表';btn.disabled=false;});
 }
 
-function loadReports() {
-  var listEl = document.getElementById('reportList');
-  listEl.innerHTML = '<div class="loading">⏳ 載入中…</div>';
-  fetch(API + '?action=list')
-    .then(function(r) { return r.json(); })
-    .then(function(res) {
-      if (!res.ok) throw new Error(res.error);
-      var data = res.data;
-      document.getElementById('adminCount').textContent = '共 ' + data.length + ' 筆';
-      if (!data.length) {
-        listEl.innerHTML = '<div class="empty"><div class="ei">📭</div><p>尚無上傳的報表</p></div>';
-        return;
-      }
-      listEl.innerHTML = '';
-      data.forEach(function(rpt) { listEl.appendChild(buildCard(rpt)); });
+function loadReports(){
+  var listEl=document.getElementById('reportList');
+  listEl.innerHTML='<div class="loading">⏳ 載入中…</div>';
+  fetch(API+'?action=list')
+    .then(function(r){return r.json();})
+    .then(function(res){
+      if(!res.ok)throw new Error(res.error);
+      var data=res.data;
+      document.getElementById('adminCount').textContent='共 '+data.length+' 筆';
+      if(!data.length){listEl.innerHTML='<div class="empty"><div class="ei">📭</div><p>尚無上傳的報表</p></div>';return;}
+      listEl.innerHTML='';
+      data.forEach(function(rpt){listEl.appendChild(buildCard(rpt));});
     })
-    .catch(function() {
-      listEl.innerHTML = '<div class="empty"><div class="ei">❌</div><p>載入失敗，請重試</p></div>';
-    });
+    .catch(function(){listEl.innerHTML='<div class="empty"><div class="ei">❌</div><p>載入失敗，請重試</p></div>';});
 }
 
-function buildCard(rpt) {
-  var wrap = document.createElement('div'); wrap.className = 'report-card';
-  var head = document.createElement('div'); head.className = 'report-head';
-  head.innerHTML =
-    '<div class="report-meta">' +
-      '<div class="r-project">' + esc(rpt.project) + '</div>' +
-      '<div class="r-sub">' + esc(rpt.date) + ' ｜ 填報者：' + esc(rpt.reporter) + '</div>' +
-    '</div><span class="report-arrow">›</span>';
-
-  var body = document.createElement('div'); body.className = 'report-body';
-
-  if (rpt.workItems) {
-    body.innerHTML += '<div class="rbs"><div class="rbl">施工項目</div><div class="rbc">' + esc(rpt.workItems) + '</div></div>';
+function buildCard(rpt){
+  var wrap=document.createElement('div');wrap.className='report-card';
+  var head=document.createElement('div');head.className='report-head';
+  head.innerHTML='<div class="report-meta"><div class="r-project">'+esc(rpt.project)+'</div><div class="r-sub">'+esc(rpt.date)+' ｜ 填報者：'+esc(rpt.reporter)+'</div></div><span class="report-arrow">›</span>';
+  var body=document.createElement('div');body.className='report-body';
+  if(rpt.workItems)body.innerHTML+='<div class="rbs"><div class="rbl">施工項目</div><div class="rbc">'+esc(rpt.workItems)+'</div></div>';
+  if(rpt.attendance&&rpt.attendance.length){
+    var h='<div class="rbs"><div class="rbl">出工人員</div><table class="rbt"><tr><th>姓名</th><th>上午</th><th>下午</th><th>加班(時)</th></tr>';
+    rpt.attendance.forEach(function(a){h+='<tr><td>'+esc(a.name)+'</td><td>'+(a.am?'✔':'—')+'</td><td>'+(a.pm?'✔':'—')+'</td><td>'+(a.ot?a.ot+'h':'—')+'</td></tr>';});
+    body.innerHTML+=h+'</table></div>';
   }
-  if (rpt.attendance && rpt.attendance.length) {
-    var h = '<div class="rbs"><div class="rbl">出工人員</div><table class="rbt"><tr><th>姓名</th><th>上午</th><th>下午</th><th>加班(時)</th></tr>';
-    rpt.attendance.forEach(function(a) {
-      h += '<tr><td>' + esc(a.name) + '</td><td>' + (a.am ? '✔' : '—') + '</td><td>' + (a.pm ? '✔' : '—') + '</td><td>' + (a.ot ? a.ot + 'h' : '—') + '</td></tr>';
-    });
-    body.innerHTML += h + '</table></div>';
+  if(rpt.expenses&&rpt.expenses.length){
+    var h2='<div class="rbs"><div class="rbl">公款支出</div><table class="rbt"><tr><th>項目</th><th>發票</th><th>現金</th><th>刷卡</th></tr>';
+    rpt.expenses.forEach(function(e){h2+='<tr><td>'+esc(e.item)+'</td><td>'+(e.inv?'✔':'—')+'</td><td>'+(e.cash?'$'+Number(e.cash).toLocaleString():'—')+'</td><td>'+(e.card?'$'+Number(e.card).toLocaleString():'—')+'</td></tr>';});
+    body.innerHTML+=h2+'</table></div>';
   }
-  if (rpt.expenses && rpt.expenses.length) {
-    var h2 = '<div class="rbs"><div class="rbl">公款支出</div><table class="rbt"><tr><th>項目</th><th>發票</th><th>現金</th><th>刷卡</th></tr>';
-    rpt.expenses.forEach(function(e) {
-      h2 += '<tr><td>' + esc(e.item) + '</td><td>' + (e.inv ? '✔' : '—') + '</td><td>' + (e.cash ? '$' + Number(e.cash).toLocaleString() : '—') + '</td><td>' + (e.card ? '$' + Number(e.card).toLocaleString() : '—') + '</td></tr>';
-    });
-    body.innerHTML += h2 + '</table></div>';
-  }
-  body.innerHTML +=
-    '<div class="rbs"><div class="rbl">公款結算</div><div style="font-size:14px;line-height:2">' +
-    '接收現金：$' + Number(rpt.receiptCash||0).toLocaleString() + '　接收刷卡：$' + Number(rpt.receiptCard||0).toLocaleString() + '<br>' +
-    '現金支出：$' + Number(rpt.totalCash||0).toLocaleString() + '　刷卡支出：$' + Number(rpt.totalCard||0).toLocaleString() + '<br>' +
-    '<strong>剩餘公款：$' + Number(rpt.remaining||0).toLocaleString() + '</strong>' +
-    (rpt.receiptNote ? '<br>備考：' + esc(rpt.receiptNote) : '') +
-    '</div></div>';
-  body.innerHTML += '<div class="rbs" style="color:var(--mu);font-size:12px">上傳時間：' + esc(rpt.uploadedAt) + '</div>';
-
-  var aw = document.createElement('div'); aw.className = 'action-wrap';
-  var pdfBtn = document.createElement('button'); pdfBtn.className = 'btn-pdf'; pdfBtn.textContent = '📄 儲存PDF';
-  pdfBtn.onclick = function(e) { e.stopPropagation(); printReport(rpt); };
-  var delBtn = document.createElement('button'); delBtn.className = 'btn-del'; delBtn.textContent = '🗑 刪除';
-  delBtn.onclick = function(e) {
+  body.innerHTML+='<div class="rbs"><div class="rbl">公款結算</div><div style="font-size:14px;line-height:2">接收現金：$'+Number(rpt.receiptCash||0).toLocaleString()+'　接收刷卡：$'+Number(rpt.receiptCard||0).toLocaleString()+'<br>現金支出：$'+Number(rpt.totalCash||0).toLocaleString()+'　刷卡支出：$'+Number(rpt.totalCard||0).toLocaleString()+'<br><strong>剩餘公款：$'+Number(rpt.remaining||0).toLocaleString()+'</strong>'+(rpt.receiptNote?'<br>備考：'+esc(rpt.receiptNote):'')+	'</div></div>';
+  body.innerHTML+='<div class="rbs" style="color:var(--mu);font-size:12px">上傳時間：'+esc(rpt.uploadedAt)+'</div>';
+  var aw=document.createElement('div');aw.className='action-wrap';
+  var pdfBtn=document.createElement('button');pdfBtn.className='btn-pdf';pdfBtn.textContent='📄 儲存PDF';
+  pdfBtn.onclick=function(e){e.stopPropagation();printReport(rpt);};
+  var delBtn=document.createElement('button');delBtn.className='btn-del';delBtn.textContent='🗑 刪除';
+  delBtn.onclick=function(e){
     e.stopPropagation();
-    if (!confirm('確定要刪除這份報表嗎？')) return;
-    delBtn.textContent = '刪除中…'; delBtn.disabled = true;
-    fetch(API + '?action=delete&id=' + rpt.id)
-      .then(function(r) { return r.json(); })
-      .then(function(res) {
-        if (res.ok) {
-          wrap.remove();
-          var cur = parseInt(document.getElementById('adminCount').textContent.replace(/\D/g,'')) || 0;
-          document.getElementById('adminCount').textContent = '共 ' + Math.max(0, cur - 1) + ' 筆';
-          showToast('已刪除');
-        } else { showToast('刪除失敗'); delBtn.textContent = '🗑 刪除'; delBtn.disabled = false; }
+    if(!confirm('確定要刪除這份報表嗎？'))return;
+    delBtn.textContent='刪除中…';delBtn.disabled=true;
+    fetch(API+'?action=delete&id='+rpt.id)
+      .then(function(r){return r.json();})
+      .then(function(res){
+        if(res.ok){wrap.remove();var cur=parseInt(document.getElementById('adminCount').textContent.replace(/\D/g,''))||0;document.getElementById('adminCount').textContent='共 '+Math.max(0,cur-1)+' 筆';showToast('已刪除');}
+        else{showToast('刪除失敗');delBtn.textContent='🗑 刪除';delBtn.disabled=false;}
       })
-      .catch(function() { showToast('網路錯誤'); delBtn.textContent = '🗑 刪除'; delBtn.disabled = false; });
+      .catch(function(){showToast('網路錯誤');delBtn.textContent='🗑 刪除';delBtn.disabled=false;});
   };
-  aw.appendChild(pdfBtn); aw.appendChild(delBtn); body.appendChild(aw);
-
-  head.onclick = function() {
-    var isOpen = body.classList.contains('open');
-    body.classList.toggle('open', !isOpen);
-    head.querySelector('.report-arrow').classList.toggle('open', !isOpen);
-  };
-  wrap.appendChild(head); wrap.appendChild(body);
+  aw.appendChild(pdfBtn);aw.appendChild(delBtn);body.appendChild(aw);
+  head.onclick=function(){var isOpen=body.classList.contains('open');body.classList.toggle('open',!isOpen);head.querySelector('.report-arrow').classList.toggle('open',!isOpen);};
+  wrap.appendChild(head);wrap.appendChild(body);
   return wrap;
 }
 
-function printReport(rpt) {
-  var pa = document.getElementById('printArea');
-  var attRows = '';
-  if (rpt.attendance && rpt.attendance.length) {
-    rpt.attendance.forEach(function(a) {
-      attRows += '<tr><td>' + esc(a.name) + '</td><td>' + (a.am ? '✔' : '') + '</td><td>' + (a.pm ? '✔' : '') + '</td><td>' + (a.ot ? a.ot + 'h' : '') + '</td></tr>';
-    });
-  }
-  var expRows = '';
-  if (rpt.expenses && rpt.expenses.length) {
-    rpt.expenses.forEach(function(e) {
-      expRows += '<tr><td>' + esc(e.item) + '</td><td>' + (e.inv ? '✔' : '') + '</td><td>' + (e.cash ? '$' + Number(e.cash).toLocaleString() : '') + '</td><td>' + (e.card ? '$' + Number(e.card).toLocaleString() : '') + '</td></tr>';
-    });
-  }
-  pa.innerHTML =
-    '<div class="print-title">施工日報表</div>' +
-    '<div class="print-meta">填表日期：' + esc(rpt.date) + '　　填報者：' + esc(rpt.reporter) + '　　工程名稱：' + esc(rpt.project) + '</div>' +
-    (rpt.workItems ? '<div class="print-sh">施工項目</div><div class="print-content">' + esc(rpt.workItems) + '</div>' : '') +
-    (attRows ? '<div class="print-sh">出工人數及人員簽到表</div><table class="print-table"><tr><th>姓名</th><th>上午</th><th>下午</th><th>加班(時)</th></tr>' + attRows + '</table>' : '') +
-    (expRows ? '<div class="print-sh">公款支出每日明細表</div><table class="print-table"><tr><th>購買項目</th><th>發票</th><th>現金金額</th><th>刷卡金額</th></tr>' + expRows + '</table>' : '') +
-    '<div class="print-sh">公款結算</div>' +
-    '<table class="print-sum">' +
-    '<tr><td>本日接收現金</td><td>$' + Number(rpt.receiptCash||0).toLocaleString() + '</td></tr>' +
-    '<tr><td>本日接收刷卡</td><td>$' + Number(rpt.receiptCard||0).toLocaleString() + '</td></tr>' +
-    '<tr><td>本日支出合計</td><td>$' + Number(rpt.totalCash||0).toLocaleString() + '</td></tr>' +
-    '<tr><td>刷卡支出合計</td><td>$' + Number(rpt.totalCard||0).toLocaleString() + '</td></tr>' +
-    '<tr><td><strong>剩餘公款</strong></td><td><strong>$' + Number(rpt.remaining||0).toLocaleString() + '</strong></td></tr>' +
-    (rpt.receiptNote ? '<tr><td>備考</td><td>' + esc(rpt.receiptNote) + '</td></tr>' : '') +
-    '</table>' +
-    '<div style="margin-top:12px;font-size:11px;color:#888">上傳時間：' + esc(rpt.uploadedAt) + '</div>';
-  setTimeout(function() { window.print(); }, 150);
+function printReport(rpt){
+  var pa=document.getElementById('printArea');
+  var attRows='';
+  if(rpt.attendance&&rpt.attendance.length)rpt.attendance.forEach(function(a){attRows+='<tr><td>'+esc(a.name)+'</td><td>'+(a.am?'✔':'')+'</td><td>'+(a.pm?'✔':'')+'</td><td>'+(a.ot?a.ot+'h':'')+'</td></tr>';});
+  var expRows='';
+  if(rpt.expenses&&rpt.expenses.length)rpt.expenses.forEach(function(e){expRows+='<tr><td>'+esc(e.item)+'</td><td>'+(e.inv?'✔':'')+'</td><td>'+(e.cash?'$'+Number(e.cash).toLocaleString():'')+'</td><td>'+(e.card?'$'+Number(e.card).toLocaleString():'')+'</td></tr>';});
+  pa.innerHTML=
+    '<div class="print-title">施工日報表</div>'+
+    '<div class="print-meta">填表日期：'+esc(rpt.date)+'　　填報者：'+esc(rpt.reporter)+'　　工程名稱：'+esc(rpt.project)+'</div>'+
+    (rpt.workItems?'<div class="print-sh">施工項目</div><div class="print-content">'+esc(rpt.workItems)+'</div>':'')+
+    (attRows?'<div class="print-sh">出工人數及人員簽到表</div><table class="print-table"><tr><th>姓名</th><th>上午</th><th>下午</th><th>加班(時)</th></tr>'+attRows+'</table>':'')+
+    (expRows?'<div class="print-sh">公款支出每日明細表</div><table class="print-table"><tr><th>購買項目</th><th>發票</th><th>現金金額</th><th>刷卡金額</th></tr>'+expRows+'</table>':'')+
+    '<div class="print-sh">公款結算</div>'+
+    '<table class="print-sum">'+
+    '<tr><td>本日接收現金</td><td>$'+Number(rpt.receiptCash||0).toLocaleString()+'</td></tr>'+
+    '<tr><td>本日接收刷卡</td><td>$'+Number(rpt.receiptCard||0).toLocaleString()+'</td></tr>'+
+    '<tr><td>本日支出合計</td><td>$'+Number(rpt.totalCash||0).toLocaleString()+'</td></tr>'+
+    '<tr><td>刷卡支出合計</td><td>$'+Number(rpt.totalCard||0).toLocaleString()+'</td></tr>'+
+    '<tr><td><strong>剩餘公款</strong></td><td><strong>$'+Number(rpt.remaining||0).toLocaleString()+'</strong></td></tr>'+
+    (rpt.receiptNote?'<tr><td>備考</td><td>'+esc(rpt.receiptNote)+'</td></tr>':'')+
+    '</table>'+
+    '<div style="margin-top:12px;font-size:11px;color:#888">上傳時間：'+esc(rpt.uploadedAt)+'</div>';
+  setTimeout(function(){window.print();},150);
 }
 
-function esc(s) {
-  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
-function showToast(msg) {
-  var t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.add('show');
-  setTimeout(function() { t.classList.remove('show'); }, 2500);
-}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function showToast(msg){var t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(function(){t.classList.remove('show');},2500);}
 </script>
 </body>
 </html>

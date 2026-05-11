@@ -43,9 +43,6 @@ input.ti:focus,input.di:focus{border-color:var(--ac)}
 .ci:last-child{border-right:none}
 .ci span{font-size:12px;color:var(--mu);pointer-events:none}
 .ci input[type=checkbox]{width:22px;height:22px;accent-color:var(--ac);cursor:pointer}
-.ci-ot{flex:1.4;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px 4px;gap:4px}
-.ci-ot span{font-size:12px;color:var(--mu)}
-.ci-ot input{width:54px;height:28px;border:1.5px solid var(--br);border-radius:5px;background:var(--ib);font-family:inherit;font-size:14px;text-align:center;color:var(--tx);outline:none;padding:0 4px}
 .ec{border:1px solid var(--br);border-radius:8px;overflow:hidden;background:var(--ib)}
 .er{display:flex;align-items:center;border-bottom:1px solid var(--br);min-height:44px}
 .er:last-child{border-bottom:none}
@@ -113,4 +110,13 @@ table.st{width:100%;border-collapse:collapse;border-top:1.5px solid var(--bd)}
 .print-table{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:8px}
 .print-table th{background:#cec6b5;padding:6px 8px;text-align:center;border:1px solid #b0a99a;font-weight:700}
 .print-table td{padding:6px 8px;border:1px solid #b0a99a;text-align:center}
-.print-sum{mar
+.print-sum{margin-top:8px;border:1px solid #5c5347;border-collapse:collapse;width:100%}
+.print-sum td{padding:8px 12px;border-bottom:1px solid #b0a99a;font-size:14px}
+.print-sum td:first-child{background:#cec6b5;font-weight:700;width:120px}
+</style>
+</head>
+<body>
+
+<div class="nav">
+  <span class="nav-title">📋 施工日報</span>
+  <button class="nav-btn active" id="navForm" onclic

@@ -224,8 +224,7 @@ function checkPw(){
   else{showToast('密碼錯誤');document.getElementById('pwInput').value='';}
 }
 
-function clearForm(){
-  if(!confirm('確定要清除所有填寫內容嗎？'))return;
+function doReset(){
   ['reporter','pname','witem','rc','rn'].forEach(function(id){document.getElementById(id).value='';});
   var d=new Date();
   document.getElementById('Y').value=d.getFullYear()-1911;
@@ -238,6 +237,10 @@ function clearForm(){
   expList.appendChild(addExpBtn);
   addExp();addExp();addExp();addExp();
   calc();
+}
+function clearForm(){
+  if(!confirm('確定要清除所有填寫內容嗎？'))return;
+  doReset();
 }
 
 function addAtt(){
@@ -290,7 +293,6 @@ function submitReport(){
     workItems:document.getElementById('witem').value.trim(),
     attendance:attendance,expenses:expenses,
     receiptCash:parseFloat(document.getElementById('rc').value)||0,
-    receiptCard:parseFloat(document.getElementById('rk').value)||0,
     receiptNote:document.getElementById('rn').value.trim(),
     totalCash:parseFloat(document.getElementById('tca').textContent.replace(/[$,]/g,''))||0,
     totalCard:parseFloat(document.getElementById('tcd').textContent.replace(/[$,]/g,''))||0,
@@ -302,7 +304,7 @@ function submitReport(){
   fetch(API,{method:'POST',body:JSON.stringify(report)})
     .then(function(r){return r.json();})
     .then(function(res){
-      if(res.ok){showToast('✅ 報表已成功上傳！');clearForm();}
+      if(res.ok){showToast('✅ 報表已成功上傳！');doReset();}
       else{showToast('上傳失敗：'+(res.error||'請稍後再試'));}
     })
     .catch(function(){showToast('網路錯誤，請重試');})

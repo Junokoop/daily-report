@@ -153,7 +153,11 @@ table.st{width:100%;border-collapse:collapse;border-top:1.5px solid var(--bd)}
 <div class="page show" id="pageSelect">
   <div class="select-page">
     <h2>&#x1F477; 請選擇身份</h2>
-    <div id="selectBtnArea" style="width:100%;max-width:320px;display:flex;flex-direction:column;gap:12px"></div>
+    <div id="selectBtnArea" style="width:100%;max-width:320px;display:flex;flex-direction:column;gap:12px">
+      <button class="select-btn" style="background:#2d6a4f" onclick="selectReporter('&#x7D00;&#x67CF;&#x5B8F;')">紀柏宏</button>
+      <button class="select-btn" style="background:#1a6ea8" onclick="selectReporter('&#x675C;&#x5FD7;&#x5091;')">杜志傑</button>
+      <button class="select-btn admin-select" onclick="goAdminLogin()">🔐 管理者</button>
+    </div>
   </div>
 </div>
 
@@ -315,29 +319,27 @@ function saveReporters(arr) {
   localStorage.setItem(REPORTERS_KEY, JSON.stringify(arr));
 }
 
-function renderSelectPage() {
+function renderSelectPage(){
   var reporters = getReporters();
   var el = document.getElementById('selectBtnArea');
   if (!el) return;
-  el.innerHTML = '';
   var btnColors = ['#2d6a4f','#1a6ea8','#7b2d8b','#b5451b','#b5861b','#1b6b8b'];
-  for (var i = 0; i < reporters.length; i++) {
+  var defaultReporters = ['紀柏宏','杜志傑'];
+  // 找出非預設的填報者
+  var extraReporters = reporters.filter(function(r) { return defaultReporters.indexOf(r) < 0; });
+  // 移除舊的動態按鈕
+  var dynBtns = el.querySelectorAll('.dynamic-reporter-btn');
+  dynBtns.forEach(function(b) { b.remove(); });
+  // 在管理者按鈕前插入動態填報者
+  var adminBtn = el.querySelector('.admin-select');
+  extraReporters.forEach(function(r, i) {
     var btn = document.createElement('button');
-    btn.className = 'select-btn';
-    btn.textContent = reporters[i];
-    btn.setAttribute('data-name', reporters[i]);
-    btn.style.background = btnColors[i % btnColors.length];
-    btn.style.boxShadow = '0 4px 16px rgba(0,0,0,.2)';
-    btn.onclick = function() {
-      selectReporter(this.getAttribute('data-name'));
-    };
-    el.appendChild(btn);
-  }
-  var adminBtn = document.createElement('button');
-  adminBtn.className = 'select-btn admin-select';
-  adminBtn.textContent = '🔐 管理者';
-  adminBtn.onclick = function() { goAdminLogin(); };
-  el.appendChild(adminBtn);
+    btn.className = 'select-btn dynamic-reporter-btn';
+    btn.textContent = r;
+    btn.style.background = btnColors[(i + 2) % btnColors.length];
+    btn.onclick = (function(name) { return function() { selectReporter(name); }; })(r);
+    el.insertBefore(btn, adminBtn);
+  });
 }
 
 function selectReporter(name) {

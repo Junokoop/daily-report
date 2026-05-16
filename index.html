@@ -1096,6 +1096,12 @@ function doOpenEditModal(rpt) {
       '<div class="er"><span class="el">刷卡金額</span><input type="number" class="edit-exp-card" value="' + (ex.card || 0) + '" min="0" inputmode="numeric"></div>' +
     '</div>';
   });
+  // 解析日期
+  var dateStr = rpt.date || '';
+  var yr = dateStr.replace(/年.*/, '') || '115';
+  var mo = (dateStr.match(/(\d+)月/) || ['','5'])[1];
+  var da = (dateStr.match(/(\d+)日/) || ['','1'])[1];
+
   document.getElementById('editModalContent').innerHTML =
     '<div style="display:flex;flex-direction:column;gap:14px">' +
     '<div><div class="mlbl" style="margin-bottom:6px">填表日期</div><div class="dgrp"><input class="di" id="editY" value="' + yr + '" style="width:60px"> 年 <input class="di" id="editM" value="' + mo + '" style="width:46px"> 月 <input class="di" id="editD" value="' + dy + '" style="width:46px"> 日</div></div>' +

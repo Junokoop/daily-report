@@ -454,13 +454,8 @@ function fetchReports(forceRefresh) {
   if (!forceRefresh && _reportCache && (now - _reportCacheTime) < CACHE_TTL) {
     return Promise.resolve(_reportCache);
   }
-  // 加上時間戳避免瀏覽器快取
   var url = API + '?action=list&t=' + now;
-  var controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-  var timer = controller ? setTimeout(function(){ controller.abort(); }, 12000) : null;
-  var fetchOpts = { cache: 'no-store' };
-  if (controller) fetchOpts.signal = controller.signal;
-  return fetch(url, fetchOpts).then(function(r){ if(timer) clearTimeout(timer); return r; })
+  return fetch(url)
     .then(function(r) { return r.json(); })
     .then(function(res) {
       if (!res.ok) throw new Error(res.error);
@@ -621,20 +616,17 @@ function submitReport() {
         }
         report.expenses[ei].photos = compressed;
       }
-    } catch(e) { console.log('compress err', e); }
+    } catch(e) {  }
 
     var submitUrl = API + '?payload=' + encodeURIComponent(JSON.stringify(report));
-    console.log('[submit] URL length:', submitUrl.length);
-    fetch(submitUrl)
+        fetch(submitUrl)
       .then(function(r) { return r.json(); })
       .then(function(res) {
-        console.log('[submit] response:', JSON.stringify(res));
-        if (res.ok) { showToast('報表已成功上傳！'); doReset(); _reportCache = null; setTimeout(function(){ loadAccum(); }, 1000); }
+                if (res.ok) { showToast('報表已成功上傳！'); doReset(); _reportCache = null; setTimeout(function(){ loadAccum(); }, 1000); }
         else { showToast('上傳失敗：' + (res.error || '')); }
       })
       .catch(function(err) {
-        console.error('[submit] error:', err);
-        fetch(submitUrl, { mode: 'no-cors' })
+                fetch(submitUrl, { mode: 'no-cors' })
           .then(function() { showToast('報表已成功上傳！'); doReset(); _reportCache = null; setTimeout(function(){ loadAccum(); }, 1500); })
           .catch(function() { showToast('網路錯誤，請重試'); });
       })
@@ -1157,14 +1149,11 @@ function saveEdit() {
       dataNoPhoto.data.expenses.forEach(function(ex){ ex.photos = []; });
     }
     var url = API + '?payload=' + encodeURIComponent(JSON.stringify(dataNoPhoto));
-    console.log('[doSend] URL length:', url.length);
-    console.log('[doSend] payload:', JSON.stringify(dataNoPhoto.data).substring(0, 200));
-    // 用一般 fetch（不是 no-cors）才能確認回應
+            // 用一般 fetch（不是 no-cors）才能確認回應
     fetch(url)
       .then(function(r) { return r.json(); })
       .then(function(res) {
-        console.log('[doSend] response:', JSON.stringify(res));
-        btn.textContent = '儲存'; btn.disabled = false;
+                btn.textContent = '儲存'; btn.disabled = false;
         if (res.ok) {
           showToast('已更新！');
           closeEditModal();
@@ -1178,8 +1167,7 @@ function saveEdit() {
         }
       })
       .catch(function(err) {
-        console.error('[doSend] error:', err);
-        // 備用：no-cors 模式
+                // 備用：no-cors 模式
         fetch(url, { mode: 'no-cors' })
           .then(function() {
             btn.textContent = '儲存'; btn.disabled = false;

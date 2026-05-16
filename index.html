@@ -293,6 +293,20 @@ table.st{width:100%;border-collapse:collapse;border-top:1.5px solid var(--bd)}
 <script>
 function esc(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
+function openPhotoOverlay(src) {
+  var el = document.getElementById('photoOverlay');
+  var img = document.getElementById('photoOverlayImg');
+  if (!el || !img) return;
+  img.src = src;
+  el.classList.add('show');
+}
+function closePhotoOverlay() {
+  var el = document.getElementById('photoOverlay');
+  var img = document.getElementById('photoOverlayImg');
+  if (el) el.classList.remove('show');
+  if (img) img.src = '';
+}
+
 function showToast(msg) {
   var t = document.getElementById('toast');
   if (!t) return;

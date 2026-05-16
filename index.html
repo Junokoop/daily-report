@@ -1065,6 +1065,34 @@ function openViewModal(rpt) {
 
 function openEditModal(rpt) {
   editingId = rpt.id;
+  // 如果 expenses 沒有照片（noPhotos 模式），先從 GAS 載入
+  var hasNoPhotos = (rpt.expenses || []).every(function(ex){ return !ex.photos || !ex.photos.length; });
+  var hasPhotoCount = (rpt.expenses || []).some(function(ex){ return ex.photoCount > 0; });
+  if (hasNoPhotos && hasPhotoCount) {
+    fetch(API + '?action=getphotos&id=' + rpt.id + '&t=' + Date.now())
+      .then(function(r) { return r.json(); })
+      .then(function(res) {
+        if (res.ok && res.photos && res.photos.length) {
+          // 把照片分配回 expenses
+          var pi = 0;
+          (rpt.expenses || []).forEach(function(ex) {
+            ex.photos = [];
+            var count = ex.photoCount || 0;
+            for (var i = 0; i < count && pi < res.photos.length; i++, pi++) {
+              ex.photos.push(res.photos[pi]);
+            }
+          });
+        }
+        doOpenEditModal(rpt);
+      })
+      .catch(function() { doOpenEditModal(rpt); });
+    return;
+  }
+  doOpenEditModal(rpt);
+}
+
+function doOpenEditModal(rpt) {
+  editingId = rpt.id;
   var att = rpt.attendance || [];
   var attHtml = '';
   att.forEach(function(a) {

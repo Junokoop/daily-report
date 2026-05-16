@@ -1069,11 +1069,16 @@ function openEditModal(rpt) {
   var hasNoPhotos = (rpt.expenses || []).every(function(ex){ return !ex.photos || !ex.photos.length; });
   var hasPhotoCount = (rpt.expenses || []).some(function(ex){ return ex.photoCount > 0; });
   if (hasNoPhotos && hasPhotoCount) {
+    var opened = false;
+    function openNow() {
+      if (!opened) { opened = true; doOpenEditModal(rpt); }
+    }
+    // 5秒超時保護
+    setTimeout(openNow, 5000);
     fetch(API + '?action=getphotos&id=' + rpt.id + '&t=' + Date.now())
       .then(function(r) { return r.json(); })
       .then(function(res) {
         if (res.ok && res.photos && res.photos.length) {
-          // 把照片分配回 expenses
           var pi = 0;
           (rpt.expenses || []).forEach(function(ex) {
             ex.photos = [];
@@ -1083,9 +1088,9 @@ function openEditModal(rpt) {
             }
           });
         }
-        doOpenEditModal(rpt);
+        openNow();
       })
-      .catch(function() { doOpenEditModal(rpt); });
+      .catch(openNow);
     return;
   }
   doOpenEditModal(rpt);
@@ -1377,7 +1382,7 @@ function saveEdit() {
   allPhotos.forEach(function(photos, ei) {
     photos.forEach(function(src, pi) {
       if (src && src.indexOf('data:image') === 0) {
-        compressJobs.push(compressPhoto(src, 400, 0.4).then(function(c) {
+        compressJobs.push(compressPhoto(src, 800, 0.7).then(function(c) {
           allPhotos[ei][pi] = c;
         }));
       }

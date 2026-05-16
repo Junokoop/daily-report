@@ -913,10 +913,47 @@ function buildCard(rpt, isAdminView) {
       photoContainer.appendChild(photoWrap);
       body.appendChild(photoContainer);
     } else if (totalPhotoCount > 0) {
-      // noPhotos 模式，只顯示張數
+      // noPhotos 模式，顯示張數+載入按鈕
       var photoContainer2 = document.createElement('div');
       photoContainer2.className = 'rbs';
-      photoContainer2.innerHTML = '<div class="rbl">發票照片</div><div style="font-size:13px;color:var(--mu);margin-top:4px">共 ' + totalPhotoCount + ' 張（照片存於試算表）</div>';
+      var photoWrap2 = document.createElement('div');
+      photoWrap2.style.cssText = 'display:flex;align-items:center;gap:10px;margin-top:4px';
+      var photoLabel2 = document.createElement('span');
+      photoLabel2.style.cssText = 'font-size:13px;color:var(--mu)';
+      photoLabel2.textContent = '共 ' + totalPhotoCount + ' 張';
+      var loadBtn = document.createElement('button');
+      loadBtn.textContent = '查看照片';
+      loadBtn.style.cssText = 'font-size:12px;padding:3px 10px;border:1px solid var(--bd);border-radius:6px;background:#fff;cursor:pointer;color:var(--bd)';
+      loadBtn.onclick = (function(rptId, wrap, btn, label) {
+        return function() {
+          btn.textContent = '載入中…'; btn.disabled = true;
+          fetch(API + '?action=list&t=' + Date.now())
+            .then(function(r) { return r.json(); })
+            .then(function(res) {
+              var rpt = (res.data || []).find(function(r) { return r.id === rptId; });
+              if (!rpt) { btn.textContent = '載入失敗'; btn.disabled = false; return; }
+              var photos = [];
+              (rpt.expenses || []).forEach(function(e) { if (e.photos && e.photos.length) photos = photos.concat(e.photos); });
+              if (!photos.length) { btn.textContent = '無照片'; return; }
+              wrap.innerHTML = '';
+              var row = document.createElement('div');
+              row.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;margin-top:4px';
+              photos.forEach(function(src) {
+                var img = document.createElement('img');
+                img.src = src;
+                img.style.cssText = 'width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--br);cursor:pointer';
+                img.onclick = (function(s){ return function(){ openPhotoOverlay(s); }; })(src);
+                row.appendChild(img);
+              });
+              wrap.appendChild(row);
+            })
+            .catch(function() { btn.textContent = '載入失敗'; btn.disabled = false; });
+        };
+      })(rpt.id, photoWrap2, loadBtn, photoLabel2);
+      photoWrap2.appendChild(photoLabel2);
+      photoWrap2.appendChild(loadBtn);
+      photoContainer2.innerHTML = '<div class="rbl">發票照片</div>';
+      photoContainer2.appendChild(photoWrap2);
       body.appendChild(photoContainer2);
     }
   }
@@ -1265,26 +1302,75 @@ function saveEdit() {
     editedBy:currentReporter||'管理者'
   }};
 
+  // 收集所有照片
+  var allPhotos = [];
+  patch.data.expenses.forEach(function(ex) {
+    allPhotos.push(ex.photos ? ex.photos.slice() : []);
+  });
+
+  // 主資料不含照片
   var patchNoPhoto = JSON.parse(JSON.stringify(patch));
   patchNoPhoto.data.expenses.forEach(function(ex){ ex.photos = []; });
   var url = API + '?payload=' + encodeURIComponent(JSON.stringify(patchNoPhoto));
 
-  // 立即顯示成功，背景送出
-  btn.textContent = '儲存'; btn.disabled = false;
-  showToast('已更新！');
-  closeEditModal();
-  _reportCache = null;
+  btn.textContent = '儲存中…'; btn.disabled = true;
 
-  // 背景發送請求
-  try {
+  // 壓縮照片
+  var compressJobs = [];
+  allPhotos.forEach(function(photos, ei) {
+    photos.forEach(function(src, pi) {
+      if (src && src.indexOf('data:image') === 0) {
+        compressJobs.push(compressPhoto(src, 400, 0.4).then(function(c) {
+          allPhotos[ei][pi] = c;
+        }));
+      }
+    });
+  });
+
+  Promise.all(compressJobs).then(function() {
+    // 送主資料
     var img = new Image();
+    img.onload = img.onerror = function() {
+      // 送照片（每張獨立）
+      var photoJobs = [];
+      allPhotos.forEach(function(photos, ei) {
+        photos.forEach(function(src, pi) {
+          if (!src || src.indexOf('data:image') < 0) return;
+          var photoPayload = {action:'edit', data:{
+            id: patch.data.id,
+            expenseIndex: ei,
+            photoIndex: pi,
+            photo: src
+          }};
+          var pUrl = API + '?payload=' + encodeURIComponent(JSON.stringify(photoPayload));
+          var pImg = new Image();
+          pImg.src = pUrl;
+        });
+      });
+      btn.textContent = '儲存'; btn.disabled = false;
+      showToast('已更新！');
+      closeEditModal();
+      _reportCache = null;
+      setTimeout(function() {
+        if (document.getElementById('pageAdmin').classList.contains('show')) loadAllReports();
+        else loadHistory();
+      }, 800);
+    };
     img.src = url;
-  } catch(e) {}
-
-  setTimeout(function() {
-    if (document.getElementById('pageAdmin').classList.contains('show')) loadAllReports();
-    else loadHistory();
-  }, 500);
+  }).catch(function() {
+    var img = new Image();
+    img.onload = img.onerror = function() {
+      btn.textContent = '儲存'; btn.disabled = false;
+      showToast('已更新！');
+      closeEditModal();
+      _reportCache = null;
+      setTimeout(function() {
+        if (document.getElementById('pageAdmin').classList.contains('show')) loadAllReports();
+        else loadHistory();
+      }, 800);
+    };
+    img.src = url;
+  });
 }
 
 

@@ -913,47 +913,39 @@ function buildCard(rpt, isAdminView) {
       photoContainer.appendChild(photoWrap);
       body.appendChild(photoContainer);
     } else if (totalPhotoCount > 0) {
-      // noPhotos 模式，顯示張數+載入按鈕
+      // noPhotos 模式，自動載入縮圖
       var photoContainer2 = document.createElement('div');
       photoContainer2.className = 'rbs';
-      var photoWrap2 = document.createElement('div');
-      photoWrap2.style.cssText = 'display:flex;align-items:center;gap:10px;margin-top:4px';
-      var photoLabel2 = document.createElement('span');
-      photoLabel2.style.cssText = 'font-size:13px;color:var(--mu)';
-      photoLabel2.textContent = '共 ' + totalPhotoCount + ' 張';
-      var loadBtn = document.createElement('button');
-      loadBtn.textContent = '查看照片';
-      loadBtn.style.cssText = 'font-size:12px;padding:3px 10px;border:1px solid var(--bd);border-radius:6px;background:#fff;cursor:pointer;color:var(--bd)';
-      loadBtn.onclick = (function(rptId, wrap, btn, label) {
-        return function() {
-          btn.textContent = '載入中…'; btn.disabled = true;
-          fetch(API + '?action=getphotos&id=' + rptId + '&t=' + Date.now())
-            .then(function(r) { return r.json(); })
-            .then(function(res) {
-              if (!res.ok || !res.photos || !res.photos.length) {
-                btn.textContent = '無照片'; return;
-              }
-              wrap.innerHTML = '';
-              var row = document.createElement('div');
-              row.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;margin-top:4px';
-              res.photos.forEach(function(src) {
-                if (!src) return;
-                var img = document.createElement('img');
-                img.src = src;
-                img.style.cssText = 'width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--br);cursor:pointer';
-                img.onclick = (function(s){ return function(){ openPhotoOverlay(s); }; })(src);
-                row.appendChild(img);
-              });
-              wrap.appendChild(row);
-            })
-            .catch(function() { btn.textContent = '載入失敗'; btn.disabled = false; });
-        };
-      })(rpt.id, photoWrap2, loadBtn, photoLabel2);
-      photoWrap2.appendChild(photoLabel2);
-      photoWrap2.appendChild(loadBtn);
       photoContainer2.innerHTML = '<div class="rbl">發票照片</div>';
+      var photoWrap2 = document.createElement('div');
+      photoWrap2.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;margin-top:6px';
+      // 顯示佔位符
+      for (var pi2 = 0; pi2 < totalPhotoCount; pi2++) {
+        var placeholder = document.createElement('div');
+        placeholder.style.cssText = 'width:64px;height:64px;border-radius:6px;border:1px solid var(--br);background:#f0f0f0;display:flex;align-items:center;justify-content:center;font-size:18px';
+        placeholder.textContent = '🖼';
+        photoWrap2.appendChild(placeholder);
+      }
       photoContainer2.appendChild(photoWrap2);
       body.appendChild(photoContainer2);
+      // 背景自動載入
+      (function(rptId, wrap) {
+        fetch(API + '?action=getphotos&id=' + rptId + '&t=' + Date.now())
+          .then(function(r) { return r.json(); })
+          .then(function(res) {
+            if (!res.ok || !res.photos || !res.photos.length) return;
+            wrap.innerHTML = '';
+            res.photos.forEach(function(src) {
+              if (!src) return;
+              var img = document.createElement('img');
+              img.src = src;
+              img.style.cssText = 'width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--br);cursor:pointer';
+              img.onclick = (function(s){ return function(){ openPhotoOverlay(s); }; })(src);
+              wrap.appendChild(img);
+            });
+          })
+          .catch(function() {});
+      })(rpt.id, photoWrap2);
     }
   }
   var settlDiv = document.createElement('div');

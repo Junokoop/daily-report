@@ -8,9 +8,9 @@
 *{box-sizing:border-box;margin:0;padding:0}
 :root{--bd:#5c5347;--hbg:#cec6b5;--ac:#4a3f35;--tx:#2a2218;--mu:#8a806e;--ib:#fdfcfa;--st:#f5f2ed;--br:#c0b8aa;--grn:#2d6a4f;--red:#9b2226}
 body{background:#f0ede8;font-family:sans-serif;color:var(--tx);font-size:15px;padding:0 0 40px}
-.nav{display:flex;background:var(--bd);padding:10px 12px;gap:8px;align-items:center;position:sticky;top:0;z-index:100}
-.nav-title{color:#fff;font-weight:700;font-size:16px;flex:1}
-.nav-btn{padding:8px 16px;border:1.5px solid rgba(255,255,255,.5);border-radius:6px;background:transparent;color:#fff;font-size:14px;font-weight:600;cursor:pointer}
+.nav{display:flex;background:var(--bd);padding:10px 12px;gap:6px;align-items:center;position:sticky;top:0;z-index:100}
+.nav-title{color:#fff;font-weight:700;font-size:15px;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nav-btn{padding:7px 12px;border:1.5px solid rgba(255,255,255,.5);border-radius:6px;background:transparent;color:#fff;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap}
 .nav-btn.active{background:#fff;color:var(--bd)}
 .page{display:none;padding:12px 10px}
 .page.show{display:block}
@@ -18,7 +18,7 @@ body{background:#f0ede8;font-family:sans-serif;color:var(--tx);font-size:15px;pa
 .bottom-bar button{flex:1;height:60px;border:2px solid var(--bd);border-radius:10px;font-size:18px;font-weight:700;cursor:pointer}
 .btn-clear{background:#fff;color:var(--ac)}
 .btn-submit{background:var(--grn);color:#fff;border-color:var(--grn)}
-.card{background:#fff;border:1.5px solid var(--bd);border-radius:10px;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,.1)}
+.card{background:#fff;border:1.5px solid var(--bd);border-radius:10px;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,.1);margin-bottom:12px}
 .ttl{text-align:center;font-size:22px;font-weight:700;letter-spacing:.2em;padding:16px 0 14px;border-bottom:2px solid var(--bd)}
 .sh{background:var(--hbg);font-size:14px;font-weight:700;letter-spacing:.1em;padding:9px 14px;border-top:1px solid var(--br);border-bottom:1px solid var(--br)}
 .meta{padding:12px 14px;border-bottom:1px solid var(--br);display:flex;flex-direction:column;gap:10px}
@@ -27,7 +27,8 @@ body{background:#f0ede8;font-family:sans-serif;color:var(--tx);font-size:15px;pa
 .dgrp{display:flex;align-items:center;gap:4px}
 input.di{width:56px;height:44px;border:1.5px solid var(--br);border-radius:6px;background:var(--ib);font-size:15px;text-align:center;color:var(--tx);outline:none}
 input.ti{flex:1;min-width:0;height:44px;border:1.5px solid var(--br);border-radius:6px;background:var(--ib);font-size:15px;padding:0 10px;color:var(--tx);outline:none}
-input.ti:focus,input.di:focus{border-color:var(--ac)}
+select.ti{flex:1;min-width:0;height:44px;border:1.5px solid var(--br);border-radius:6px;background:var(--ib);font-size:15px;padding:0 10px;color:var(--tx);outline:none}
+input.ti:focus,input.di:focus,select.ti:focus{border-color:var(--ac)}
 .wa{padding:10px 14px;border-bottom:1px solid var(--br)}
 .wa textarea{width:100%;min-height:110px;border:1.5px solid var(--br);border-radius:6px;background:var(--ib);font-size:15px;color:var(--tx);padding:10px;resize:vertical;outline:none;line-height:1.8}
 .awrap,.ewrap{padding:10px 14px;border-bottom:1px solid var(--bd);display:flex;flex-direction:column;gap:8px}
@@ -43,29 +44,33 @@ input.ti:focus,input.di:focus{border-color:var(--ac)}
 .ci-ot{flex:1.4;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px 4px;gap:4px}
 .ci-ot span{font-size:12px;color:var(--mu)}
 .ci-ot input{width:54px;height:28px;border:1.5px solid var(--br);border-radius:5px;background:var(--ib);font-size:14px;text-align:center;color:var(--tx);outline:none;padding:0 4px}
-.ec{border:1px solid var(--br);border-radius:8px;overflow:hidden;background:var(--ib)}
+.ec{border:1px solid var(--br);border-radius:8px;overflow:hidden;background:var(--ib);margin-bottom:4px}
 .er{display:flex;align-items:center;border-bottom:1px solid var(--br);min-height:44px}
 .er:last-child{border-bottom:none}
 .el{font-size:12px;color:var(--mu);white-space:nowrap;padding:0 10px;min-width:68px;background:var(--st);align-self:stretch;display:flex;align-items:center;border-right:1px solid var(--br);flex-shrink:0}
 .er input[type=text],.er input[type=number]{flex:1;border:none;background:transparent;font-size:15px;color:var(--tx);outline:none;height:44px;padding:0 10px;min-width:0}
-.ivw{flex:1;display:flex;align-items:center;gap:8px;padding:0 12px;height:44px}
+.ivw{flex:1;display:flex;align-items:center;gap:8px;padding:0 12px;height:44px;flex-wrap:wrap}
 .ivw input[type=checkbox]{width:22px;height:22px;accent-color:var(--ac);cursor:pointer;flex-shrink:0}
 .ivw span{font-size:13px;color:var(--mu)}
+.inv-photo-btn{padding:4px 10px;background:var(--hbg);border:1px solid var(--br);border-radius:5px;font-size:12px;cursor:pointer;white-space:nowrap}
+.inv-photos-row{display:flex;gap:4px;flex-wrap:wrap;padding:6px 14px;border-bottom:1px solid var(--br)}
+.inv-thumb{width:52px;height:52px;border-radius:4px;object-fit:cover;border:1px solid var(--br);cursor:pointer}
 .db{background:none;border:none;color:#c0a090;font-size:20px;padding:0 8px;cursor:pointer;line-height:1;flex-shrink:0}
 .ab{display:flex;align-items:center;justify-content:center;width:100%;height:44px;border:1.5px dashed var(--br);border-radius:8px;background:none;color:var(--mu);font-size:14px;cursor:pointer}
 .rb{padding:12px 14px;border-bottom:1px solid var(--bd);display:flex;flex-direction:column;gap:10px}
+.accum-bar{padding:10px 14px;background:#eaf4ec;border-bottom:1px solid var(--br);font-size:13px;color:var(--grn);font-weight:700}
 .rr{display:flex;align-items:center;gap:8px}
-.rr .rl{font-size:14px;white-space:nowrap;min-width:30px}
+.rr .rl{font-size:14px;white-space:nowrap;min-width:54px}
 .rr input{flex:1;height:44px;min-width:0;border:1.5px solid var(--br);border-radius:6px;background:var(--ib);font-size:15px;padding:0 10px;color:var(--tx);outline:none}
 table.st{width:100%;border-collapse:collapse;border-top:1.5px solid var(--bd)}
 .st td{padding:13px 14px;border-bottom:1px solid var(--br);vertical-align:middle}
 .st tr:last-child td{border-bottom:none;border-top:1.5px solid var(--bd)}
-.lc{background:var(--hbg);font-weight:700;font-size:14px;border-right:1px solid var(--br);width:115px;white-space:nowrap}
+.lc{background:var(--hbg);font-weight:700;font-size:14px;border-right:1px solid var(--br);width:130px;white-space:nowrap}
 .vc{font-weight:700;font-size:16px;color:var(--ac)}
 .toast{position:fixed;top:70px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:10px 22px;border-radius:8px;font-size:14px;font-weight:600;z-index:9999;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap}
 .toast.show{opacity:1}
 .loading{text-align:center;padding:32px;color:var(--mu);font-size:14px}
-.admin-header{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.admin-header{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
 .admin-header h2{font-size:17px;font-weight:700;flex:1}
 .admin-count{background:var(--hbg);border-radius:20px;padding:3px 12px;font-size:13px;font-weight:600}
 .report-card{background:#fff;border:1.5px solid var(--bd);border-radius:10px;margin-bottom:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.07)}
@@ -85,19 +90,50 @@ table.st{width:100%;border-collapse:collapse;border-top:1.5px solid var(--bd)}
 .rbt th{background:var(--hbg);padding:6px 8px;text-align:center;border:1px solid var(--br);font-weight:700}
 .rbt td{padding:6px 8px;border:1px solid var(--br);text-align:center}
 .rbt tr:nth-child(even) td{background:var(--st)}
-.action-wrap{display:flex;gap:8px;justify-content:flex-end;padding:10px 14px}
+.action-wrap{display:flex;gap:8px;justify-content:flex-end;padding:10px 14px;flex-wrap:wrap}
 .action-wrap button{border-radius:6px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer;border:1.5px solid}
 .btn-pdf{background:var(--ac);color:#fff;border-color:var(--ac)}
 .btn-del{background:none;color:var(--red);border-color:var(--red)}
+.btn-edit{background:none;color:#1a6ea8;border-color:#1a6ea8}
 .empty{text-align:center;padding:48px 20px;color:var(--mu)}
 .empty .ei{font-size:48px;margin-bottom:12px}
+/* 選擇頁 */
+.select-page{min-height:70vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;gap:14px}
+.select-page h2{font-size:20px;font-weight:700;margin-bottom:4px;text-align:center}
+.select-btn{width:100%;max-width:320px;height:64px;border:2px solid var(--bd);border-radius:12px;font-size:18px;font-weight:700;cursor:pointer;color:#fff;background:var(--ac)}
+.select-btn.admin-select{background:var(--bd)}
+/* 管理者登入 */
 .pw-wrap{padding:24px 16px}
 .pw-wrap input{width:100%;height:48px;border:1.5px solid var(--br);border-radius:8px;background:var(--ib);font-size:16px;padding:0 14px;color:var(--tx);outline:none;margin-bottom:12px;display:block}
 .pw-wrap button{width:100%;height:48px;background:var(--ac);color:#fff;border:none;border-radius:8px;font-size:16px;font-weight:700;cursor:pointer}
+/* 總覽表 */
+.summary-row{display:block;padding:12px 16px;border-bottom:1px solid var(--br)}
+.summary-row:last-child{border-bottom:none}
+.summary-name{font-weight:700;font-size:15px;min-width:80px}
+.summary-nums{flex:1;display:flex;flex-direction:column;gap:3px;font-size:13px;color:var(--mu)}
+.summary-remain{font-weight:700;font-size:16px;min-width:90px;text-align:right}
+.summary-remain.negative{color:var(--red)}
+.summary-remain.positive{color:var(--grn)}
+/* 填報者管理 */
+.reporter-mgmt{padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.reporter-item{display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--st);border:1px solid var(--br);border-radius:8px}
+.reporter-item span{flex:1;font-weight:600}
+.btn-remove-reporter{background:none;border:1px solid var(--red);color:var(--red);border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer}
+.add-reporter-row{display:flex;gap:8px}
+.add-reporter-row input{flex:1;height:40px;border:1.5px solid var(--br);border-radius:6px;background:var(--ib);font-size:14px;padding:0 10px;color:var(--tx);outline:none}
+.add-reporter-row button{height:40px;padding:0 14px;background:var(--grn);color:#fff;border:none;border-radius:6px;font-size:14px;cursor:pointer}
+/* 編輯 modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;display:none;align-items:flex-end;justify-content:center}
+.modal-overlay.show{display:flex}
+.modal-box{background:#fff;border-radius:16px 16px 0 0;width:100%;max-width:640px;max-height:90vh;overflow-y:auto;padding:20px 16px 40px}
+.modal-box h3{font-size:17px;font-weight:700;margin-bottom:16px;text-align:center}
+/* 篩選 */
+.filter-bar{background:#fff;border:1.5px solid var(--bd);border-radius:10px;padding:12px 14px;margin-bottom:12px;display:flex;align-items:center;gap:10px}
+.filter-bar select{flex:1;height:38px;border:1.5px solid var(--br);border-radius:6px;background:var(--ib);font-size:14px;padding:0 8px;color:var(--tx);outline:none}
 @media print{
   @page{margin:10mm;size:A4 portrait}
   body{background:#fff!important;padding:0!important}
-  .nav,.bottom-bar,.ab,.db,.action-wrap,.admin-header,.report-head,.page{display:none!important}
+  .nav,.bottom-bar,.ab,.db,.action-wrap,.admin-header,.report-head,.page,.modal-overlay,.filter-bar{display:none!important}
   #printArea{display:block!important}
   *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
 }
@@ -111,19 +147,34 @@ table.st{width:100%;border-collapse:collapse;border-top:1.5px solid var(--bd)}
 .print-table td{padding:6px 8px;border:1px solid #b0a99a;text-align:center}
 .print-sum{margin-top:8px;border:1px solid #5c5347;border-collapse:collapse;width:100%}
 .print-sum td{padding:8px 12px;border-bottom:1px solid #b0a99a;font-size:14px}
-.print-sum td:first-child{background:#cec6b5;font-weight:700;width:120px}
+.print-sum td:first-child{background:#cec6b5;font-weight:700;width:130px}
 </style>
 </head>
 <body>
 
 <div class="nav">
-  <span class="nav-title">&#x1F4CB; 施工日報</span>
-  <button class="nav-btn active" id="navForm" onclick="showPage('form')">填報</button>
-  <button class="nav-btn" id="navAdmin" onclick="showPage('adminLogin')">管理</button>
+  <span class="nav-title" id="navTitle">&#x1F4CB; 施工日報</span>
+  <button class="nav-btn" id="navHome" onclick="goHome()" style="display:none">&#x1F3E0;</button>
+  <button class="nav-btn active" id="navForm" onclick="showPage('form')" style="display:none">填報</button>
+  <button class="nav-btn" id="navHistory" onclick="showPage('history')" style="display:none">紀錄</button>
+  <button class="nav-btn" id="navAdmin" onclick="showPage('admin')" style="display:none">管理</button>
 </div>
 <div class="toast" id="toast"></div>
 
-<div class="page show" id="pageForm">
+<!-- 選擇身份 -->
+<div class="page show" id="pageSelect">
+  <div class="select-page">
+    <h2>&#x1F477; 請選擇身份</h2>
+    <div id="reporterBtnList" style="width:100%;max-width:320px;display:flex;flex-direction:column;gap:12px">
+      <button class="select-btn" onclick="selectReporter('紀柏宏')">紀柏宏</button>
+      <button class="select-btn" onclick="selectReporter('杜志傑')">杜志傑</button>
+      <button class="select-btn admin-select" onclick="goAdminLogin()">🔐 管理者</button>
+    </div>
+  </div>
+</div>
+
+<!-- 填報頁 -->
+<div class="page" id="pageForm">
   <div class="card">
     <div class="ttl">施工日報表</div>
     <div class="meta">
@@ -135,7 +186,7 @@ table.st{width:100%;border-collapse:collapse;border-top:1.5px solid var(--bd)}
           <input class="di" id="D" type="number" min="1" max="31" style="width:46px">日
         </div>
       </div>
-      <div class="mrow"><span class="mlbl">填報者：</span><input class="ti" id="reporter" type="text" placeholder="請輸入填報者姓名"></div>
+      <div class="mrow"><span class="mlbl">填報者：</span><span id="reporterDisplay" style="font-weight:700;color:var(--ac);font-size:16px"></span></div>
       <div class="mrow"><span class="mlbl">工程名稱：</span><input class="ti" id="pname" type="text" placeholder="請輸入工程名稱"></div>
     </div>
     <div class="sh">施工項目</div>
@@ -145,8 +196,9 @@ table.st{width:100%;border-collapse:collapse;border-top:1.5px solid var(--bd)}
     <div class="sh">公款支出每日明細表</div>
     <div class="ewrap" id="expList"></div>
     <div class="sh">本日接收公款</div>
+    <div class="accum-bar" id="accumBar">&#x1F4B0; 累計現金剩餘：計算中…</div>
     <div class="rb">
-      <div class="rr"><span class="rl">現金</span><input id="rc" type="number" placeholder="0" min="0" inputmode="numeric"><span style="font-size:14px">元</span></div>
+      <div class="rr"><span class="rl">現金</span><input id="rc" type="number" placeholder="0" min="0" inputmode="numeric" oninput="calc()"><span style="font-size:14px">元</span></div>
       <div class="rr"><span class="rl">備考</span><input id="rn" type="text"></div>
     </div>
     <table class="st">
@@ -161,9 +213,40 @@ table.st{width:100%;border-collapse:collapse;border-top:1.5px solid var(--bd)}
   </div>
 </div>
 
+<!-- 個人紀錄 -->
+<div class="page" id="pageHistory">
+  <div class="admin-header">
+    <h2>&#x1F4CB; 我的填報紀錄</h2>
+    <span class="admin-count" id="historyCount">共 0 筆</span>
+  </div>
+  <div class="card" style="padding:12px 14px;margin-bottom:12px;background:#eaf4ec;border-color:var(--grn)">
+    <div style="display:flex;flex-direction:column;gap:6px">
+      <div style="display:flex;justify-content:space-between;font-size:13px">
+        <span style="color:var(--mu)">上筆結餘</span>
+        <span id="historyLastRemain" style="font-weight:700;color:var(--grn)">計算中…</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:13px">
+        <span style="color:var(--mu)">本日接收公款</span>
+        <span id="historyLastOut" style="font-weight:700;color:var(--ac)">計算中…</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:13px">
+        <span style="color:var(--mu)">本日支出金額</span>
+        <span id="historyLastTotalCash" style="font-weight:700;color:var(--red)">計算中…</span>
+      </div>
+      <div style="height:1px;background:var(--br)"></div>
+      <div style="display:flex;justify-content:space-between;font-size:15px">
+        <span style="font-weight:700">現金剩餘公款</span>
+        <span id="historyAccum" style="font-weight:900;font-size:17px">計算中…</span>
+      </div>
+    </div>
+  </div>
+  <div id="historyList"></div>
+</div>
+
+<!-- 管理者登入 -->
 <div class="page" id="pageAdminLogin">
   <div class="card">
-    <div class="sh">管理者登入</div>
+    <div class="sh">&#x1F512; 管理者登入</div>
     <div class="pw-wrap">
       <input type="password" id="pwInput" placeholder="請輸入管理密碼" onkeydown="if(event.key==='Enter')checkPw()">
       <button onclick="checkPw()">進入管理頁面</button>
@@ -171,12 +254,50 @@ table.st{width:100%;border-collapse:collapse;border-top:1.5px solid var(--bd)}
   </div>
 </div>
 
+<!-- 管理者頁面 -->
 <div class="page" id="pageAdmin">
   <div class="admin-header">
     <h2>&#x1F4CA; 報表管理</h2>
     <span class="admin-count" id="adminCount">共 0 筆</span>
   </div>
+  <!-- 公款總覽 -->
+  <div class="card" id="summaryCard" style="margin-bottom:12px">
+    <div class="sh">&#x1F4B0; 各填報者公款總覽</div>
+    <div id="summaryTable" style="padding:4px 0"></div>
+  </div>
+
+  <!-- 篩選 -->
+  <div class="filter-bar">
+    <span style="font-size:14px;font-weight:600;white-space:nowrap">篩選：</span>
+    <select id="filterReporter" onchange="filterReports()">
+      <option value="">全部填報者</option>
+    </select>
+  </div>
   <div id="reportList"></div>
+
+  <!-- 填報者管理（最下方）-->
+  <div class="card" style="margin-top:16px">
+    <div class="sh">&#x1F477; 填報者管理</div>
+    <div class="reporter-mgmt" id="reporterMgmt"></div>
+    <div style="padding:10px 14px;border-top:1px solid var(--br)">
+      <div class="add-reporter-row">
+        <input type="text" id="newReporterInput" placeholder="新增填報者姓名">
+        <button onclick="addReporter()">新增</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 回朔編輯 Modal -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal-box">
+    <h3>✏️ 編輯報表</h3>
+    <div id="editModalContent"></div>
+    <div style="display:flex;gap:10px;margin-top:16px">
+      <button onclick="closeEditModal()" style="flex:1;height:48px;background:#fff;border:1.5px solid var(--br);border-radius:8px;font-size:15px;cursor:pointer">取消</button>
+      <button id="saveEditBtn" onclick="saveEdit()" style="flex:2;height:48px;background:var(--grn);color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer">儲存</button>
+    </div>
+  </div>
 </div>
 
 <div id="printArea"></div>
@@ -184,48 +305,254 @@ table.st{width:100%;border-collapse:collapse;border-top:1.5px solid var(--bd)}
 <script>
 var API='https://script.google.com/macros/s/AKfycbzK4k3meUJbAN7F7NaVMhekf-GbxI-3H0qZw9gHE6B5RzMSodH5Xx0Irhgr2FKYzM7S/exec';
 var ADMIN_PW='1234';
+var REPORTERS_KEY='gas_reporters';
+var currentReporter='';
+var isAdmin=false;
 var attList,expList,addAttBtn,addExpBtn;
+var allReports=[];
+var editingId=null;
+var expPhotoMap={};
+var cachedReports=null;
 
-// 初始化
-(function init(){
+// ===== 填報者 =====
+function getReporters(){
+  try{var v=localStorage.getItem(REPORTERS_KEY);return v?JSON.parse(v):['紀柏宏','杜志傑'];}
+  catch(e){return['紀柏宏','杜志傑'];}
+}
+function saveReporters(arr){localStorage.setItem(REPORTERS_KEY,JSON.stringify(arr));}
+
+function renderSelectPage(){
+  var reporters=getReporters();
+  var el=document.getElementById('reporterBtnList');
+  el.innerHTML='';
+  reporters.forEach(function(r){
+    var btn=document.createElement('button');
+    btn.className='select-btn';
+    btn.textContent=r;
+    btn.setAttribute('onclick','selectReporter(''+r+'')');
+    el.appendChild(btn);
+  });
+  var adminBtn=document.createElement('button');
+  adminBtn.className='select-btn admin-select';
+  adminBtn.textContent='🔐 管理者';
+  adminBtn.setAttribute('onclick','goAdminLogin()');
+  el.appendChild(adminBtn);
+}
+
+function goAdminLogin(){
+  isAdmin=false;
+  showRawPage('pageAdminLogin');
+  setNavMode('none');
+}
+
+function selectReporter(name){
+  currentReporter=name;
+  isAdmin=false;
+  document.getElementById('reporterDisplay').textContent=name;
+  document.getElementById('navTitle').textContent='📋 '+name;
+  setNavMode('reporter');
+  initForm();
+  showRawPage('pageForm');
+  document.getElementById('navForm').classList.add('active');
+  loadAccum();
+}
+
+function goHome(){
+  currentReporter='';
+  isAdmin=false;
+  cachedReports=null;
+  document.getElementById('navTitle').textContent='📋 施工日報';
+  setNavMode('none');
+  renderSelectPage();
+  showRawPage('pageSelect');
+}
+
+function setNavMode(mode){
+  // 隱藏所有 nav 按鈕
+  ['navHome','navForm','navHistory','navAdmin'].forEach(function(id){
+    document.getElementById(id).style.display='none';
+    document.getElementById(id).classList.remove('active');
+  });
+  if(mode==='reporter'){
+    document.getElementById('navHome').style.display='';
+    document.getElementById('navForm').style.display='';
+    document.getElementById('navHistory').style.display='';
+  } else if(mode==='admin'){
+    document.getElementById('navHome').style.display='';
+    document.getElementById('navAdmin').style.display='';
+    document.getElementById('navAdmin').classList.add('active');
+  }
+}
+
+// ===== 初始化 =====
+window.onload = function(){
+  renderSelectPage();
+  attList=document.getElementById('attList');
+  addAttBtn=document.createElement('button');
+  addAttBtn.className='ab';addAttBtn.type='button';
+  addAttBtn.textContent='＋ 新增人員';addAttBtn.onclick=addAtt;
+  attList.appendChild(addAttBtn);
+  expList=document.getElementById('expList');
+  addExpBtn=document.createElement('button');
+  addExpBtn.className='ab';addExpBtn.type='button';
+  addExpBtn.textContent='＋ 新增支出項目';addExpBtn.onclick=addExp;
+  expList.appendChild(addExpBtn);
+};
+
+function showRawPage(pid){
+  ['pageSelect','pageForm','pageHistory','pageAdminLogin','pageAdmin'].forEach(function(id){
+    document.getElementById(id).classList.remove('show');
+  });
+  document.getElementById(pid).classList.add('show');
+}
+
+function showPage(p){
+  ['navForm','navHistory','navAdmin'].forEach(function(id){
+    document.getElementById(id).classList.remove('active');
+  });
+  if(p==='form'){showRawPage('pageForm');document.getElementById('navForm').classList.add('active');}
+  else if(p==='history'){showRawPage('pageHistory');document.getElementById('navHistory').classList.add('active');loadHistory();}
+  else if(p==='admin'){showRawPage('pageAdmin');document.getElementById('navAdmin').classList.add('active');loadAllReports();renderReporterMgmt();}
+}
+
+function checkPw(){
+  if(document.getElementById('pwInput').value===ADMIN_PW){
+    isAdmin=true;
+    document.getElementById('navTitle').textContent='📊 管理者';
+    setNavMode('admin');
+    showRawPage('pageAdmin');
+    loadAllReports();
+    renderReporterMgmt();
+  } else {
+    showToast('密碼錯誤');
+    document.getElementById('pwInput').value='';
+  }
+}
+
+// ===== 累計公款 =====
+function loadAccum(){
+  document.getElementById('accumBar').textContent='💰 累計現金剩餘：計算中…';
+  fetch(API+'?action=list')
+    .then(function(r){return r.json();})
+    .then(function(res){
+      if(!res.ok)throw new Error();
+      cachedReports=res.data;
+      // 找出該填報者最新一筆（data 已 reverse，index 0 最新）
+      var myReports=res.data.filter(function(r){return r.reporter===currentReporter;});
+      var lastRemaining=0;
+      if(myReports.length>0){
+        lastRemaining=parseFloat(myReports[0].remaining)||0;
+      }
+      // 帶入接收現金欄位
+      document.getElementById('rc').value=lastRemaining;
+      calc();
+      // 累計顯示：直接用上一筆的 remaining
+      var txt=myReports.length>0
+        ?'💰 上筆結餘 $'+lastRemaining.toLocaleString()+'（已帶入接收現金）'
+        :'💰 尚無歷史紀錄，請填入接收現金';
+      document.getElementById('accumBar').textContent=txt;
+    })
+    .catch(function(){document.getElementById('accumBar').textContent='💰 累計資料載入失敗';});
+}
+
+// ===== 表單初始化 =====
+function initForm(){
   var d=new Date();
   document.getElementById('Y').value=d.getFullYear()-1911;
   document.getElementById('M').value=d.getMonth()+1;
   document.getElementById('D').value=d.getDate();
-  document.getElementById('rc').oninput=calc;
-
-  attList=document.getElementById('attList');
-  addAttBtn=document.createElement('button');
-  addAttBtn.className='ab';addAttBtn.type='button';
-  addAttBtn.textContent='＋ 新增人員';
-  addAttBtn.onclick=addAtt;
+  document.getElementById('pname').value='';
+  document.getElementById('witem').value='';
+  document.getElementById('rc').value='';
+  document.getElementById('rn').value='';
+  expPhotoMap={};
+  while(attList.firstChild)attList.removeChild(attList.firstChild);
   attList.appendChild(addAttBtn);
   addAtt();addAtt();addAtt();addAtt();
-
-  expList=document.getElementById('expList');
-  addExpBtn=document.createElement('button');
-  addExpBtn.className='ab';addExpBtn.type='button';
-  addExpBtn.textContent='＋ 新增支出項目';
-  addExpBtn.onclick=addExp;
+  while(expList.firstChild)expList.removeChild(expList.firstChild);
   expList.appendChild(addExpBtn);
   addExp();addExp();addExp();addExp();
-})();
-
-function showPage(p){
-  ['pageForm','pageAdminLogin','pageAdmin'].forEach(function(id){document.getElementById(id).classList.remove('show');});
-  ['navForm','navAdmin'].forEach(function(id){document.getElementById(id).classList.remove('active');});
-  if(p==='form'){document.getElementById('pageForm').classList.add('show');document.getElementById('navForm').classList.add('active');}
-  else if(p==='adminLogin'){document.getElementById('pageAdminLogin').classList.add('show');document.getElementById('navAdmin').classList.add('active');document.getElementById('pwInput').value='';}
-  else if(p==='admin'){document.getElementById('pageAdmin').classList.add('show');document.getElementById('navAdmin').classList.add('active');loadReports();}
+  calc();
 }
 
-function checkPw(){
-  if(document.getElementById('pwInput').value===ADMIN_PW){showPage('admin');}
-  else{showToast('密碼錯誤');document.getElementById('pwInput').value='';}
+// ===== 出工人員 =====
+function addAtt(){
+  var n=attList.querySelectorAll('.ac').length+1;
+  var c=document.createElement('div');c.className='ac';
+  c.innerHTML='<div class="atop"><span class="no">人員 '+n+'</span><input type="text" placeholder="請輸入姓名"><button class="db" type="button">✕</button></div><div class="achks"><label class="ci"><input type="checkbox"><span>上午</span></label><label class="ci"><input type="checkbox"><span>下午</span></label><div class="ci-ot"><span>加班(時)</span><input type="number" class="ot-input" min="0" max="24" step="0.5" placeholder="0"></div></div>';
+  c.querySelector('.db').onclick=function(){attList.removeChild(c);};
+  attList.insertBefore(c,addAttBtn);
 }
 
+// ===== 支出（含發票照片）=====
+function addExp(){
+  var idx='e'+Date.now();
+  var c=document.createElement('div');c.className='ec';c.dataset.expIdx=idx;
+  c.innerHTML=
+    '<div class="er"><span class="el">購買項目</span><input type="text" placeholder="項目名稱"><button class="db" type="button">✕</button></div>'+
+    '<div class="er"><span class="el">發票</span><div class="ivw"><input type="checkbox"><span>已附發票</span><button class="inv-photo-btn" type="button">📁 上傳</button><button class="inv-camera-btn" type="button">📷 拍照</button><input type="file" accept="image/*" multiple style="display:none" class="inv-file-input"><input type="file" accept="image/*" capture="environment" style="display:none" class="inv-camera-input"></div></div>'+
+    '<div class="inv-photos-row" style="display:none"></div>'+
+    '<div class="er"><span class="el">現金金額</span><input type="number" class="cc" placeholder="0" min="0" inputmode="numeric"></div>'+
+    '<div class="er"><span class="el">刷卡金額</span><input type="number" class="kk" placeholder="0" min="0" inputmode="numeric"></div>';
+  expPhotoMap[idx]=[];
+  c.querySelector('.db').onclick=function(){expList.removeChild(c);delete expPhotoMap[idx];calc();};
+  c.querySelectorAll('.cc,.kk').forEach(function(el){el.oninput=calc;});
+  var pb=c.querySelector('.inv-photo-btn');
+  var fi=c.querySelector('.inv-file-input');
+  var pr=c.querySelector('.inv-photos-row');
+  var cb=c.querySelector('.inv-camera-btn');
+  var ci2=c.querySelector('.inv-camera-input');
+  pb.onclick=function(){fi.click();};
+  cb.onclick=function(){ci2.click();};
+  ci2.onchange=function(){
+    Array.from(ci2.files).forEach(function(f){
+      var reader=new FileReader();
+      reader.onload=function(ev){expPhotoMap[idx].push(ev.target.result);renderInvPhotos(pr,idx);};
+      reader.readAsDataURL(f);
+    });
+    ci2.value='';
+  };
+  fi.onchange=function(){
+    Array.from(fi.files).forEach(function(f){
+      var reader=new FileReader();
+      reader.onload=function(ev){expPhotoMap[idx].push(ev.target.result);renderInvPhotos(pr,idx);};
+      reader.readAsDataURL(f);
+    });
+    fi.value='';
+  };
+  expList.insertBefore(c,addExpBtn);
+  calc();
+}
+
+function renderInvPhotos(row,idx){
+  var photos=expPhotoMap[idx]||[];
+  row.style.display=photos.length?'flex':'none';
+  row.innerHTML='';
+  photos.forEach(function(src,i){
+    var img=document.createElement('img');img.src=src;img.className='inv-thumb';
+    img.onclick=function(){if(confirm('移除這張照片？')){expPhotoMap[idx].splice(i,1);renderInvPhotos(row,idx);}};
+    row.appendChild(img);
+  });
+}
+
+// ===== 計算 =====
+function calc(){
+  var cash=0,card=0;
+  document.querySelectorAll('.cc').forEach(function(el){cash+=parseFloat(el.value)||0;});
+  document.querySelectorAll('.kk').forEach(function(el){card+=parseFloat(el.value)||0;});
+  var rC=parseFloat(document.getElementById('rc').value)||0;
+  document.getElementById('tca').textContent='$'+cash.toLocaleString();
+  document.getElementById('tcd').textContent='$'+card.toLocaleString();
+  document.getElementById('trm').textContent='$'+(rC-cash).toLocaleString();
+}
+
+// ===== 清除 =====
 function doReset(){
-  ['reporter','pname','witem','rc','rn'].forEach(function(id){document.getElementById(id).value='';});
+  document.getElementById('pname').value='';
+  document.getElementById('witem').value='';
+  document.getElementById('rc').value='';
+  document.getElementById('rn').value='';
+  expPhotoMap={};
   var d=new Date();
   document.getElementById('Y').value=d.getFullYear()-1911;
   document.getElementById('M').value=d.getMonth()+1;
@@ -243,37 +570,10 @@ function clearForm(){
   doReset();
 }
 
-function addAtt(){
-  var n=attList.querySelectorAll('.ac').length+1;
-  var c=document.createElement('div');c.className='ac';
-  c.innerHTML='<div class="atop"><span class="no">人員 '+n+'</span><input type="text" placeholder="請輸入姓名"><button class="db" type="button">✕</button></div><div class="achks"><label class="ci"><input type="checkbox"><span>上午</span></label><label class="ci"><input type="checkbox"><span>下午</span></label><div class="ci-ot"><span>加班(時)</span><input type="number" class="ot-input" min="0" max="24" step="0.5" placeholder="0"></div></div>';
-  c.querySelector('.db').onclick=function(){attList.removeChild(c);};
-  attList.insertBefore(c,addAttBtn);
-}
-
-function addExp(){
-  var c=document.createElement('div');c.className='ec';
-  c.innerHTML='<div class="er"><span class="el">購買項目</span><input type="text" placeholder="項目名稱"><button class="db" type="button">✕</button></div><div class="er"><span class="el">發票</span><div class="ivw"><input type="checkbox"><span>已附發票</span></div></div><div class="er"><span class="el">現金金額</span><input type="number" class="cc" placeholder="0" min="0" inputmode="numeric"></div><div class="er"><span class="el">刷卡金額</span><input type="number" class="kk" placeholder="0" min="0" inputmode="numeric"></div>';
-  c.querySelector('.db').onclick=function(){expList.removeChild(c);calc();};
-  c.querySelectorAll('.cc,.kk').forEach(function(el){el.oninput=calc;});
-  expList.insertBefore(c,addExpBtn);
-  calc();
-}
-
-function calc(){
-  var cash=0,card=0;
-  document.querySelectorAll('.cc').forEach(function(el){cash+=parseFloat(el.value)||0;});
-  document.querySelectorAll('.kk').forEach(function(el){card+=parseFloat(el.value)||0;});
-  var rC=parseFloat(document.getElementById('rc').value)||0;
-  document.getElementById('tca').textContent='$'+cash.toLocaleString();
-  document.getElementById('tcd').textContent='$'+card.toLocaleString();
-  document.getElementById('trm').textContent='$'+(rC-cash).toLocaleString();
-}
-
+// ===== 上傳 =====
 function submitReport(){
-  var reporter=document.getElementById('reporter').value.trim();
   var pname=document.getElementById('pname').value.trim();
-  if(!reporter){showToast('請填寫填報者姓名');return;}
+  if(!currentReporter){showToast('請先選擇填報者');return;}
   if(!pname){showToast('請填寫工程名稱');return;}
   var Y=document.getElementById('Y').value,M=document.getElementById('M').value,D=document.getElementById('D').value;
   var attendance=[];
@@ -286,17 +586,20 @@ function submitReport(){
   var expenses=[];
   expList.querySelectorAll('.ec').forEach(function(card){
     var item=card.querySelector('input[type=text]').value.trim();if(!item)return;
-    expenses.push({item:item,inv:card.querySelector('input[type=checkbox]').checked,cash:parseFloat(card.querySelector('.cc').value)||0,card:parseFloat(card.querySelector('.kk').value)||0});
+    var idx=card.dataset.expIdx;
+    expenses.push({item:item,inv:card.querySelector('input[type=checkbox]').checked,cash:parseFloat(card.querySelector('.cc').value)||0,card:parseFloat(card.querySelector('.kk').value)||0,photos:expPhotoMap[idx]||[]});
   });
+  var totalCash=parseFloat(document.getElementById('tca').textContent.replace(/[$,]/g,''))||0;
+  var totalCard=parseFloat(document.getElementById('tcd').textContent.replace(/[$,]/g,''))||0;
+  var receiptCash=parseFloat(document.getElementById('rc').value)||0;
   var report={
-    id:Date.now(),date:Y+'年'+M+'月'+D+'日',reporter:reporter,project:pname,
+    id:Date.now(),date:Y+'年'+M+'月'+D+'日',reporter:currentReporter,project:pname,
     workItems:document.getElementById('witem').value.trim(),
     attendance:attendance,expenses:expenses,
-    receiptCash:parseFloat(document.getElementById('rc').value)||0,
+    receiptCash:receiptCash,
     receiptNote:document.getElementById('rn').value.trim(),
-    totalCash:parseFloat(document.getElementById('tca').textContent.replace(/[$,]/g,''))||0,
-    totalCard:parseFloat(document.getElementById('tcd').textContent.replace(/[$,]/g,''))||0,
-    remaining:parseFloat(document.getElementById('trm').textContent.replace(/[$,]/g,''))||0,
+    totalCash:totalCash,totalCard:totalCard,
+    remaining:receiptCash-totalCash,
     uploadedAt:new Date().toLocaleString('zh-TW')
   };
   var btn=document.getElementById('btnSubmit');
@@ -304,33 +607,160 @@ function submitReport(){
   fetch(API,{method:'POST',body:JSON.stringify(report)})
     .then(function(r){return r.json();})
     .then(function(res){
-      if(res.ok){showToast('✅ 報表已成功上傳！');doReset();}
-      else{showToast('上傳失敗：'+(res.error||'請稍後再試'));}
+      if(res.ok){
+        showToast('✅ 報表已成功上傳！');
+        doReset();
+        cachedReports=null;
+        loadAccum();
+      } else {showToast('上傳失敗：'+(res.error||'請稍後再試'));}
     })
     .catch(function(){showToast('網路錯誤，請重試');})
     .finally(function(){btn.textContent='📤 上傳報表';btn.disabled=false;});
 }
 
-function loadReports(){
+// ===== 個人紀錄 =====
+function loadHistory(){
+  var listEl=document.getElementById('historyList');
+  listEl.innerHTML='<div class="loading">⏳ 載入中…</div>';
+  fetch(API+'?action=list')
+    .then(function(r){return r.json();})
+    .then(function(res){
+      if(!res.ok)throw new Error();
+      cachedReports=res.data;
+      var data=res.data.filter(function(r){return r.reporter===currentReporter;});
+      document.getElementById('historyCount').textContent='共 '+data.length+' 筆';
+      // 上筆資料（data 已 reverse，index 0 最新）
+      var lastRemain=data.length>0?(parseFloat(data[0].remaining)||0):0;
+      var lastOut=data.length>0?(parseFloat(data[0].receiptCash)||0):0;
+      var isNeg=lastRemain<0;
+      document.getElementById('historyLastRemain').textContent='$'+lastRemain.toLocaleString();
+      document.getElementById('historyLastRemain').style.color=isNeg?'var(--red)':'var(--grn)';
+      var lastTotalCash=data.length>0?(parseFloat(data[0].totalCash)||0):0;
+      document.getElementById('historyLastOut').textContent='$'+lastOut.toLocaleString();
+      document.getElementById('historyLastTotalCash').textContent='$'+lastTotalCash.toLocaleString();
+      document.getElementById('historyAccum').textContent='$'+lastRemain.toLocaleString();
+      document.getElementById('historyAccum').style.color=isNeg?'var(--red)':'var(--grn)';
+      if(!data.length){listEl.innerHTML='<div class="empty"><div class="ei">📭</div><p>尚無填報紀錄</p></div>';return;}
+      listEl.innerHTML='';
+      data.forEach(function(rpt){listEl.appendChild(buildCard(rpt,false));});
+    })
+    .catch(function(){listEl.innerHTML='<div class="empty"><div class="ei">❌</div><p>載入失敗</p></div>';});
+}
+
+// ===== 管理報表 =====
+function loadAllReports(){
   var listEl=document.getElementById('reportList');
   listEl.innerHTML='<div class="loading">⏳ 載入中…</div>';
   fetch(API+'?action=list')
     .then(function(r){return r.json();})
     .then(function(res){
-      if(!res.ok)throw new Error(res.error);
-      var data=res.data;
-      document.getElementById('adminCount').textContent='共 '+data.length+' 筆';
-      if(!data.length){listEl.innerHTML='<div class="empty"><div class="ei">📭</div><p>尚無上傳的報表</p></div>';return;}
-      listEl.innerHTML='';
-      data.forEach(function(rpt){listEl.appendChild(buildCard(rpt));});
+      if(!res.ok)throw new Error();
+      allReports=res.data;
+      document.getElementById('adminCount').textContent='共 '+allReports.length+' 筆';
+      updateFilterDropdown();
+      renderSummaryTable(allReports);
+      renderAllReports(allReports);
     })
-    .catch(function(){listEl.innerHTML='<div class="empty"><div class="ei">❌</div><p>載入失敗，請重試</p></div>';});
+    .catch(function(){listEl.innerHTML='<div class="empty"><div class="ei">❌</div><p>載入失敗</p></div>';});
 }
 
-function buildCard(rpt){
+function renderSummaryTable(data){
+  var el=document.getElementById('summaryTable');
+  var reporters=getReporters();
+  var html='';
+  reporters.forEach(function(r){
+    var myData=data.filter(function(d){return d.reporter===r;});
+    var lastRemain=myData.length>0?(parseFloat(myData[0].remaining)||0):null;
+    var lastReceiptCash=myData.length>0?(parseFloat(myData[0].receiptCash)||0):0;
+    var lastTotalCash=myData.length>0?(parseFloat(myData[0].totalCash)||0):0;
+    var isNeg=lastRemain!==null&&lastRemain<0;
+    var remainText=lastRemain!==null?'$'+lastRemain.toLocaleString():'—';
+    var remainColor=isNeg?'var(--red)':'var(--grn)';
+    html+=
+      '<div class="summary-row">'+
+        '<div style="font-weight:700;font-size:15px;margin-bottom:6px">'+esc(r)+'</div>'+
+        '<div style="display:flex;flex-direction:column;gap:4px;font-size:13px">'+
+          '<div style="display:flex;justify-content:space-between">'+
+            '<span style="color:var(--mu)">上筆結餘</span>'+
+            '<span style="font-weight:700;color:'+remainColor+'">'+remainText+'</span>'+
+          '</div>'+
+          '<div style="display:flex;justify-content:space-between">'+
+            '<span style="color:var(--mu)">本日接收公款</span>'+
+            '<span style="font-weight:700;color:var(--ac)">$'+lastReceiptCash.toLocaleString()+'</span>'+
+          '</div>'+
+          '<div style="display:flex;justify-content:space-between">'+
+            '<span style="color:var(--mu)">本日支出金額</span>'+
+            '<span style="font-weight:700;color:var(--red)">$'+lastTotalCash.toLocaleString()+'</span>'+
+          '</div>'+
+          '<div style="height:1px;background:var(--br);margin:2px 0"></div>'+
+          '<div style="display:flex;justify-content:space-between;font-size:15px">'+
+            '<span style="font-weight:700">現金剩餘公款</span>'+
+            '<span style="font-weight:900;color:'+remainColor+'">'+remainText+'</span>'+
+          '</div>'+
+        '</div>'+
+      '</div>';
+  });
+  el.innerHTML=html||'<div style="padding:16px;text-align:center;color:var(--mu)">尚無資料</div>';
+}
+
+function updateFilterDropdown(){
+  var sel=document.getElementById('filterReporter');
+  var cur=sel.value;
+  sel.innerHTML='<option value="">全部填報者</option>';
+  getReporters().forEach(function(r){
+    var opt=document.createElement('option');opt.value=r;opt.textContent=r;
+    if(r===cur)opt.selected=true;
+    sel.appendChild(opt);
+  });
+}
+
+function filterReports(){
+  var val=document.getElementById('filterReporter').value;
+  var filtered=val?allReports.filter(function(r){return r.reporter===val;}):allReports;
+  renderAllReports(filtered);
+}
+
+function renderAllReports(data){
+  var listEl=document.getElementById('reportList');
+  if(!data.length){listEl.innerHTML='<div class="empty"><div class="ei">📭</div><p>尚無報表</p></div>';return;}
+  listEl.innerHTML='';
+  data.forEach(function(rpt){listEl.appendChild(buildCard(rpt,true));});
+}
+
+// ===== 填報者管理 =====
+function renderReporterMgmt(){
+  var reporters=getReporters();
+  var el=document.getElementById('reporterMgmt');
+  el.innerHTML='';
+  reporters.forEach(function(r,i){
+    var row=document.createElement('div');row.className='reporter-item';
+    row.innerHTML='<span>'+esc(r)+'</span>';
+    var btn=document.createElement('button');btn.className='btn-remove-reporter';btn.textContent='移除';
+    btn.onclick=function(){
+      if(!confirm('確定移除填報者「'+r+'」？'))return;
+      var arr=getReporters();arr.splice(i,1);saveReporters(arr);
+      renderReporterMgmt();renderSelectPage();updateFilterDropdown();
+    };
+    row.appendChild(btn);el.appendChild(row);
+  });
+}
+
+function addReporter(){
+  var name=document.getElementById('newReporterInput').value.trim();
+  if(!name){showToast('請輸入姓名');return;}
+  var arr=getReporters();
+  if(arr.indexOf(name)>=0){showToast('填報者已存在');return;}
+  arr.push(name);saveReporters(arr);
+  document.getElementById('newReporterInput').value='';
+  renderReporterMgmt();renderSelectPage();updateFilterDropdown();
+  showToast('已新增：'+name);
+}
+
+// ===== 卡片 =====
+function buildCard(rpt,isAdminView){
   var wrap=document.createElement('div');wrap.className='report-card';
   var head=document.createElement('div');head.className='report-head';
-  head.innerHTML='<div class="report-meta"><div class="r-project">'+esc(rpt.project)+'</div><div class="r-sub">'+esc(rpt.date)+' ｜ 填報者：'+esc(rpt.reporter)+'</div></div><span class="report-arrow">›</span>';
+  head.innerHTML='<div class="report-meta"><div class="r-project">'+esc(rpt.project)+'</div><div class="r-sub">'+esc(rpt.date)+' ｜ '+esc(rpt.reporter)+'</div></div><span class="report-arrow">›</span>';
   var body=document.createElement('div');body.className='report-body';
   if(rpt.workItems)body.innerHTML+='<div class="rbs"><div class="rbl">施工項目</div><div class="rbc">'+esc(rpt.workItems)+'</div></div>';
   if(rpt.attendance&&rpt.attendance.length){
@@ -342,51 +772,177 @@ function buildCard(rpt){
     var h2='<div class="rbs"><div class="rbl">公款支出</div><table class="rbt"><tr><th>項目</th><th>發票</th><th>現金</th><th>刷卡</th></tr>';
     rpt.expenses.forEach(function(e){h2+='<tr><td>'+esc(e.item)+'</td><td>'+(e.inv?'✔':'—')+'</td><td>'+(e.cash?'$'+Number(e.cash).toLocaleString():'—')+'</td><td>'+(e.card?'$'+Number(e.card).toLocaleString():'—')+'</td></tr>';});
     body.innerHTML+=h2+'</table></div>';
+    var allPhotos=[];
+    rpt.expenses.forEach(function(e){if(e.photos&&e.photos.length)allPhotos=allPhotos.concat(e.photos);});
+    if(allPhotos.length){
+      var ph='<div class="rbs"><div class="rbl">發票照片</div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">';
+      allPhotos.forEach(function(src){ph+='<img src="'+src+'" style="width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--br)">';});
+      body.innerHTML+=ph+'</div></div>';
+    }
   }
-  body.innerHTML+='<div class="rbs"><div class="rbl">公款結算</div><div style="font-size:14px;line-height:2">接收現金：$'+Number(rpt.receiptCash||0).toLocaleString()+'　接收刷卡：$'+Number(rpt.receiptCard||0).toLocaleString()+'<br>現金支出：$'+Number(rpt.totalCash||0).toLocaleString()+'　刷卡支出：$'+Number(rpt.totalCard||0).toLocaleString()+'<br><strong>剩餘公款：$'+Number(rpt.remaining||0).toLocaleString()+'</strong>'+(rpt.receiptNote?'<br>備考：'+esc(rpt.receiptNote):'')+	'</div></div>';
-  body.innerHTML+='<div class="rbs" style="color:var(--mu);font-size:12px">上傳時間：'+esc(rpt.uploadedAt)+'</div>';
+  body.innerHTML+='<div class="rbs"><div class="rbl">公款結算</div><div style="font-size:14px;line-height:2.2">接收現金：$'+Number(rpt.receiptCash||0).toLocaleString()+'<br>現金支出：$'+Number(rpt.totalCash||0).toLocaleString()+'　刷卡：$'+Number(rpt.totalCard||0).toLocaleString()+'<br><strong style="color:var(--grn)">現金剩餘：$'+Number(rpt.remaining||0).toLocaleString()+'</strong>'+(rpt.receiptNote?'<br>備考：'+esc(rpt.receiptNote):'')+	'</div></div>';
+  var editBadge=rpt.editedAt?'<span style="background:#fff3cd;color:#856404;border:1px solid #ffc107;border-radius:4px;padding:2px 8px;font-size:11px;margin-left:8px">✏️ 已修正</span>':'';
+  body.innerHTML+='<div class="rbs" style="color:var(--mu);font-size:12px">上傳時間：'+esc(rpt.uploadedAt)+editBadge+(rpt.editedAt?'<br><span style="color:#856404">修正時間：'+esc(rpt.editedAt)+'　修正者：'+esc(rpt.editedBy)+'</span>':'')+'</div>';
   var aw=document.createElement('div');aw.className='action-wrap';
-  var pdfBtn=document.createElement('button');pdfBtn.className='btn-pdf';pdfBtn.textContent='📄 儲存PDF';
-  pdfBtn.onclick=function(e){e.stopPropagation();printReport(rpt);};
-  var delBtn=document.createElement('button');delBtn.className='btn-del';delBtn.textContent='🗑 刪除';
-  delBtn.onclick=function(e){
-    e.stopPropagation();
-    if(!confirm('確定要刪除這份報表嗎？'))return;
-    delBtn.textContent='刪除中…';delBtn.disabled=true;
-    fetch(API+'?action=delete&id='+rpt.id)
-      .then(function(r){return r.json();})
-      .then(function(res){
-        if(res.ok){wrap.remove();var cur=parseInt(document.getElementById('adminCount').textContent.replace(/\D/g,''))||0;document.getElementById('adminCount').textContent='共 '+Math.max(0,cur-1)+' 筆';showToast('已刪除');}
-        else{showToast('刪除失敗');delBtn.textContent='🗑 刪除';delBtn.disabled=false;}
-      })
-      .catch(function(){showToast('網路錯誤');delBtn.textContent='🗑 刪除';delBtn.disabled=false;});
-  };
-  aw.appendChild(pdfBtn);aw.appendChild(delBtn);body.appendChild(aw);
+  var editBtn=document.createElement('button');editBtn.className='btn-edit';editBtn.textContent='✏️ 編輯';
+  editBtn.onclick=function(e){e.stopPropagation();openEditModal(rpt);};aw.appendChild(editBtn);
+  var pdfBtn=document.createElement('button');pdfBtn.className='btn-pdf';pdfBtn.textContent='📄 PDF';
+  pdfBtn.onclick=function(e){e.stopPropagation();printReport(rpt);};aw.appendChild(pdfBtn);
+  if(isAdminView){
+    var delBtn=document.createElement('button');delBtn.className='btn-del';delBtn.textContent='🗑 刪除';
+    delBtn.onclick=function(e){
+      e.stopPropagation();
+      if(!confirm('確定要刪除這份報表嗎？'))return;
+      delBtn.textContent='刪除中…';delBtn.disabled=true;
+      fetch(API+'?action=delete&id='+rpt.id)
+        .then(function(r){return r.json();})
+        .then(function(res){
+          if(res.ok){wrap.remove();var cur=parseInt(document.getElementById('adminCount').textContent.replace(/\D/g,''))||0;document.getElementById('adminCount').textContent='共 '+Math.max(0,cur-1)+' 筆';showToast('已刪除');}
+          else{showToast('刪除失敗');delBtn.textContent='🗑 刪除';delBtn.disabled=false;}
+        })
+        .catch(function(){showToast('網路錯誤');delBtn.textContent='🗑 刪除';delBtn.disabled=false;});
+    };aw.appendChild(delBtn);
+  }
+  body.appendChild(aw);
   head.onclick=function(){var isOpen=body.classList.contains('open');body.classList.toggle('open',!isOpen);head.querySelector('.report-arrow').classList.toggle('open',!isOpen);};
   wrap.appendChild(head);wrap.appendChild(body);
   return wrap;
 }
 
+// ===== 編輯 =====
+function openEditModal(rpt){
+  editingId=rpt.id;
+  // 建立出工人員 HTML
+  var attHtml='';
+  var att=rpt.attendance||[];
+  att.forEach(function(a,i){
+    attHtml+='<div class="ec" style="margin-bottom:6px">'+
+      '<div class="er"><span class="el">姓名</span><input type="text" class="edit-att-name" value="'+esc(a.name)+'"><button class="db" type="button" onclick="this.closest('.ec').remove()">✕</button></div>'+
+      '<div class="achks">'+
+        '<label class="ci"><input type="checkbox" class="edit-att-am"'+(a.am?' checked':'')+'>​<span>上午</span></label>'+
+        '<label class="ci"><input type="checkbox" class="edit-att-pm"'+(a.pm?' checked':'')+'>​<span>下午</span></label>'+
+        '<div class="ci-ot"><span>加班(時)</span><input type="number" class="edit-att-ot" min="0" max="24" step="0.5" value="'+(a.ot||0)+'"></div>'+
+      '</div>'+
+    '</div>';
+  });
+  // 建立支出 HTML
+  var expHtml='';
+  var exp=rpt.expenses||[];
+  exp.forEach(function(ex,i){
+    expHtml+='<div class="ec" style="margin-bottom:6px">'+
+      '<div class="er"><span class="el">購買項目</span><input type="text" class="edit-exp-item" value="'+esc(ex.item)+'"><button class="db" type="button" onclick="this.closest('.ec').remove()">✕</button></div>'+
+      '<div class="er"><span class="el">發票</span><div class="ivw"><input type="checkbox" class="edit-exp-inv"'+(ex.inv?' checked':'')+'>​<span>已附發票</span></div></div>'+
+      '<div class="er"><span class="el">現金金額</span><input type="number" class="edit-exp-cash" value="'+(ex.cash||0)+'" min="0" inputmode="numeric"></div>'+
+      '<div class="er"><span class="el">刷卡金額</span><input type="number" class="edit-exp-card" value="'+(ex.card||0)+'" min="0" inputmode="numeric"></div>'+
+    '</div>';
+  });
+  var d=rpt.date||'';
+  var yr=d.replace(/年.*/,'');
+  var mo=d.replace(/.*年/,'').replace(/月.*/,'');
+  var dy=d.replace(/.*月/,'').replace(/日.*/,'');
+  document.getElementById('editModalContent').innerHTML=
+    '<div style="display:flex;flex-direction:column;gap:14px">'+
+    // 日期
+    '<div><div class="mlbl" style="margin-bottom:6px">填表日期</div>'+
+    '<div class="dgrp"><input class="di" id="editY" value="'+yr+'" style="width:60px"> 年 <input class="di" id="editM" value="'+mo+'" style="width:46px"> 月 <input class="di" id="editD" value="'+dy+'" style="width:46px"> 日</div></div>'+
+    // 工程名稱
+    '<div class="mrow"><span class="mlbl">工程名稱：</span><input class="ti" id="editPname" value="'+esc(rpt.project)+'"></div>'+
+    // 施工項目
+    '<div><span class="mlbl" style="display:block;margin-bottom:6px">施工項目：</span>'+
+    '<textarea id="editWitem" style="width:100%;min-height:90px;border:1.5px solid var(--br);border-radius:6px;background:var(--ib);font-size:14px;padding:10px;resize:vertical;outline:none">'+esc(rpt.workItems)+'</textarea></div>'+
+    // 出工人員
+    '<div><div class="mlbl" style="margin-bottom:6px">出工人員</div>'+
+    '<div id="editAttList">'+attHtml+'</div>'+
+    '<button type="button" class="ab" onclick="addEditAtt()" style="margin-top:4px">＋ 新增人員</button></div>'+
+    // 支出
+    '<div><div class="mlbl" style="margin-bottom:6px">公款支出</div>'+
+    '<div id="editExpList">'+expHtml+'</div>'+
+    '<button type="button" class="ab" onclick="addEditExp()" style="margin-top:4px">＋ 新增支出項目</button></div>'+
+    // 接收現金
+    '<div class="mrow"><span class="mlbl">接收現金：</span><input class="ti" id="editRc" type="number" value="'+(rpt.receiptCash||0)+'"></div>'+
+    // 備考
+    '<div class="mrow"><span class="mlbl">備考：</span><input class="ti" id="editRn" value="'+esc(rpt.receiptNote)+'"></div>'+
+    '</div>';
+  document.getElementById('editModal').classList.add('show');
+}
+
+function addEditAtt(){
+  var n=document.getElementById('editAttList').querySelectorAll('.ec').length+1;
+  var div=document.createElement('div');div.className='ec';div.style.marginBottom='6px';
+  div.innerHTML='<div class="er"><span class="el">姓名</span><input type="text" class="edit-att-name" placeholder="姓名"><button class="db" type="button" onclick="this.closest('.ec').remove()">✕</button></div>'+
+    '<div class="achks"><label class="ci"><input type="checkbox" class="edit-att-am"><span>上午</span></label><label class="ci"><input type="checkbox" class="edit-att-pm"><span>下午</span></label><div class="ci-ot"><span>加班(時)</span><input type="number" class="edit-att-ot" min="0" max="24" step="0.5" placeholder="0"></div></div>';
+  document.getElementById('editAttList').appendChild(div);
+}
+
+function addEditExp(){
+  var div=document.createElement('div');div.className='ec';div.style.marginBottom='6px';
+  div.innerHTML='<div class="er"><span class="el">購買項目</span><input type="text" class="edit-exp-item" placeholder="項目名稱"><button class="db" type="button" onclick="this.closest('.ec').remove()">✕</button></div>'+
+    '<div class="er"><span class="el">發票</span><div class="ivw"><input type="checkbox" class="edit-exp-inv"><span>已附發票</span></div></div>'+
+    '<div class="er"><span class="el">現金金額</span><input type="number" class="edit-exp-cash" value="0" min="0" inputmode="numeric"></div>'+
+    '<div class="er"><span class="el">刷卡金額</span><input type="number" class="edit-exp-card" value="0" min="0" inputmode="numeric"></div>';
+  document.getElementById('editExpList').appendChild(div);
+}
+
+function closeEditModal(){document.getElementById('editModal').classList.remove('show');editingId=null;}
+
+function saveEdit(){
+  if(!editingId)return;
+  var btn=document.getElementById('saveEditBtn');
+  btn.textContent='儲存中…';btn.disabled=true;
+  var Y=document.getElementById('editY').value;
+  var M=document.getElementById('editM').value;
+  var D=document.getElementById('editD').value;
+  var att=[];
+  document.getElementById('editAttList').querySelectorAll('.ec').forEach(function(c){
+    var name=c.querySelector('.edit-att-name').value.trim();if(!name)return;
+    att.push({name:name,am:c.querySelector('.edit-att-am').checked,pm:c.querySelector('.edit-att-pm').checked,ot:parseFloat(c.querySelector('.edit-att-ot').value)||0});
+  });
+  var exp=[];
+  document.getElementById('editExpList').querySelectorAll('.ec').forEach(function(c){
+    var item=c.querySelector('.edit-exp-item').value.trim();if(!item)return;
+    exp.push({item:item,inv:c.querySelector('.edit-exp-inv').checked,cash:parseFloat(c.querySelector('.edit-exp-cash').value)||0,card:parseFloat(c.querySelector('.edit-exp-card').value)||0,photos:[]});
+  });
+  var rc=parseFloat(document.getElementById('editRc').value)||0;
+  var totalCash=exp.reduce(function(s,e){return s+(e.cash||0);},0);
+  var totalCard=exp.reduce(function(s,e){return s+(e.card||0);},0);
+  var patch={action:'edit',data:{
+    id:editingId,
+    date:Y+'年'+M+'月'+D+'日',
+    project:document.getElementById('editPname').value.trim(),
+    workItems:document.getElementById('editWitem').value.trim(),
+    attendance:att,
+    expenses:exp,
+    receiptCash:rc,
+    totalCash:totalCash,
+    totalCard:totalCard,
+    remaining:rc-totalCash,
+    receiptNote:document.getElementById('editRn').value.trim(),
+    editedAt:new Date().toLocaleString('zh-TW'),
+    editedBy:currentReporter||'管理者'
+  }};
+  fetch(API,{method:'POST',body:JSON.stringify(patch)})
+    .then(function(r){return r.json();})
+    .then(function(res){
+      if(res.ok){
+        showToast('✅ 已更新！');
+        closeEditModal();
+        cachedReports=null;
+        if(document.getElementById('pageAdmin').classList.contains('show'))loadAllReports();
+        else loadHistory();
+      }else{showToast('更新失敗：'+(res.error||''));}
+    })
+    .catch(function(){showToast('網路錯誤');})
+    .finally(function(){btn.textContent='儲存';btn.disabled=false;});
+}
+
+// ===== PDF =====
 function printReport(rpt){
   var pa=document.getElementById('printArea');
   var attRows='';
   if(rpt.attendance&&rpt.attendance.length)rpt.attendance.forEach(function(a){attRows+='<tr><td>'+esc(a.name)+'</td><td>'+(a.am?'✔':'')+'</td><td>'+(a.pm?'✔':'')+'</td><td>'+(a.ot?a.ot+'h':'')+'</td></tr>';});
-  var expRows='';
-  if(rpt.expenses&&rpt.expenses.length)rpt.expenses.forEach(function(e){expRows+='<tr><td>'+esc(e.item)+'</td><td>'+(e.inv?'✔':'')+'</td><td>'+(e.cash?'$'+Number(e.cash).toLocaleString():'')+'</td><td>'+(e.card?'$'+Number(e.card).toLocaleString():'')+'</td></tr>';});
-  pa.innerHTML=
-    '<div class="print-title">施工日報表</div>'+
-    '<div class="print-meta">填表日期：'+esc(rpt.date)+'　　填報者：'+esc(rpt.reporter)+'　　工程名稱：'+esc(rpt.project)+'</div>'+
-    (rpt.workItems?'<div class="print-sh">施工項目</div><div class="print-content">'+esc(rpt.workItems)+'</div>':'')+
-    (attRows?'<div class="print-sh">出工人數及人員簽到表</div><table class="print-table"><tr><th>姓名</th><th>上午</th><th>下午</th><th>加班(時)</th></tr>'+attRows+'</table>':'')+
-    (expRows?'<div class="print-sh">公款支出每日明細表</div><table class="print-table"><tr><th>購買項目</th><th>發票</th><th>現金金額</th><th>刷卡金額</th></tr>'+expRows+'</table>':'')+
-    '<div class="print-sh">公款結算</div>'+
-    '<table class="print-sum">'+
-    '<tr><td>本日接收現金</td><td>$'+Number(rpt.receiptCash||0).toLocaleString()+'</td></tr>'+
-    '<tr><td>本日支出合計</td><td>$'+Number(rpt.totalCash||0).toLocaleString()+'</td></tr>'+
-    '<tr><td><strong>現金剩餘公款</strong></td><td><strong>$'+Number(rpt.remaining||0).toLocaleString()+'</strong></td></tr>'+
-    (rpt.receiptNote?'<tr><td>備考</td><td>'+esc(rpt.receiptNote)+'</td></tr>':'')+
-    '</table>'+
-    '<div style="margin-top:12px;font-size:11px;color:#888">上傳時間：'+esc(rpt.uploadedAt)+'</div>';
+  var expRows='';if(rpt.expenses&&rpt.expenses.length)rpt.expenses.forEach(function(e){expRows+='<tr><td>'+esc(e.item)+'</td><td>'+(e.inv?'✔':'')+'</td><td>'+(e.cash?'$'+Number(e.cash).toLocaleString():'')+'</td><td>'+(e.card?'$'+Number(e.card).toLocaleString():'')+'</td></tr>';});
+  var photoHtml='';if(rpt.expenses)rpt.expenses.forEach(function(e){if(e.photos&&e.photos.length)e.photos.forEach(function(src){photoHtml+='<img src="'+src+'" style="width:80px;height:80px;object-fit:cover;border-radius:4px;margin:2px">';});});
+  pa.innerHTML='<div class="print-title">施工日報表</div><div class="print-meta">填表日期：'+esc(rpt.date)+'　填報者：'+esc(rpt.reporter)+'　工程名稱：'+esc(rpt.project)+'</div>'+(rpt.workItems?'<div class="print-sh">施工項目</div><div class="print-content">'+esc(rpt.workItems)+'</div>':'')+(attRows?'<div class="print-sh">出工人數及人員簽到表</div><table class="print-table"><tr><th>姓名</th><th>上午</th><th>下午</th><th>加班(時)</th></tr>'+attRows+'</table>':'')+(expRows?'<div class="print-sh">公款支出每日明細表</div><table class="print-table"><tr><th>購買項目</th><th>發票</th><th>現金金額</th><th>刷卡金額</th></tr>'+expRows+'</table>':'')+(photoHtml?'<div class="print-sh">發票照片</div><div>'+photoHtml+'</div>':'')+'<div class="print-sh">公款結算</div><table class="print-sum"><tr><td>本日接收現金</td><td>$'+Number(rpt.receiptCash||0).toLocaleString()+'</td></tr><tr><td>本日支出合計</td><td>$'+Number(rpt.totalCash||0).toLocaleString()+'</td></tr><tr><td>本日刷卡合計</td><td>$'+Number(rpt.totalCard||0).toLocaleString()+'</td></tr><tr><td><strong>現金剩餘公款</strong></td><td><strong>$'+Number(rpt.remaining||0).toLocaleString()+'</strong></td></tr>'+(rpt.receiptNote?'<tr><td>備考</td><td>'+esc(rpt.receiptNote)+'</td></tr>':'')+'</table><div style="margin-top:12px;font-size:11px;color:#888">上傳時間：'+esc(rpt.uploadedAt)+'</div>';
   setTimeout(function(){window.print();},150);
 }
 

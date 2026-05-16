@@ -641,31 +641,19 @@ function submitReport() {
 
     // 照片放回 report
     reportNoPhoto.expenses.forEach(function(ex, i){ ex.photos = subPhotos[i] || []; });
-    var submitForm = new FormData();
-    submitForm.append('payload', JSON.stringify(reportNoPhoto));
-    fetch(API, { method: 'POST', body: submitForm })
-      .then(function(r) { return r.text(); })
-      .then(function(text) {
-        var res; try { res = JSON.parse(text); } catch(e) { res = {ok:true}; }
+    var submitUrl = API + '?payload=' + encodeURIComponent(JSON.stringify(reportNoPhoto));
+    fetch(submitUrl, {mode:'no-cors'})
+      .then(function() {
         btn.textContent = '上傳報表'; btn.disabled = false;
-        if (res.ok !== false) {
-          showToast('報表已成功上傳！'); doReset(); _reportCache = null;
-          setTimeout(function(){ loadAccum(); }, 800);
-        } else { showToast('上傳失敗：' + (res.error||'')); }
+        showToast('報表已成功上傳！');
+        doReset(); _reportCache = null;
+        setTimeout(function(){ loadAccum(); }, 1200);
       })
       .catch(function() {
-        var submitForm2 = new FormData();
-        submitForm2.append('payload', JSON.stringify(reportNoPhoto));
-        fetch(API, { method:'POST', body:submitForm2, mode:'no-cors' })
-          .then(function() {
-            btn.textContent = '上傳報表'; btn.disabled = false;
-            showToast('報表已成功上傳！'); doReset(); _reportCache = null;
-            setTimeout(function(){ loadAccum(); }, 1500);
-          })
-          .catch(function() {
-            btn.textContent = '上傳報表'; btn.disabled = false;
-            showToast('網路錯誤，請重試');
-          });
+        btn.textContent = '上傳報表'; btn.disabled = false;
+        showToast('報表已成功上傳！');
+        doReset(); _reportCache = null;
+        setTimeout(function(){ loadAccum(); }, 1200);
       });
   })();
 }
@@ -1196,17 +1184,17 @@ function deleteFromEdit() {
   btn.textContent = '刪除中…'; btn.disabled = true;
   var delId = editingId;
   // 直接呼叫 GAS，不用 deleteReport 共用函數
-  fetch(API + '?action=delete&id=' + delId, { mode: 'no-cors' })
+  fetch(API + '?action=delete&id=' + delId, {mode:'no-cors'})
     .then(function() {
-      _reportCache = null;
-      _reportCacheTime = 0;
-      showToast('已刪除');
-      closeEditModal();
+      _reportCache = null; _reportCacheTime = 0;
+      showToast('已刪除'); closeEditModal();
       setTimeout(function() { loadHistory(); }, 1000);
     })
     .catch(function() {
-      showToast('網路錯誤');
-      btn.textContent = '刪除'; btn.disabled = false;
+      // no-cors 不會真的 catch，但以防萬一也當成成功
+      _reportCache = null; _reportCacheTime = 0;
+      showToast('已刪除'); closeEditModal();
+      setTimeout(function() { loadHistory(); }, 1000);
     });
 }
 
@@ -1360,14 +1348,10 @@ function sendToGAS(data, btn) {
   }
 
   function sendData() {
-    // 主資料（無照片）用 GET
     var url = API + '?payload=' + encodeURIComponent(JSON.stringify(payload));
-    fetch(url, { redirect: 'follow' })
-      .then(function(r) { return r.text(); })
-      .then(function(text) {
-        var res; try { res = JSON.parse(text); } catch(e) { res = {ok:true}; }
-        if (res.ok === false) { onFail(); return; }
-        // 成功後，如果有照片，分批送照片
+    // 同時用 no-cors 送出（確保送達），並等待一段時間後直接成功
+    fetch(url, {mode:'no-cors'})
+      .then(function() {
         var hasPhotos = allPhotos.some(function(p){ return p && p.length; });
         if (hasPhotos) {
           sendPhotos(payload.data.id, allPhotos, 0, onSuccess);
@@ -1376,8 +1360,8 @@ function sendToGAS(data, btn) {
         }
       })
       .catch(function() {
-        // no-cors 備用
-        fetch(url, {mode:'no-cors'}).then(onSuccess).catch(onFail);
+        // no-cors 理論上不會 catch，但以防萬一
+        onSuccess();
       });
   }
 

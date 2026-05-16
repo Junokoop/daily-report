@@ -980,51 +980,52 @@ function buildCard(rpt, isAdminView) {
 }
 
 function openViewModal(rpt) {
-  // 閱覽模式 - 無法編輯
   var att = rpt.attendance || [];
-  var attRows = '';
-  att.forEach(function(a) {
-    attRows += '<tr><td>' + esc(a.name) + '</td><td>' + (a.am ? '✔' : '—') + '</td><td>' + (a.pm ? '✔' : '—') + '</td><td>' + (a.ot ? a.ot + 'h' : '—') + '</td></tr>';
-  });
   var exp = rpt.expenses || [];
-  var expRows = '';
-  exp.forEach(function(ex) {
-    expRows += '<tr><td>' + esc(ex.item) + '</td><td>' + (ex.inv ? '✔' : '—') + '</td><td>' + (ex.cash ? '$' + Number(ex.cash).toLocaleString() : '—') + '</td><td>' + (ex.card ? '$' + Number(ex.card).toLocaleString() : '—') + '</td></tr>';
-  });
-  var allPhotos = [];
-  exp.forEach(function(e) { if (e.photos && e.photos.length) allPhotos = allPhotos.concat(e.photos); });
-  var photoHtml = '';
-  allPhotos.forEach(function(src) {
-    photoHtml += '<img src="' + src + '" onclick="openPhotoOverlay(this.src)" style="width:72px;height:72px;object-fit:cover;border-radius:6px;border:1px solid var(--br);cursor:pointer;margin:3px">';
-  });
+
+  var attRows = att.map(function(a) {
+    return '<tr><td style="padding:6px 8px;border:1px solid var(--br)">' + esc(a.name) + '</td>' +
+      '<td style="padding:6px 8px;border:1px solid var(--br);text-align:center">' + (a.am?'✔':'—') + '</td>' +
+      '<td style="padding:6px 8px;border:1px solid var(--br);text-align:center">' + (a.pm?'✔':'—') + '</td>' +
+      '<td style="padding:6px 8px;border:1px solid var(--br);text-align:center">' + (a.ot?a.ot+'h':'—') + '</td></tr>';
+  }).join('');
+
+  var expRows = exp.map(function(e) {
+    return '<tr><td style="padding:6px 8px;border:1px solid var(--br)">' + esc(e.item) + '</td>' +
+      '<td style="padding:6px 8px;border:1px solid var(--br);text-align:center">' + (e.inv?'✔':'—') + '</td>' +
+      '<td style="padding:6px 8px;border:1px solid var(--br);text-align:center">' + (e.cash?'$'+Number(e.cash).toLocaleString():'—') + '</td>' +
+      '<td style="padding:6px 8px;border:1px solid var(--br);text-align:center">' + (e.card?'$'+Number(e.card).toLocaleString():'—') + '</td></tr>';
+  }).join('');
+
+  var rows = [
+    ['填表日期', esc(rpt.date||'')],
+    ['填報者', esc(rpt.reporter||'')],
+    ['工程名稱', esc(rpt.project||'')]
+  ];
+
+  var infoHtml = rows.map(function(r) {
+    return '<div style="display:flex;padding:8px 0;border-bottom:1px solid var(--br)">' +
+      '<span style="color:var(--mu);min-width:80px;font-size:13px">' + r[0] + '</span>' +
+      '<span style="font-weight:600;font-size:14px">' + r[1] + '</span></div>';
+  }).join('');
 
   document.getElementById('editModalContent').innerHTML =
-    '<div style="display:flex;flex-direction:column;gap:12px">' +
-    '<div style="background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:10px 14px;font-size:13px;color:#856404;text-align:center">&#x1F441;&#xFE0F; 閱覽模式｜此頁面僅供查看</div>' +
-    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">' +
-      '<div style="background:var(--st);border-radius:8px;padding:10px"><div style="font-size:11px;color:var(--mu);margin-bottom:3px">填表日期</div><div style="font-weight:700">' + esc(rpt.date) + '</div></div>' +
-      '<div style="background:var(--st);border-radius:8px;padding:10px"><div style="font-size:11px;color:var(--mu);margin-bottom:3px">填報者</div><div style="font-weight:700">' + esc(rpt.reporter) + '</div></div>' +
-      '<div style="background:var(--st);border-radius:8px;padding:10px;grid-column:span 2"><div style="font-size:11px;color:var(--mu);margin-bottom:3px">工程名稱</div><div style="font-weight:700">' + esc(rpt.project) + '</div></div>' +
+    '<div style="background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:8px 12px;font-size:13px;color:#856404;text-align:center;margin-bottom:12px">👁️ 閱覽模式｜僅供查看</div>' +
+    '<div style="margin-bottom:12px">' + infoHtml + '</div>' +
+    (rpt.workItems ? '<div style="margin-bottom:12px"><div style="font-size:12px;color:var(--mu);font-weight:700;margin-bottom:4px">施工項目</div><div style="background:var(--st);border-radius:8px;padding:10px;font-size:14px;line-height:1.7;white-space:pre-wrap">' + esc(rpt.workItems) + '</div></div>' : '') +
+    (attRows ? '<div style="margin-bottom:12px"><div style="font-size:12px;color:var(--mu);font-weight:700;margin-bottom:4px">出工人員</div><table style="width:100%;border-collapse:collapse;font-size:13px"><tr style="background:var(--hbg)"><th style="padding:6px 8px;border:1px solid var(--br)">姓名</th><th style="padding:6px 8px;border:1px solid var(--br)">上午</th><th style="padding:6px 8px;border:1px solid var(--br)">下午</th><th style="padding:6px 8px;border:1px solid var(--br)">加班</th></tr>' + attRows + '</table></div>' : '') +
+    (expRows ? '<div style="margin-bottom:12px"><div style="font-size:12px;color:var(--mu);font-weight:700;margin-bottom:4px">公款支出</div><table style="width:100%;border-collapse:collapse;font-size:13px"><tr style="background:var(--hbg)"><th style="padding:6px 8px;border:1px solid var(--br)">項目</th><th style="padding:6px 8px;border:1px solid var(--br)">發票</th><th style="padding:6px 8px;border:1px solid var(--br)">現金</th><th style="padding:6px 8px;border:1px solid var(--br)">刷卡</th></tr>' + expRows + '</table></div>' : '') +
+    '<div style="background:#eaf4ec;border-radius:8px;padding:12px;font-size:13px">' +
+      '<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:var(--mu)">接收現金</span><span style="font-weight:600">$' + Number(rpt.receiptCash||0).toLocaleString() + '</span></div>' +
+      '<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:var(--mu)">現金支出</span><span style="font-weight:600">$' + Number(rpt.totalCash||0).toLocaleString() + '</span></div>' +
+      '<div style="height:1px;background:var(--br);margin:6px 0"></div>' +
+      '<div style="display:flex;justify-content:space-between"><span style="font-weight:700">現金剩餘公款</span><span style="font-weight:900;color:var(--grn);font-size:16px">$' + Number(rpt.remaining||0).toLocaleString() + '</span></div>' +
     '</div>' +
-    (rpt.workItems ? '<div><div style="font-size:12px;color:var(--mu);font-weight:700;margin-bottom:4px">施工項目</div><div style="background:var(--st);border-radius:8px;padding:10px;font-size:14px;line-height:1.7;white-space:pre-wrap">' + esc(rpt.workItems) + '</div></div>' : '') +
-    (attRows ? '<div><div style="font-size:12px;color:var(--mu);font-weight:700;margin-bottom:4px">出工人員</div><table style="width:100%;border-collapse:collapse;font-size:13px"><tr style="background:var(--hbg)"><th style="padding:6px 8px;border:1px solid var(--br)">姓名</th><th style="padding:6px 8px;border:1px solid var(--br)">上午</th><th style="padding:6px 8px;border:1px solid var(--br)">下午</th><th style="padding:6px 8px;border:1px solid var(--br)">加班</th></tr>' + attRows + '</table></div>' : '') +
-    (expRows ? '<div><div style="font-size:12px;color:var(--mu);font-weight:700;margin-bottom:4px">公款支出</div><table style="width:100%;border-collapse:collapse;font-size:13px"><tr style="background:var(--hbg)"><th style="padding:6px 8px;border:1px solid var(--br)">項目</th><th style="padding:6px 8px;border:1px solid var(--br)">發票</th><th style="padding:6px 8px;border:1px solid var(--br)">現金</th><th style="padding:6px 8px;border:1px solid var(--br)">刷卡</th></tr>' + expRows + '</table></div>' : '') +
-    (photoHtml ? '<div><div style="font-size:12px;color:var(--mu);font-weight:700;margin-bottom:4px">發票照片</div><div style="display:flex;flex-wrap:wrap">' + photoHtml + '</div></div>' : '') +
-    '<div style="background:#eaf4ec;border-radius:8px;padding:10px;display:flex;flex-direction:column;gap:4px;font-size:13px">' +
-      '<div style="display:flex;justify-content:space-between"><span style="color:var(--mu)">接收現金</span><span style="font-weight:700">$' + Number(rpt.receiptCash||0).toLocaleString() + '</span></div>' +
-      '<div style="display:flex;justify-content:space-between"><span style="color:var(--mu)">現金支出</span><span style="font-weight:700">$' + Number(rpt.totalCash||0).toLocaleString() + '</span></div>' +
-      '<div style="display:flex;justify-content:space-between"><span style="color:var(--mu)">刷卡支出</span><span style="font-weight:700">$' + Number(rpt.totalCard||0).toLocaleString() + '</span></div>' +
-      '<div style="height:1px;background:var(--br)"></div>' +
-      '<div style="display:flex;justify-content:space-between;font-size:15px"><span style="font-weight:700">現金剩餘公款</span><span style="font-weight:900;color:var(--grn)">$' + Number(rpt.remaining||0).toLocaleString() + '</span></div>' +
-    '</div>' +
-    (rpt.editedAt ? '<div style="background:#fff3cd;border-radius:8px;padding:8px 12px;font-size:12px;color:#856404">✏️ 修正者：' + esc(rpt.editedBy) + '　修正時間：' + esc(rpt.editedAt) + '</div>' : '') +
-    '</div>';
+    (rpt.editedAt ? '<div style="margin-top:10px;background:#fff3cd;border-radius:8px;padding:8px 12px;font-size:12px;color:#856404">✏️ 修正者：' + esc(rpt.editedBy) + '　時間：' + esc(rpt.editedAt) + '</div>' : '');
 
-  // 隱藏儲存和刪除按鈕，只顯示關閉
   document.getElementById('saveEditBtn').style.display = 'none';
   var delBtn = document.getElementById('delEditBtn');
   if (delBtn) delBtn.style.display = 'none';
-
   document.getElementById('editModal').classList.add('show');
 }
 
@@ -1303,61 +1304,65 @@ function saveEdit() {
 }
 
 function sendToGAS(data, btn) {
-  // 分離照片，避免 URL 過長
-  var dataNoPhoto = JSON.parse(JSON.stringify(data));
-  var savedPhotos = [];
-  if (dataNoPhoto.data && dataNoPhoto.data.expenses) {
-    dataNoPhoto.data.expenses.forEach(function(ex) {
-      savedPhotos.push(ex.photos ? ex.photos.slice() : []);
-      ex.photos = [];
+  // 照片壓縮後直接包含在 payload
+  var payload = JSON.parse(JSON.stringify(data));
+
+  function doSend() {
+    var url = API + '?payload=' + encodeURIComponent(JSON.stringify(payload));
+    fetch(url, { redirect: 'follow' })
+      .then(function(r) { return r.text(); })
+      .then(function(text) {
+        var res; try { res = JSON.parse(text); } catch(e) { res = {ok:true}; }
+        if (btn) { btn.textContent = '儲存'; btn.disabled = false; }
+        showToast('已更新！');
+        closeEditModal();
+        _reportCache = null;
+        setTimeout(function() {
+          if (document.getElementById('pageAdmin').classList.contains('show')) loadAllReports();
+          else loadHistory();
+        }, 800);
+      })
+      .catch(function() {
+        // 備用 no-cors
+        fetch(url, {mode:'no-cors'})
+          .then(function() {
+            if (btn) { btn.textContent = '儲存'; btn.disabled = false; }
+            showToast('已更新！');
+            closeEditModal();
+            _reportCache = null;
+            setTimeout(function() {
+              if (document.getElementById('pageAdmin').classList.contains('show')) loadAllReports();
+              else loadHistory();
+            }, 1500);
+          })
+          .catch(function() {
+            if (btn) { btn.textContent = '儲存'; btn.disabled = false; }
+            showToast('儲存失敗，請重試');
+          });
+      });
+  }
+
+  // 壓縮所有照片
+  var compressJobs = [];
+  if (payload.data && payload.data.expenses) {
+    payload.data.expenses.forEach(function(ex, ei) {
+      (ex.photos || []).forEach(function(src, pi) {
+        if (src && src.indexOf('data:image') === 0) {
+          compressJobs.push(
+            compressPhoto(src, 400, 0.4).then(function(c) {
+              payload.data.expenses[ei].photos[pi] = c;
+            })
+          );
+        }
+      });
     });
   }
 
-  var url = API + '?payload=' + encodeURIComponent(JSON.stringify(dataNoPhoto));
-
-  fetch(url, { redirect: 'follow' })
-    .then(function(r) { return r.text(); })
-    .then(function(text) {
-      var res; try { res = JSON.parse(text); } catch(e) { res = {ok:true}; }
-      if (res.ok === false) throw new Error(res.error || 'failed');
-
-      // 送照片（POST no-cors）
-      var hasPhotos = savedPhotos.some(function(p){ return p && p.length; });
-      if (hasPhotos && data.data) {
-        var photoPayload = {action:'edit', data:{id: data.data.id, expenses: JSON.parse(JSON.stringify(data.data.expenses || []))}};
-        photoPayload.data.expenses.forEach(function(ex, i){ ex.photos = savedPhotos[i] || []; });
-        photoPayload.data.expensesOnly = true;
-        var form = new FormData();
-        form.append('payload', JSON.stringify(photoPayload));
-        fetch(API, {method:'POST', body:form, mode:'no-cors'});
-      }
-
-      if (btn) { btn.textContent = '儲存'; btn.disabled = false; }
-      showToast('已更新！');
-      closeEditModal();
-      _reportCache = null;
-      setTimeout(function() {
-        if (document.getElementById('pageAdmin').classList.contains('show')) loadAllReports();
-        else loadHistory();
-      }, 800);
-    })
-    .catch(function() {
-      fetch(url, {mode:'no-cors'})
-        .then(function() {
-          if (btn) { btn.textContent = '儲存'; btn.disabled = false; }
-          showToast('已更新！');
-          closeEditModal();
-          _reportCache = null;
-          setTimeout(function() {
-            if (document.getElementById('pageAdmin').classList.contains('show')) loadAllReports();
-            else loadHistory();
-          }, 1500);
-        })
-        .catch(function() {
-          if (btn) { btn.textContent = '儲存'; btn.disabled = false; }
-          showToast('儲存失敗，請重試');
-        });
-    });
+  if (compressJobs.length > 0) {
+    Promise.all(compressJobs).then(doSend).catch(doSend);
+  } else {
+    doSend();
+  }
 }
 </script>
 </body>

@@ -1141,7 +1141,9 @@ function doOpenEditModal(rpt) {
     });
   });
 
+  showToast('開啟Modal');
   document.getElementById('editModal').classList.add('show');
+  showToast('Modal已開啟');
 
   // 非同步載入照片到編輯框
   var needPhotos = (rpt.expenses || []).some(function(ex){ return ex.photoCount > 0 && (!ex.photos || !ex.photos.length); });

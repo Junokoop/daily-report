@@ -291,7 +291,7 @@ table.st{width:100%;border-collapse:collapse;border-top:1.5px solid var(--bd)}
 </div>
 
 <script>
-var API = 'https://script.google.com/macros/s/AKfycbzOook4qiIQC0m_LHCc3xPRqAIr3GRbowmS0fet-74jKSkR85r_Am0lbu943--3DfYq/exec';
+var API = 'https://script.google.com/macros/s/AKfycbz5S9ZRLlgfxx1t_sMU5z3g53iVgQx4qhdmtpF1SAtCQELKoUxvQElrI5XucEF3P2s/exec';
 var ADMIN_PW = '1234';
 var REPORTERS_KEY = 'gas_reporters';
 var currentReporter = '';
@@ -454,7 +454,7 @@ function fetchReports(forceRefresh) {
   if (!forceRefresh && _reportCache && (now - _reportCacheTime) < CACHE_TTL) {
     return Promise.resolve(_reportCache);
   }
-  var url = API + '?action=list&t=' + now;
+  var url = API + '?action=list&noPhotos=1&t=' + now;
   return fetch(url)
     .then(function(r) { return r.text(); })
     .then(function(text) {
@@ -620,19 +620,52 @@ function submitReport() {
       }
     } catch(e) {  }
 
-    var submitUrl = API + '?payload=' + encodeURIComponent(JSON.stringify(report));
+    // 分離照片
+    var reportNoPhoto = JSON.parse(JSON.stringify(report));
+    var subPhotos = [];
+    reportNoPhoto.expenses.forEach(function(ex) {
+      subPhotos.push(ex.photos ? ex.photos.slice() : []);
+      ex.photos = [];
+    });
+
+    var submitUrl = API + '?payload=' + encodeURIComponent(JSON.stringify(reportNoPhoto));
     fetch(submitUrl, { redirect: 'follow' })
       .then(function(r) { return r.text(); })
       .then(function(text) {
         var res; try { res = JSON.parse(text); } catch(e) { res = {ok:true}; }
         btn.textContent = '上傳報表'; btn.disabled = false;
-        if (res.ok !== false) { showToast('報表已成功上傳！'); doReset(); _reportCache = null; setTimeout(function(){ loadAccum(); }, 1000); }
-        else { showToast('上傳失敗：' + (res.error || '')); }
+        if (res.ok !== false) {
+          // 送照片
+          var hasPhotos = subPhotos.some(function(p){ return p && p.length; });
+          if (hasPhotos) {
+            var photoReport = JSON.parse(JSON.stringify(reportNoPhoto));
+            photoReport.expenses.forEach(function(ex, i){ ex.photos = subPhotos[i] || []; });
+            photoReport.photosOnly = true;
+            var form = new FormData();
+            form.append('payload', JSON.stringify(photoReport));
+            fetch(API, {method:'POST', body:form, mode:'no-cors'});
+          }
+          showToast('報表已成功上傳！');
+          doReset();
+          _reportCache = null;
+          setTimeout(function(){ loadAccum(); }, 800);
+        } else {
+          showToast('上傳失敗：' + (res.error || ''));
+        }
       })
       .catch(function() {
-        fetch(submitUrl, { mode: 'no-cors' })
-          .then(function() { btn.textContent = '上傳報表'; btn.disabled = false; showToast('報表已成功上傳！'); doReset(); _reportCache = null; setTimeout(function(){ loadAccum(); }, 1500); })
-          .catch(function() { btn.textContent = '上傳報表'; btn.disabled = false; showToast('網路錯誤，請重試'); });
+        fetch(submitUrl, {mode:'no-cors'})
+          .then(function() {
+            btn.textContent = '上傳報表'; btn.disabled = false;
+            showToast('報表已成功上傳！');
+            doReset();
+            _reportCache = null;
+            setTimeout(function(){ loadAccum(); }, 1500);
+          })
+          .catch(function() {
+            btn.textContent = '上傳報表'; btn.disabled = false;
+            showToast('網路錯誤，請重試');
+          });
       });
   })();
 }
@@ -683,12 +716,17 @@ function loadAllReports() {
       try { updateFilterDropdown(); } catch(e) {}
       try { renderSummaryTable(allReports); } catch(e) {}
       try { renderNotifyList(allReports); } catch(e) {}
-      try { renderAllReports(allReports); } catch(e) {
-        listEl.innerHTML = '<div class="empty"><div class="ei">❌</div><p>載入失敗，請重新整理頁面</p></div>';
+      // renderAllReports 最後執行，確保前面錯誤不影響它
+      listEl.innerHTML = '';
+      allReports.forEach(function(rpt) {
+        try { listEl.appendChild(buildCard(rpt, true)); } catch(e) {}
+      });
+      if (!listEl.childNodes.length) {
+        listEl.innerHTML = '<div class="empty"><div class="ei">📭</div><p>尚無報表</p></div>';
       }
     })
     .catch(function(err) {
-      listEl.innerHTML = '<div class="empty"><div class="ei">❌</div><p>載入失敗：' + (err ? err.message : '') + '</p></div>';
+      listEl.innerHTML = '<div class="empty"><div class="ei">❌</div><p>載入失敗，請重新整理頁面</p></div>';
     });
 }
 
@@ -843,7 +881,14 @@ function buildCard(rpt, isAdminView) {
     body.innerHTML += h2 + '</table></div>';
     var allPhotos = [];
     rpt.expenses.forEach(function(e) { if (e.photos && e.photos.length) allPhotos = allPhotos.concat(e.photos); });
-    if (allPhotos.length) {
+    // 計算照片總數（含 photoCount 欄位）
+    var totalPhotoCount = 0;
+    rpt.expenses.forEach(function(e) {
+      if (e.photos && e.photos.length) totalPhotoCount += e.photos.length;
+      else if (e.photoCount) totalPhotoCount += e.photoCount;
+    });
+    if (allPhotos.length > 0) {
+      // 有實際照片（非 noPhotos 模式）
       var photoContainer = document.createElement('div');
       photoContainer.className = 'rbs';
       photoContainer.innerHTML = '<div class="rbl">發票照片（' + allPhotos.length + '張）</div>';
@@ -858,6 +903,12 @@ function buildCard(rpt, isAdminView) {
       });
       photoContainer.appendChild(photoWrap);
       body.appendChild(photoContainer);
+    } else if (totalPhotoCount > 0) {
+      // noPhotos 模式，只顯示張數
+      var photoContainer2 = document.createElement('div');
+      photoContainer2.className = 'rbs';
+      photoContainer2.innerHTML = '<div class="rbl">發票照片</div><div style="font-size:13px;color:var(--mu);margin-top:4px">共 ' + totalPhotoCount + ' 張（照片存於試算表）</div>';
+      body.appendChild(photoContainer2);
     }
   }
   var settlDiv = document.createElement('div');
@@ -1229,48 +1280,62 @@ function saveEdit() {
 }
 
 function sendToGAS(data, btn) {
-  var url = API + '?payload=' + encodeURIComponent(JSON.stringify(data));
-  // 先試普通 fetch（可以拿到回應確認）
+  // 分離照片，避免 URL 過長
+  var dataNoPhoto = JSON.parse(JSON.stringify(data));
+  var savedPhotos = [];
+  if (dataNoPhoto.data && dataNoPhoto.data.expenses) {
+    dataNoPhoto.data.expenses.forEach(function(ex) {
+      savedPhotos.push(ex.photos ? ex.photos.slice() : []);
+      ex.photos = [];
+    });
+  }
+
+  var url = API + '?payload=' + encodeURIComponent(JSON.stringify(dataNoPhoto));
+
   fetch(url, { redirect: 'follow' })
-    .then(function(r) {
-      if (!r.ok && r.status !== 0) throw new Error('HTTP ' + r.status);
-      return r.text();
-    })
+    .then(function(r) { return r.text(); })
     .then(function(text) {
-      var res;
-      try { res = JSON.parse(text); } catch(e) { res = {ok: true}; }
-      if (btn) { btn.textContent = '儲存'; btn.disabled = false; }
-      if (res.ok !== false) {
-        showToast('已更新！');
-        closeEditModal();
-        _reportCache = null;
-        setTimeout(function() {
-          if (document.getElementById('pageAdmin').classList.contains('show')) loadAllReports();
-          else loadHistory();
-        }, 1000);
-      } else {
-        showToast('儲存失敗：' + (res.error || ''));
+      var res; try { res = JSON.parse(text); } catch(e) { res = {ok:true}; }
+      if (res.ok === false) throw new Error(res.error || 'failed');
+
+      // 送照片（POST no-cors）
+      var hasPhotos = savedPhotos.some(function(p){ return p && p.length; });
+      if (hasPhotos && data.data) {
+        var photoPayload = {action:'edit', data:{id: data.data.id, expenses: JSON.parse(JSON.stringify(data.data.expenses || []))}};
+        photoPayload.data.expenses.forEach(function(ex, i){ ex.photos = savedPhotos[i] || []; });
+        photoPayload.data.expensesOnly = true;
+        var form = new FormData();
+        form.append('payload', JSON.stringify(photoPayload));
+        fetch(API, {method:'POST', body:form, mode:'no-cors'});
       }
+
+      if (btn) { btn.textContent = '儲存'; btn.disabled = false; }
+      showToast('已更新！');
+      closeEditModal();
+      _reportCache = null;
+      setTimeout(function() {
+        if (document.getElementById('pageAdmin').classList.contains('show')) loadAllReports();
+        else loadHistory();
+      }, 800);
     })
     .catch(function() {
-      // 備用：no-cors（送出但拿不到回應）
-      fetch(url, { mode: 'no-cors' }).then(function() {
-        if (btn) { btn.textContent = '儲存'; btn.disabled = false; }
-        showToast('已更新！');
-        closeEditModal();
-        _reportCache = null;
-        setTimeout(function() {
-          if (document.getElementById('pageAdmin').classList.contains('show')) loadAllReports();
-          else loadHistory();
-        }, 2000);
-      }).catch(function() {
-        if (btn) { btn.textContent = '儲存'; btn.disabled = false; }
-        showToast('儲存失敗，請重試');
-      });
+      fetch(url, {mode:'no-cors'})
+        .then(function() {
+          if (btn) { btn.textContent = '儲存'; btn.disabled = false; }
+          showToast('已更新！');
+          closeEditModal();
+          _reportCache = null;
+          setTimeout(function() {
+            if (document.getElementById('pageAdmin').classList.contains('show')) loadAllReports();
+            else loadHistory();
+          }, 1500);
+        })
+        .catch(function() {
+          if (btn) { btn.textContent = '儲存'; btn.disabled = false; }
+          showToast('儲存失敗，請重試');
+        });
     });
 }
-
-
 </script>
 </body>
 </html>

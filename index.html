@@ -1104,17 +1104,7 @@ function doOpenEditModal(rpt) {
   exp.forEach(function(ex, ei) {
     var epIdx = 'ep' + ei;
     window._editExpPhotoMap[epIdx] = ex.photos ? ex.photos.slice() : [];
-    var existingPhotos = '';
-    if (ex.photos && ex.photos.length) {
-      ex.photos.forEach(function(src, pi) {
-        var epId = epIdx;
-        var pIdx = pi;
-        existingPhotos += '<div style="position:relative;display:inline-block;margin:4px">' +
-          '<img src="' + src + '" onclick="openPhotoOverlay(this.src)" style="width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--br);cursor:pointer;display:block">' +
-          '<button type="button" data-ep="' + epIdx + '" data-pi="' + pi + '" onclick="doRemoveEditPhoto(this)" style="position:absolute;top:-8px;right:-8px;width:22px;height:22px;border-radius:50%;background:#9b2226;color:#fff;border:none;font-size:12px;font-weight:700;cursor:pointer;line-height:22px;text-align:center;padding:0;z-index:10">&#x2715;</button>' +
-        '</div>';
-      });
-    }
+    var hasPhotos = ex.photos && ex.photos.length > 0;
     expHtml += '<div class="ec" style="margin-bottom:6px" data-ep-idx="' + epIdx + '">' +
       '<div class="er"><span class="el">購買項目</span><input type="text" class="edit-exp-item" value="' + esc(ex.item) + '"><button class="db" type="button" onclick="this.closest(\'.ec\').remove()">✕</button></div>' +
       '<div class="er"><span class="el">發票</span><div class="ivw"><input type="checkbox" class="edit-exp-inv"' + (ex.inv ? ' checked' : '') + '><span>已附發票</span>' +
@@ -1123,15 +1113,11 @@ function doOpenEditModal(rpt) {
         '<input type="file" accept="image/*" multiple style="display:none" class="edit-inv-file-input">' +
         '<input type="file" accept="image/*" capture="environment" style="display:none" class="edit-inv-camera-input">' +
       '</div></div>' +
-      '<div class="inv-photos-row" style="' + (window._editExpPhotoMap[epIdx].length ? 'display:flex' : 'display:none') + ';padding:6px 14px;gap:4px;flex-wrap:wrap">' + existingPhotos + '</div>' +
+      '<div class="inv-photos-row" style="' + (hasPhotos ? 'display:flex' : 'display:none') + ';padding:8px 14px;gap:8px;flex-wrap:wrap;overflow:visible"></div>' +
       '<div class="er"><span class="el">現金金額</span><input type="number" class="edit-exp-cash" value="' + (ex.cash || 0) + '" min="0" inputmode="numeric"></div>' +
       '<div class="er"><span class="el">刷卡金額</span><input type="number" class="edit-exp-card" value="' + (ex.card || 0) + '" min="0" inputmode="numeric"></div>' +
     '</div>';
   });
-  var d = rpt.date || '';
-  var yr = d.replace(/年.*/, '');
-  var mo = d.replace(/.*年/, '').replace(/月.*/, '');
-  var dy = d.replace(/.*月/, '').replace(/日.*/, '');
   document.getElementById('editModalContent').innerHTML =
     '<div style="display:flex;flex-direction:column;gap:14px">' +
     '<div><div class="mlbl" style="margin-bottom:6px">填表日期</div><div class="dgrp"><input class="di" id="editY" value="' + yr + '" style="width:60px"> 年 <input class="di" id="editM" value="' + mo + '" style="width:46px"> 月 <input class="di" id="editD" value="' + dy + '" style="width:46px"> 日</div></div>' +
@@ -1145,6 +1131,38 @@ function doOpenEditModal(rpt) {
   document.getElementById('saveEditBtn').style.display = '';
   var delBtnEl2 = document.getElementById('delEditBtn');
   if (delBtnEl2) delBtnEl2.style.display = '';
+
+  // 用 DOM 操作插入照片（避免 innerHTML 字串太長）
+  exp.forEach(function(ex, ei) {
+    var epIdx = 'ep' + ei;
+    var photos = window._editExpPhotoMap[epIdx] || [];
+    if (!photos.length) return;
+    var ec = document.querySelector('[data-ep-idx="' + epIdx + '"]');
+    if (!ec) return;
+    var row = ec.querySelector('.inv-photos-row');
+    if (!row) return;
+    row.style.display = 'flex';
+    row.innerHTML = '';
+    photos.forEach(function(src, pi) {
+      var wrap = document.createElement('div');
+      wrap.style.cssText = 'position:relative;display:inline-block;margin-top:4px';
+      var img = document.createElement('img');
+      img.src = src;
+      img.style.cssText = 'width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--br);cursor:pointer;display:block';
+      img.onclick = (function(s){ return function(){ openPhotoOverlay(s); }; })(src);
+      var delBtn = document.createElement('button');
+      delBtn.type = 'button';
+      delBtn.textContent = '✕';
+      delBtn.style.cssText = 'position:absolute;top:-8px;right:-8px;width:22px;height:22px;border-radius:50%;background:#9b2226;color:#fff;border:none;font-size:12px;font-weight:700;cursor:pointer;line-height:22px;text-align:center;padding:0;z-index:10';
+      delBtn.setAttribute('data-ep', epIdx);
+      delBtn.setAttribute('data-pi', pi);
+      delBtn.onclick = function(e) { e.stopPropagation(); doRemoveEditPhoto(this); };
+      wrap.appendChild(img);
+      wrap.appendChild(delBtn);
+      row.appendChild(wrap);
+    });
+  });
+
   document.getElementById('editModal').classList.add('show');
 }
 

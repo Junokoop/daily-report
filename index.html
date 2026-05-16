@@ -639,38 +639,27 @@ function submitReport() {
       ex.photos = [];
     });
 
-    var submitUrl = API + '?payload=' + encodeURIComponent(JSON.stringify(reportNoPhoto));
-    fetch(submitUrl, { redirect: 'follow' })
+    // 照片放回 report
+    reportNoPhoto.expenses.forEach(function(ex, i){ ex.photos = subPhotos[i] || []; });
+    var submitForm = new FormData();
+    submitForm.append('payload', JSON.stringify(reportNoPhoto));
+    fetch(API, { method: 'POST', body: submitForm })
       .then(function(r) { return r.text(); })
       .then(function(text) {
         var res; try { res = JSON.parse(text); } catch(e) { res = {ok:true}; }
         btn.textContent = '上傳報表'; btn.disabled = false;
         if (res.ok !== false) {
-          // 送照片
-          var hasPhotos = subPhotos.some(function(p){ return p && p.length; });
-          if (hasPhotos) {
-            var photoReport = JSON.parse(JSON.stringify(reportNoPhoto));
-            photoReport.expenses.forEach(function(ex, i){ ex.photos = subPhotos[i] || []; });
-            photoReport.photosOnly = true;
-            var form = new FormData();
-            form.append('payload', JSON.stringify(photoReport));
-            fetch(API, {method:'POST', body:form, mode:'no-cors'});
-          }
-          showToast('報表已成功上傳！');
-          doReset();
-          _reportCache = null;
+          showToast('報表已成功上傳！'); doReset(); _reportCache = null;
           setTimeout(function(){ loadAccum(); }, 800);
-        } else {
-          showToast('上傳失敗：' + (res.error || ''));
-        }
+        } else { showToast('上傳失敗：' + (res.error||'')); }
       })
       .catch(function() {
-        fetch(submitUrl, {mode:'no-cors'})
+        var submitForm2 = new FormData();
+        submitForm2.append('payload', JSON.stringify(reportNoPhoto));
+        fetch(API, { method:'POST', body:submitForm2, mode:'no-cors' })
           .then(function() {
             btn.textContent = '上傳報表'; btn.disabled = false;
-            showToast('報表已成功上傳！');
-            doReset();
-            _reportCache = null;
+            showToast('報表已成功上傳！'); doReset(); _reportCache = null;
             setTimeout(function(){ loadAccum(); }, 1500);
           })
           .catch(function() {
@@ -1328,41 +1317,42 @@ function saveEdit() {
 }
 
 function sendToGAS(data, btn) {
-  // 照片壓縮後直接包含在 payload
   var payload = JSON.parse(JSON.stringify(data));
 
+  function onSuccess() {
+    if (btn) { btn.textContent = '儲存'; btn.disabled = false; }
+    showToast('已更新！');
+    closeEditModal();
+    _reportCache = null;
+    setTimeout(function() {
+      if (document.getElementById('pageAdmin').classList.contains('show')) loadAllReports();
+      else loadHistory();
+    }, 800);
+  }
+
+  function onFail() {
+    if (btn) { btn.textContent = '儲存'; btn.disabled = false; }
+    showToast('儲存失敗，請重試');
+  }
+
   function doSend() {
-    var url = API + '?payload=' + encodeURIComponent(JSON.stringify(payload));
-    fetch(url, { redirect: 'follow' })
+    var jsonStr = JSON.stringify(payload);
+    // 用 POST FormData（不受 URL 長度限制）
+    var form = new FormData();
+    form.append('payload', jsonStr);
+    fetch(API, { method: 'POST', body: form })
       .then(function(r) { return r.text(); })
       .then(function(text) {
         var res; try { res = JSON.parse(text); } catch(e) { res = {ok:true}; }
-        if (btn) { btn.textContent = '儲存'; btn.disabled = false; }
-        showToast('已更新！');
-        closeEditModal();
-        _reportCache = null;
-        setTimeout(function() {
-          if (document.getElementById('pageAdmin').classList.contains('show')) loadAllReports();
-          else loadHistory();
-        }, 800);
+        if (res.ok !== false) { onSuccess(); } else { onFail(); }
       })
       .catch(function() {
-        // 備用 no-cors
-        fetch(url, {mode:'no-cors'})
-          .then(function() {
-            if (btn) { btn.textContent = '儲存'; btn.disabled = false; }
-            showToast('已更新！');
-            closeEditModal();
-            _reportCache = null;
-            setTimeout(function() {
-              if (document.getElementById('pageAdmin').classList.contains('show')) loadAllReports();
-              else loadHistory();
-            }, 1500);
-          })
-          .catch(function() {
-            if (btn) { btn.textContent = '儲存'; btn.disabled = false; }
-            showToast('儲存失敗，請重試');
-          });
+        // 備用：no-cors POST（送出但不等回應）
+        var form2 = new FormData();
+        form2.append('payload', jsonStr);
+        fetch(API, { method: 'POST', body: form2, mode: 'no-cors' })
+          .then(onSuccess)
+          .catch(onFail);
       });
   }
 

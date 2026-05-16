@@ -1179,8 +1179,22 @@ function addEditAtt() {
 }
 
 function addEditExp() {
+  var epIdx = 'ep' + Date.now();
+  if (!window._editExpPhotoMap) window._editExpPhotoMap = {};
+  window._editExpPhotoMap[epIdx] = [];
   var div = document.createElement('div'); div.className = 'ec'; div.style.marginBottom = '6px';
-  div.innerHTML = '<div class="er"><span class="el">購買項目</span><input type="text" class="edit-exp-item" placeholder="項目名稱"><button class="db" type="button" onclick="this.closest(\'.ec\').remove()">✕</button></div><div class="er"><span class="el">發票</span><div class="ivw"><input type="checkbox" class="edit-exp-inv"><span>已附發票</span></div></div><div class="er"><span class="el">現金金額</span><input type="number" class="edit-exp-cash" value="0" min="0" inputmode="numeric"></div><div class="er"><span class="el">刷卡金額</span><input type="number" class="edit-exp-card" value="0" min="0" inputmode="numeric"></div>';
+  div.dataset.epIdx = epIdx;
+  div.innerHTML =
+    '<div class="er"><span class="el">購買項目</span><input type="text" class="edit-exp-item" placeholder="項目名稱"><button class="db" type="button" onclick="this.closest(\'.ec\').remove()">✕</button></div>' +
+    '<div class="er"><span class="el">發票</span><div class="ivw"><input type="checkbox" class="edit-exp-inv"><span>已附發票</span>' +
+    '<button class="inv-photo-btn" type="button" onclick="editExpPhotoUpload(this,\'' + epIdx + '\')">📁 上傳</button>' +
+    '<button class="inv-camera-btn" type="button" onclick="editExpPhotoCamera(this,\'' + epIdx + '\')">📷 拍照</button>' +
+    '<input type="file" accept="image/*" multiple style="display:none" class="edit-inv-file-input">' +
+    '<input type="file" accept="image/*" capture="environment" style="display:none" class="edit-inv-camera-input">' +
+    '</div></div>' +
+    '<div class="inv-photos-row" style="display:none;padding:8px 14px;gap:8px;flex-wrap:wrap;overflow:visible"></div>' +
+    '<div class="er"><span class="el">現金金額</span><input type="number" class="edit-exp-cash" value="0" min="0" inputmode="numeric"></div>' +
+    '<div class="er"><span class="el">刷卡金額</span><input type="number" class="edit-exp-card" value="0" min="0" inputmode="numeric"></div>';
   document.getElementById('editExpList').appendChild(div);
 }
 
@@ -1248,8 +1262,18 @@ function saveEdit() {
   document.getElementById('editExpList').querySelectorAll('.ec').forEach(function(c) {
     var item = c.querySelector('.edit-exp-item').value.trim();
     if (!item) return;
-    var epIdx = c.dataset.epIdx;
-    var photos = (window._editExpPhotoMap && window._editExpPhotoMap[epIdx]) ? window._editExpPhotoMap[epIdx] : [];
+    var epIdx = c.dataset.epIdx || '';
+    var photos = (epIdx && window._editExpPhotoMap && window._editExpPhotoMap[epIdx]) ? window._editExpPhotoMap[epIdx] : [];
+    // 也檢查 inv-photos-row 裡的圖片（備用）
+    if (!photos.length) {
+      var photoRow = c.querySelector('.inv-photos-row');
+      if (photoRow) {
+        var imgs = photoRow.querySelectorAll('img');
+        if (imgs.length) {
+          photos = Array.from(imgs).map(function(img){ return img.src; }).filter(function(s){ return s && s.indexOf('data:')===0; });
+        }
+      }
+    }
     exp.push({
       item: item,
       inv: c.querySelector('.edit-exp-inv').checked,

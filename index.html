@@ -929,28 +929,16 @@ function buildCard(rpt, isAdminView) {
     } else if (totalPhotoCount > 0) {
       var photoContainer2 = document.createElement('div');
       photoContainer2.className = 'rbs';
-      photoContainer2.innerHTML = '<div class="rbl">發票照片</div>';
+      var photoLabel = document.createElement('div');
+      photoLabel.className = 'rbl';
+      photoLabel.textContent = '發票照片';
+      photoContainer2.appendChild(photoLabel);
       var photoWrap2 = document.createElement('div');
       photoWrap2.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;margin-top:6px';
+      photoWrap2.dataset.rptId = rpt.id;
+      photoWrap2.dataset.loaded = '0';
       photoContainer2.appendChild(photoWrap2);
       body.appendChild(photoContainer2);
-      // 直接載入照片，img 用 src 一設定就開始顯示縮圖
-      (function(rptId, wrap) {
-        fetch(API + '?action=getphotos&id=' + rptId + '&t=' + Date.now())
-          .then(function(r) { return r.json(); })
-          .then(function(res) {
-            if (!res.ok || !res.photos || !res.photos.length) return;
-            res.photos.forEach(function(src) {
-              if (!src) return;
-              var img = document.createElement('img');
-              img.style.cssText = 'width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--br);cursor:pointer';
-              img.addEventListener('click', (function(s){ return function(){ openPhotoOverlay(s); }; })(src));
-              img.src = src;
-              wrap.appendChild(img);
-            });
-          })
-          .catch(function() {});
-      })(rpt.id, photoWrap2);
     }
   }
   var settlDiv = document.createElement('div');
@@ -993,7 +981,34 @@ function buildCard(rpt, isAdminView) {
     aw.appendChild(delBtn);
   }
   body.appendChild(aw);
-  head.onclick = function() { var isOpen = body.classList.contains('open'); body.classList.toggle('open', !isOpen); head.querySelector('.report-arrow').classList.toggle('open', !isOpen); };
+  head.onclick = function() {
+    var isOpen = body.classList.contains('open');
+    body.classList.toggle('open', !isOpen);
+    head.querySelector('.report-arrow').classList.toggle('open', !isOpen);
+    // 展開時載入照片
+    if (!isOpen) {
+      body.querySelectorAll('[data-rpt-id]').forEach(function(wrap) {
+        if (wrap.dataset.loaded === '0') {
+          wrap.dataset.loaded = '1';
+          var rptId = wrap.dataset.rptId;
+          fetch(API + '?action=getphotos&id=' + rptId + '&t=' + Date.now())
+            .then(function(r) { return r.json(); })
+            .then(function(res) {
+              if (!res.ok || !res.photos || !res.photos.length) { wrap.dataset.loaded = '0'; return; }
+              res.photos.forEach(function(src) {
+                if (!src) return;
+                var img = document.createElement('img');
+                img.style.cssText = 'width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--br);cursor:pointer';
+                img.src = src;
+                img.onclick = (function(s){ return function(e){ e.stopPropagation(); openPhotoOverlay(s); }; })(src);
+                wrap.appendChild(img);
+              });
+            })
+            .catch(function() { wrap.dataset.loaded = '0'; });
+        }
+      });
+    }
+  };
   wrap.appendChild(head); wrap.appendChild(body);
   return wrap;
 }

@@ -291,7 +291,7 @@ table.st{width:100%;border-collapse:collapse;border-top:1.5px solid var(--bd)}
 </div>
 
 <script>
-var API = 'https://script.google.com/macros/s/AKfycbz5S9ZRLlgfxx1t_sMU5z3g53iVgQx4qhdmtpF1SAtCQELKoUxvQElrI5XucEF3P2s/exec';
+var API = 'https://script.google.com/macros/s/AKfycbyw3eozaUHG438JYFHvrM_Oe9R0qLzEzaB-KpSbkAy-15YJpw3Mz_Rr7Zy6lQi6SKGj/exec';
 var ADMIN_PW = '1234';
 var REPORTERS_KEY = 'gas_reporters';
 var currentReporter = '';
@@ -455,12 +455,21 @@ function fetchReports(forceRefresh) {
     return Promise.resolve(_reportCache);
   }
   var url = API + '?action=list&noPhotos=1&t=' + now;
-  return fetch(url)
-    .then(function(r) { return r.text(); })
+  return fetch(url, { redirect: 'follow' })
+    .then(function(r) {
+      if (!r.ok && r.type !== 'opaque') throw new Error('HTTP ' + r.status);
+      return r.text();
+    })
     .then(function(text) {
+      if (!text || text.trim() === '') throw new Error('empty response');
       var res;
-      try { res = JSON.parse(text); } catch(e) { throw new Error('JSON parse error'); }
-      if (!res.ok) throw new Error(res.error || 'not ok');
+      try { res = JSON.parse(text); } catch(e) {
+        // GAS 有時回傳 HTML，找其中的 JSON
+        var match = text.match(/\{"ok":true.*\}/);
+        if (match) { try { res = JSON.parse(match[0]); } catch(e2) { throw new Error('parse fail'); } }
+        else throw new Error('not JSON');
+      }
+      if (!res || !res.ok) throw new Error(res ? (res.error || 'not ok') : 'no response');
       _reportCache = res.data;
       _reportCacheTime = Date.now();
       return res.data;
@@ -718,11 +727,23 @@ function loadAllReports() {
       try { renderNotifyList(allReports); } catch(e) {}
       // renderAllReports 最後執行，確保前面錯誤不影響它
       listEl.innerHTML = '';
-      allReports.forEach(function(rpt) {
-        try { listEl.appendChild(buildCard(rpt, true)); } catch(e) {}
+      var successCount = 0;
+      allReports.forEach(function(rpt, ri) {
+        try {
+          listEl.appendChild(buildCard(rpt, true));
+          successCount++;
+        } catch(e) {
+          // 顯示簡化卡片
+          var errDiv = document.createElement('div');
+          errDiv.className = 'report-card';
+          errDiv.style.padding = '12px 14px';
+          errDiv.innerHTML = '<div style="color:var(--mu);font-size:13px">&#x26A0;&#xFE0F; 報表 ' + (ri+1) + ' 顯示失敗<br>' +
+            esc(String(rpt.date||'')) + ' ' + esc(String(rpt.reporter||'')) + ' ' + esc(String(rpt.project||'')) + '</div>';
+          listEl.appendChild(errDiv);
+        }
       });
-      if (!listEl.childNodes.length) {
-        listEl.innerHTML = '<div class="empty"><div class="ei">📭</div><p>尚無報表</p></div>';
+      if (!successCount && !allReports.length) {
+        listEl.innerHTML = '<div class="empty"><div class="ei">&#x1F4EB;</div><p>尚無報表</p></div>';
       }
     })
     .catch(function(err) {

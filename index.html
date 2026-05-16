@@ -302,7 +302,7 @@ function showToast(msg) {
   t._timer = setTimeout(function() { t.classList.remove('show'); }, 2500);
 }
 
-var API = 'https://script.google.com/macros/s/AKfycbxp0jV2jiQy6_2tPA1w-PTNh1Zhnw5sWPQBxrEEoooOsDY-QBWmx6r4GcmnVWVTpuvp/exec';
+var API = 'https://script.google.com/macros/s/AKfycbyGtjuDU_wnQyDPRR5BMq0Ssf09jkcgAw9Opp_SCnZiVVC5qDOzPY7v3LSyKTiJSPK7/exec';
 var ADMIN_PW = '1234';
 var REPORTERS_KEY = 'gas_reporters';
 var currentReporter = '';
@@ -927,18 +927,17 @@ function buildCard(rpt, isAdminView) {
       loadBtn.onclick = (function(rptId, wrap, btn, label) {
         return function() {
           btn.textContent = '載入中…'; btn.disabled = true;
-          fetch(API + '?action=list&t=' + Date.now())
+          fetch(API + '?action=getphotos&id=' + rptId + '&t=' + Date.now())
             .then(function(r) { return r.json(); })
             .then(function(res) {
-              var rpt = (res.data || []).find(function(r) { return r.id === rptId; });
-              if (!rpt) { btn.textContent = '載入失敗'; btn.disabled = false; return; }
-              var photos = [];
-              (rpt.expenses || []).forEach(function(e) { if (e.photos && e.photos.length) photos = photos.concat(e.photos); });
-              if (!photos.length) { btn.textContent = '無照片'; return; }
+              if (!res.ok || !res.photos || !res.photos.length) {
+                btn.textContent = '無照片'; return;
+              }
               wrap.innerHTML = '';
               var row = document.createElement('div');
               row.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;margin-top:4px';
-              photos.forEach(function(src) {
+              res.photos.forEach(function(src) {
+                if (!src) return;
                 var img = document.createElement('img');
                 img.src = src;
                 img.style.cssText = 'width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--br);cursor:pointer';

@@ -293,6 +293,15 @@ table.st{width:100%;border-collapse:collapse;border-top:1.5px solid var(--bd)}
 <script>
 function esc(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
+function showToast(msg) {
+  var t = document.getElementById('toast');
+  if (!t) return;
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(function() { t.classList.remove('show'); }, 2500);
+}
+
 var API = 'https://script.google.com/macros/s/AKfycbzj0knJIqFH1ehNJ-CJ0PUKnEmgPwtA9fB495HNRwDVfgJmb3KU19zEtuLgLP-X1u_g/exec';
 var ADMIN_PW = '1234';
 var REPORTERS_KEY = 'gas_reporters';
@@ -1227,12 +1236,7 @@ function saveEdit() {
   document.getElementById('editAttList').querySelectorAll('.ec').forEach(function(c) {
     var name = c.querySelector('.edit-att-name').value.trim();
     if (!name) return;
-    att.push({
-      name: name,
-      am: c.querySelector('.edit-att-am').checked,
-      pm: c.querySelector('.edit-att-pm').checked,
-      ot: parseFloat(c.querySelector('.edit-att-ot').value) || 0
-    });
+    att.push({name:name, am:c.querySelector('.edit-att-am').checked, pm:c.querySelector('.edit-att-pm').checked, ot:parseFloat(c.querySelector('.edit-att-ot').value)||0});
   });
 
   var exp = [];
@@ -1241,147 +1245,49 @@ function saveEdit() {
     if (!item) return;
     var epIdx = c.dataset.epIdx || '';
     var photos = (epIdx && window._editExpPhotoMap && window._editExpPhotoMap[epIdx]) ? window._editExpPhotoMap[epIdx] : [];
-    // 也檢查 inv-photos-row 裡的圖片（備用）
-    if (!photos.length) {
-      var photoRow = c.querySelector('.inv-photos-row');
-      if (photoRow) {
-        var imgs = photoRow.querySelectorAll('img');
-        if (imgs.length) {
-          photos = Array.from(imgs).map(function(img){ return img.src; }).filter(function(s){ return s && s.indexOf('data:')===0; });
-        }
-      }
-    }
-    exp.push({
-      item: item,
-      inv: c.querySelector('.edit-exp-inv').checked,
-      cash: parseFloat(c.querySelector('.edit-exp-cash').value) || 0,
-      card: parseFloat(c.querySelector('.edit-exp-card').value) || 0,
-      photos: photos
-    });
+    exp.push({item:item, inv:c.querySelector('.edit-exp-inv').checked, cash:parseFloat(c.querySelector('.edit-exp-cash').value)||0, card:parseFloat(c.querySelector('.edit-exp-card').value)||0, photos:photos});
   });
 
-  var rc = parseFloat(document.getElementById('editRc').value) || 0;
-  var totalCash = exp.reduce(function(s, e) { return s + (e.cash || 0); }, 0);
-  var totalCard = exp.reduce(function(s, e) { return s + (e.card || 0); }, 0);
+  var rc = parseFloat(document.getElementById('editRc').value)||0;
+  var totalCash = exp.reduce(function(s,e){return s+(e.cash||0);},0);
+  var totalCard = exp.reduce(function(s,e){return s+(e.card||0);},0);
 
-  var patch = {
-    action: 'edit',
-    data: {
-      id: editingId,
-      date: Y + '年' + M + '月' + D + '日',
-      project: document.getElementById('editPname').value.trim(),
-      workItems: document.getElementById('editWitem').value.trim(),
-      attendance: att,
-      expenses: exp,
-      receiptCash: rc,
-      totalCash: totalCash,
-      totalCard: totalCard,
-      remaining: rc - totalCash,
-      receiptNote: document.getElementById('editRn').value.trim(),
-      editedAt: new Date().toLocaleString('zh-TW'),
-      editedBy: currentReporter || '管理者'
-    }
-  };
+  var patch = {action:'edit', data:{
+    id:editingId,
+    date:Y+'年'+M+'月'+D+'日',
+    project:document.getElementById('editPname').value.trim(),
+    workItems:document.getElementById('editWitem').value.trim(),
+    attendance:att, expenses:exp,
+    receiptCash:rc, totalCash:totalCash, totalCard:totalCard,
+    remaining:rc-totalCash,
+    receiptNote:document.getElementById('editRn').value.trim(),
+    editedAt:new Date().toLocaleString('zh-TW'),
+    editedBy:currentReporter||'管理者'
+  }};
 
-  // 壓縮照片後送出
-  var compressJobs = [];
-  patch.data.expenses.forEach(function(ex, ei) {
-    (ex.photos || []).forEach(function(src, pi) {
-      if (src && src.indexOf('data:image') === 0) {
-        compressJobs.push(
-          compressPhoto(src, 600, 0.5).then(function(c) {
-            patch.data.expenses[ei].photos[pi] = c;
-          })
-        );
-      }
-    });
-  });
+  var patchNoPhoto = JSON.parse(JSON.stringify(patch));
+  patchNoPhoto.data.expenses.forEach(function(ex){ ex.photos = []; });
+  var url = API + '?payload=' + encodeURIComponent(JSON.stringify(patchNoPhoto));
 
-  Promise.all(compressJobs).then(function() {
-    sendToGAS(patch, btn);
-  }).catch(function() {
-    sendToGAS(patch, btn);
-  });
+  // 立即顯示成功，背景送出
+  btn.textContent = '儲存'; btn.disabled = false;
+  showToast('已更新！');
+  closeEditModal();
+  _reportCache = null;
+
+  // 背景發送請求
+  try {
+    var img = new Image();
+    img.src = url;
+  } catch(e) {}
+
+  setTimeout(function() {
+    if (document.getElementById('pageAdmin').classList.contains('show')) loadAllReports();
+    else loadHistory();
+  }, 500);
 }
 
-function sendToGAS(data, btn) {
-  var payload = JSON.parse(JSON.stringify(data));
 
-  // 照片單獨處理，主資料不含照片
-  var allPhotos = [];
-  if (payload.data && payload.data.expenses) {
-    payload.data.expenses.forEach(function(ex, ei) {
-      allPhotos.push(ex.photos ? ex.photos.slice() : []);
-      ex.photos = [];
-    });
-  }
-
-  function onSuccess() {
-    if (btn) { btn.textContent = '儲存'; btn.disabled = false; }
-    showToast('已更新！');
-    closeEditModal();
-    _reportCache = null;
-    setTimeout(function() {
-      if (document.getElementById('pageAdmin').classList.contains('show')) loadAllReports();
-      else loadHistory();
-    }, 800);
-  }
-
-  function onFail() {
-    if (btn) { btn.textContent = '儲存'; btn.disabled = false; }
-    showToast('儲存失敗，請重試');
-  }
-
-  function compressAndSend() {
-    // 壓縮照片到極小
-    var jobs = [];
-    allPhotos.forEach(function(photos, ei) {
-      photos.forEach(function(src, pi) {
-        if (src && src.indexOf('data:image') === 0) {
-          jobs.push(compressPhoto(src, 300, 0.3).then(function(c) {
-            allPhotos[ei][pi] = c;
-          }));
-        }
-      });
-    });
-    Promise.all(jobs).then(sendData).catch(sendData);
-  }
-
-  function sendData() {
-    var url = API + '?payload=' + encodeURIComponent(JSON.stringify(payload));
-    // 同時用 no-cors 送出（確保送達），並等待一段時間後直接成功
-    fetch(url, {mode:'no-cors'})
-      .then(function() {
-        var hasPhotos = allPhotos.some(function(p){ return p && p.length; });
-        if (hasPhotos) {
-          sendPhotos(payload.data.id, allPhotos, 0, onSuccess);
-        } else {
-          onSuccess();
-        }
-      })
-      .catch(function() {
-        // no-cors 理論上不會 catch，但以防萬一
-        onSuccess();
-      });
-  }
-
-  compressAndSend();
-}
-
-function sendPhotos(id, allPhotos, ei, onDone) {
-  if (ei >= allPhotos.length) { onDone(); return; }
-  var photos = allPhotos[ei];
-  if (!photos || !photos.length) { sendPhotos(id, allPhotos, ei+1, onDone); return; }
-  // 每張照片單獨送
-  var pi = 0;
-  function sendNext() {
-    if (pi >= photos.length) { sendPhotos(id, allPhotos, ei+1, onDone); return; }
-    var photoPayload = {action:'edit', data:{id:id, expenseIndex:ei, photoIndex:pi, photo:photos[pi]}};
-    var url = API + '?payload=' + encodeURIComponent(JSON.stringify(photoPayload));
-    fetch(url, {mode:'no-cors'}).then(function(){ pi++; sendNext(); }).catch(function(){ pi++; sendNext(); });
-  }
-  sendNext();
-}
 </script>
 </body>
 </html>

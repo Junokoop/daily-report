@@ -291,6 +291,8 @@ table.st{width:100%;border-collapse:collapse;border-top:1.5px solid var(--bd)}
 </div>
 
 <script>
+function esc(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
 var API = 'https://script.google.com/macros/s/AKfycbyw3eozaUHG438JYFHvrM_Oe9R0qLzEzaB-KpSbkAy-15YJpw3Mz_Rr7Zy6lQi6SKGj/exec';
 var ADMIN_PW = '1234';
 var REPORTERS_KEY = 'gas_reporters';

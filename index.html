@@ -1064,35 +1064,7 @@ function openViewModal(rpt) {
 }
 
 function openEditModal(rpt) {
-  editingId = rpt.id;
-  // 如果 expenses 沒有照片（noPhotos 模式），先從 GAS 載入
-  var hasNoPhotos = (rpt.expenses || []).every(function(ex){ return !ex.photos || !ex.photos.length; });
-  var hasPhotoCount = (rpt.expenses || []).some(function(ex){ return ex.photoCount > 0; });
-  if (hasNoPhotos && hasPhotoCount) {
-    var opened = false;
-    function openNow() {
-      if (!opened) { opened = true; doOpenEditModal(rpt); }
-    }
-    // 5秒超時保護
-    setTimeout(openNow, 5000);
-    fetch(API + '?action=getphotos&id=' + rpt.id + '&t=' + Date.now())
-      .then(function(r) { return r.json(); })
-      .then(function(res) {
-        if (res.ok && res.photos && res.photos.length) {
-          var pi = 0;
-          (rpt.expenses || []).forEach(function(ex) {
-            ex.photos = [];
-            var count = ex.photoCount || 0;
-            for (var i = 0; i < count && pi < res.photos.length; i++, pi++) {
-              ex.photos.push(res.photos[pi]);
-            }
-          });
-        }
-        openNow();
-      })
-      .catch(openNow);
-    return;
-  }
+  // 直接開啟，照片在 Modal 開啟後非同步載入
   doOpenEditModal(rpt);
 }
 
@@ -1169,6 +1141,34 @@ function doOpenEditModal(rpt) {
   });
 
   document.getElementById('editModal').classList.add('show');
+
+  // 非同步載入照片到編輯框
+  var needPhotos = (rpt.expenses || []).some(function(ex){ return ex.photoCount > 0 && (!ex.photos || !ex.photos.length); });
+  if (needPhotos) {
+    fetch(API + '?action=getphotos&id=' + rpt.id + '&t=' + Date.now())
+      .then(function(r) { return r.json(); })
+      .then(function(res) {
+        if (!res.ok || !res.photos || !res.photos.length) return;
+        var pi = 0;
+        (rpt.expenses || []).forEach(function(ex, ei) {
+          var count = ex.photoCount || 0;
+          var epIdx = 'ep' + ei;
+          if (!count) return;
+          var photos = [];
+          for (var i = 0; i < count && pi < res.photos.length; i++, pi++) {
+            photos.push(res.photos[pi]);
+          }
+          window._editExpPhotoMap[epIdx] = photos;
+          // 找到對應的 inv-photos-row 並插入照片
+          var ec = document.querySelector('[data-ep-idx="' + epIdx + '"]');
+          if (!ec) return;
+          var row = ec.querySelector('.inv-photos-row');
+          if (!row) return;
+          renderEditInvPhotos(row, epIdx);
+        });
+      })
+      .catch(function() {});
+  }
 }
 
 function editExpPhotoUpload(btn, epIdx) {

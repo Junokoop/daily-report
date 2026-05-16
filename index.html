@@ -114,7 +114,7 @@ table.st{width:100%;border-collapse:collapse;border-top:1.5px solid var(--bd)}
 .summary-row{display:block;padding:12px 16px;border-bottom:1px solid var(--br)}
 .summary-row:last-child{border-bottom:none}
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;display:none;align-items:flex-end;justify-content:center}
-.photo-overlay{position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:500;display:none;align-items:center;justify-content:center;cursor:pointer}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}.photo-overlay{position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:500;display:none;align-items:center;justify-content:center;cursor:pointer}
 .photo-overlay.show{display:flex}
 .photo-overlay img{max-width:95vw;max-height:90vh;object-fit:contain;border-radius:8px}
 .modal-overlay.show{display:flex}
@@ -913,34 +913,25 @@ function buildCard(rpt, isAdminView) {
       photoContainer.appendChild(photoWrap);
       body.appendChild(photoContainer);
     } else if (totalPhotoCount > 0) {
-      // noPhotos 模式，自動載入縮圖
       var photoContainer2 = document.createElement('div');
       photoContainer2.className = 'rbs';
       photoContainer2.innerHTML = '<div class="rbl">發票照片</div>';
       var photoWrap2 = document.createElement('div');
       photoWrap2.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;margin-top:6px';
-      // 顯示佔位符
-      for (var pi2 = 0; pi2 < totalPhotoCount; pi2++) {
-        var placeholder = document.createElement('div');
-        placeholder.style.cssText = 'width:64px;height:64px;border-radius:6px;border:1px solid var(--br);background:#f0f0f0;display:flex;align-items:center;justify-content:center;font-size:18px';
-        placeholder.textContent = '🖼';
-        photoWrap2.appendChild(placeholder);
-      }
       photoContainer2.appendChild(photoWrap2);
       body.appendChild(photoContainer2);
-      // 背景自動載入
+      // 直接載入照片，img 用 src 一設定就開始顯示縮圖
       (function(rptId, wrap) {
         fetch(API + '?action=getphotos&id=' + rptId + '&t=' + Date.now())
           .then(function(r) { return r.json(); })
           .then(function(res) {
             if (!res.ok || !res.photos || !res.photos.length) return;
-            wrap.innerHTML = '';
             res.photos.forEach(function(src) {
               if (!src) return;
               var img = document.createElement('img');
-              img.src = src;
               img.style.cssText = 'width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--br);cursor:pointer';
-              img.onclick = (function(s){ return function(){ openPhotoOverlay(s); }; })(src);
+              img.addEventListener('click', (function(s){ return function(){ openPhotoOverlay(s); }; })(src));
+              img.src = src;
               wrap.appendChild(img);
             });
           })

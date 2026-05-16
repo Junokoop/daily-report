@@ -456,9 +456,11 @@ function fetchReports(forceRefresh) {
   }
   var url = API + '?action=list&t=' + now;
   return fetch(url)
-    .then(function(r) { return r.json(); })
-    .then(function(res) {
-      if (!res.ok) throw new Error(res.error);
+    .then(function(r) { return r.text(); })
+    .then(function(text) {
+      var res;
+      try { res = JSON.parse(text); } catch(e) { throw new Error('JSON parse error'); }
+      if (!res.ok) throw new Error(res.error || 'not ok');
       _reportCache = res.data;
       _reportCacheTime = Date.now();
       return res.data;
@@ -619,18 +621,19 @@ function submitReport() {
     } catch(e) {  }
 
     var submitUrl = API + '?payload=' + encodeURIComponent(JSON.stringify(report));
-        fetch(submitUrl)
-      .then(function(r) { return r.json(); })
-      .then(function(res) {
-                if (res.ok) { showToast('報表已成功上傳！'); doReset(); _reportCache = null; setTimeout(function(){ loadAccum(); }, 1000); }
+    fetch(submitUrl, { redirect: 'follow' })
+      .then(function(r) { return r.text(); })
+      .then(function(text) {
+        var res; try { res = JSON.parse(text); } catch(e) { res = {ok:true}; }
+        btn.textContent = '上傳報表'; btn.disabled = false;
+        if (res.ok !== false) { showToast('報表已成功上傳！'); doReset(); _reportCache = null; setTimeout(function(){ loadAccum(); }, 1000); }
         else { showToast('上傳失敗：' + (res.error || '')); }
       })
-      .catch(function(err) {
-                fetch(submitUrl, { mode: 'no-cors' })
-          .then(function() { showToast('報表已成功上傳！'); doReset(); _reportCache = null; setTimeout(function(){ loadAccum(); }, 1500); })
-          .catch(function() { showToast('網路錯誤，請重試'); });
-      })
-      .finally(function() { btn.textContent = '上傳報表'; btn.disabled = false; });
+      .catch(function() {
+        fetch(submitUrl, { mode: 'no-cors' })
+          .then(function() { btn.textContent = '上傳報表'; btn.disabled = false; showToast('報表已成功上傳！'); doReset(); _reportCache = null; setTimeout(function(){ loadAccum(); }, 1500); })
+          .catch(function() { btn.textContent = '上傳報表'; btn.disabled = false; showToast('網路錯誤，請重試'); });
+      });
   })();
 }
 
@@ -639,27 +642,35 @@ function loadHistory() {
   listEl.innerHTML = '<div class="loading">載入中…</div>';
   fetchReports(false)
     .then(function(data) {
-      data = data.filter(function(r) { return r.reporter === currentReporter; });
-      var res = { ok: true };
-      document.getElementById('historyCount').textContent = '共 ' + data.length + ' 筆';
-      if (data.length > 0) {
-        var lastRemain = parseFloat(data[0].remaining) || 0;
-        var lastReceipt = parseFloat(data[0].receiptCash) || 0;
-        var lastTotalCash = parseFloat(data[0].totalCash) || 0;
-        var isNeg = lastRemain < 0;
-        var color = isNeg ? 'var(--red)' : 'var(--grn)';
-        document.getElementById('historyLastRemain').textContent = '$' + lastRemain.toLocaleString();
-        document.getElementById('historyLastRemain').style.color = color;
-        document.getElementById('historyLastOut').textContent = '$' + lastReceipt.toLocaleString();
-        document.getElementById('historyLastTotalCash').textContent = '$' + lastTotalCash.toLocaleString();
-        document.getElementById('historyAccum').textContent = '$' + lastRemain.toLocaleString();
-        document.getElementById('historyAccum').style.color = color;
+      try {
+        data = data.filter(function(r) { return r.reporter === currentReporter; });
+        document.getElementById('historyCount').textContent = '共 ' + data.length + ' 筆';
+        if (data.length > 0) {
+          var lastRemain = parseFloat(data[0].remaining) || 0;
+          var lastReceipt = parseFloat(data[0].receiptCash) || 0;
+          var lastTotalCash = parseFloat(data[0].totalCash) || 0;
+          var isNeg = lastRemain < 0;
+          var color = isNeg ? 'var(--red)' : 'var(--grn)';
+          document.getElementById('historyLastRemain').textContent = '$' + lastRemain.toLocaleString();
+          document.getElementById('historyLastRemain').style.color = color;
+          document.getElementById('historyLastOut').textContent = '$' + lastReceipt.toLocaleString();
+          document.getElementById('historyLastTotalCash').textContent = '$' + lastTotalCash.toLocaleString();
+          document.getElementById('historyAccum').textContent = '$' + lastRemain.toLocaleString();
+          document.getElementById('historyAccum').style.color = color;
+        }
+        if (!data.length) { listEl.innerHTML = '<div class="empty"><div class="ei">📭</div><p>尚無填報紀錄</p></div>'; return; }
+        listEl.innerHTML = '';
+        data.forEach(function(rpt) {
+          try { listEl.appendChild(buildCard(rpt, false)); }
+          catch(cardErr) { }
+        });
+      } catch(e) {
+        listEl.innerHTML = '<div class="empty"><div class="ei">❌</div><p>載入失敗，請重新整理頁面</p></div>';
       }
-      if (!data.length) { listEl.innerHTML = '<div class="empty"><div class="ei">📭</div><p>尚無填報紀錄</p></div>'; return; }
-      listEl.innerHTML = '';
-      data.forEach(function(rpt) { listEl.appendChild(buildCard(rpt, false)); });
     })
-    .catch(function() { listEl.innerHTML = '<div class="empty"><div class="ei">❌</div><p>載入失敗</p></div>'; });
+    .catch(function(err) {
+      listEl.innerHTML = '<div class="empty"><div class="ei">❌</div><p>載入失敗，請重新整理頁面</p></div>';
+    });
 }
 
 function loadAllReports() {
@@ -669,12 +680,16 @@ function loadAllReports() {
     .then(function(data) {
       allReports = data;
       document.getElementById('adminCount').textContent = '共 ' + allReports.length + ' 筆';
-      updateFilterDropdown();
-      renderSummaryTable(allReports);
-      renderNotifyList(allReports);
-      renderAllReports(allReports);
+      try { updateFilterDropdown(); } catch(e) {}
+      try { renderSummaryTable(allReports); } catch(e) {}
+      try { renderNotifyList(allReports); } catch(e) {}
+      try { renderAllReports(allReports); } catch(e) {
+        listEl.innerHTML = '<div class="empty"><div class="ei">❌</div><p>載入失敗，請重新整理頁面</p></div>';
+      }
     })
-    .catch(function() { listEl.innerHTML = '<div class="empty"><div class="ei">❌</div><p>載入失敗</p></div>'; });
+    .catch(function(err) {
+      listEl.innerHTML = '<div class="empty"><div class="ei">❌</div><p>載入失敗：' + (err ? err.message : '') + '</p></div>';
+    });
 }
 
 function renderSummaryTable(data) {
@@ -758,7 +773,10 @@ function renderAllReports(data) {
   var listEl = document.getElementById('reportList');
   if (!data.length) { listEl.innerHTML = '<div class="empty"><div class="ei">📭</div><p>尚無報表</p></div>'; return; }
   listEl.innerHTML = '';
-  data.forEach(function(rpt) { listEl.appendChild(buildCard(rpt, true)); });
+  data.forEach(function(rpt) {
+    try { listEl.appendChild(buildCard(rpt, true)); }
+    catch(e) { }
+  });
 }
 
 function renderReporterMgmt() {
@@ -826,14 +844,32 @@ function buildCard(rpt, isAdminView) {
     var allPhotos = [];
     rpt.expenses.forEach(function(e) { if (e.photos && e.photos.length) allPhotos = allPhotos.concat(e.photos); });
     if (allPhotos.length) {
-      var ph = '<div class="rbs"><div class="rbl">發票照片</div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">';
-      allPhotos.forEach(function(src) { ph += '<img src="' + src + '" onclick="openPhotoOverlay(this.src)" style="width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--br);cursor:pointer">'; });
-      body.innerHTML += ph + '</div></div>';
+      var photoContainer = document.createElement('div');
+      photoContainer.className = 'rbs';
+      photoContainer.innerHTML = '<div class="rbl">發票照片（' + allPhotos.length + '張）</div>';
+      var photoWrap = document.createElement('div');
+      photoWrap.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;margin-top:4px';
+      allPhotos.forEach(function(src) {
+        var img = document.createElement('img');
+        img.src = src;
+        img.style.cssText = 'width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--br);cursor:pointer';
+        img.onclick = (function(s){ return function(){ openPhotoOverlay(s); }; })(src);
+        photoWrap.appendChild(img);
+      });
+      photoContainer.appendChild(photoWrap);
+      body.appendChild(photoContainer);
     }
   }
-  body.innerHTML += '<div class="rbs"><div class="rbl">公款結算</div><div style="font-size:14px;line-height:2.2">接收現金：$' + Number(rpt.receiptCash || 0).toLocaleString() + '<br>現金支出：$' + Number(rpt.totalCash || 0).toLocaleString() + '　刷卡：$' + Number(rpt.totalCard || 0).toLocaleString() + '<br><strong style="color:var(--grn)">現金剩餘：$' + Number(rpt.remaining || 0).toLocaleString() + '</strong>' + (rpt.receiptNote ? '<br>備考：' + esc(rpt.receiptNote) : '') + '</div></div>';
-  var editBadge = rpt.editedAt ? '<span style="background:#fff3cd;color:#856404;border:1px solid #ffc107;border-radius:4px;padding:2px 8px;font-size:11px;margin-left:6px">✏️ 已修正</span>' : '';
-  body.innerHTML += '<div class="rbs" style="color:var(--mu);font-size:12px">上傳時間：' + esc(rpt.uploadedAt) + editBadge + (rpt.editedAt ? '<br><span style="color:#856404">修正：' + esc(rpt.editedAt) + ' / ' + esc(rpt.editedBy) + '</span>' : '') + '</div>';
+  var settlDiv = document.createElement('div');
+  settlDiv.className = 'rbs';
+  settlDiv.innerHTML = '<div class="rbl">公款結算</div><div style="font-size:14px;line-height:2.2">接收現金：$' + Number(rpt.receiptCash || 0).toLocaleString() + '<br>現金支出：$' + Number(rpt.totalCash || 0).toLocaleString() + '　刷卡：$' + Number(rpt.totalCard || 0).toLocaleString() + '<br><strong style="color:var(--grn)">現金剩餘：$' + Number(rpt.remaining || 0).toLocaleString() + '</strong>' + (rpt.receiptNote ? '<br>備考：' + esc(rpt.receiptNote) : '') + '</div>';
+  body.appendChild(settlDiv);
+  var timeDiv = document.createElement('div');
+  timeDiv.className = 'rbs';
+  timeDiv.style.cssText = 'color:var(--mu);font-size:12px';
+  var editBadge = rpt.editedAt ? ' <span style="background:#fff3cd;color:#856404;border:1px solid #ffc107;border-radius:4px;padding:2px 8px;font-size:11px">✏️ 已修正</span>' : '';
+  timeDiv.innerHTML = '上傳時間：' + esc(rpt.uploadedAt) + editBadge + (rpt.editedAt ? '<br><span style="color:#856404">修正：' + esc(rpt.editedAt) + ' / ' + esc(rpt.editedBy) + '</span>' : '');
+  body.appendChild(timeDiv);
   var aw = document.createElement('div'); aw.className = 'action-wrap';
   var editBtn = document.createElement('button'); editBtn.className = 'btn-edit'; editBtn.textContent = '✏️ 編輯';
   editBtn.onclick = (function(r) { return function(e) { e.stopPropagation(); openEditModal(r); }; })(rpt);
@@ -934,9 +970,11 @@ function openEditModal(rpt) {
     var existingPhotos = '';
     if (ex.photos && ex.photos.length) {
       ex.photos.forEach(function(src, pi) {
+        var epId = epIdx;
+        var pIdx = pi;
         existingPhotos += '<div style="position:relative;display:inline-block;margin:4px">' +
           '<img src="' + src + '" onclick="openPhotoOverlay(this.src)" style="width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--br);cursor:pointer;display:block">' +
-          '<button type="button" onclick="removeEditPhoto(\'' + epIdx + '\',' + pi + ',this)" style="position:absolute;top:-8px;right:-8px;width:22px;height:22px;border-radius:50%;background:#9b2226;color:#fff;border:none;font-size:12px;font-weight:700;cursor:pointer;line-height:22px;text-align:center;padding:0;z-index:10">✕</button>' +
+          '<button type="button" data-ep="' + epIdx + '" data-pi="' + pi + '" onclick="doRemoveEditPhoto(this)" style="position:absolute;top:-8px;right:-8px;width:22px;height:22px;border-radius:50%;background:#9b2226;color:#fff;border:none;font-size:12px;font-weight:700;cursor:pointer;line-height:22px;text-align:center;padding:0;z-index:10">&#x2715;</button>' +
         '</div>';
       });
     }
@@ -998,6 +1036,12 @@ function handleEditPhotos(files, epIdx, ec) {
     reader.readAsDataURL(f);
   });
 }
+function doRemoveEditPhoto(btn) {
+  var epIdx = btn.getAttribute('data-ep');
+  var pi = parseInt(btn.getAttribute('data-pi'));
+  removeEditPhoto(epIdx, pi, btn);
+}
+
 function removeEditPhoto(epIdx, pi, btn) {
   if (!window._editExpPhotoMap || !window._editExpPhotoMap[epIdx]) return;
   window._editExpPhotoMap[epIdx].splice(pi, 1);
@@ -1108,130 +1152,125 @@ function saveEdit() {
   if (!editingId) return;
   var btn = document.getElementById('saveEditBtn');
   btn.textContent = '儲存中…'; btn.disabled = true;
+
   var Y = document.getElementById('editY').value;
   var M = document.getElementById('editM').value;
   var D = document.getElementById('editD').value;
+
   var att = [];
   document.getElementById('editAttList').querySelectorAll('.ec').forEach(function(c) {
-    var name = c.querySelector('.edit-att-name').value.trim(); if (!name) return;
-    att.push({ name: name, am: c.querySelector('.edit-att-am').checked, pm: c.querySelector('.edit-att-pm').checked, ot: parseFloat(c.querySelector('.edit-att-ot').value) || 0 });
+    var name = c.querySelector('.edit-att-name').value.trim();
+    if (!name) return;
+    att.push({
+      name: name,
+      am: c.querySelector('.edit-att-am').checked,
+      pm: c.querySelector('.edit-att-pm').checked,
+      ot: parseFloat(c.querySelector('.edit-att-ot').value) || 0
+    });
   });
+
   var exp = [];
   document.getElementById('editExpList').querySelectorAll('.ec').forEach(function(c) {
-    var item = c.querySelector('.edit-exp-item').value.trim(); if (!item) return;
+    var item = c.querySelector('.edit-exp-item').value.trim();
+    if (!item) return;
     var epIdx = c.dataset.epIdx;
     var photos = (window._editExpPhotoMap && window._editExpPhotoMap[epIdx]) ? window._editExpPhotoMap[epIdx] : [];
-    exp.push({ item: item, inv: c.querySelector('.edit-exp-inv').checked, cash: parseFloat(c.querySelector('.edit-exp-cash').value) || 0, card: parseFloat(c.querySelector('.edit-exp-card').value) || 0, photos: photos });
+    exp.push({
+      item: item,
+      inv: c.querySelector('.edit-exp-inv').checked,
+      cash: parseFloat(c.querySelector('.edit-exp-cash').value) || 0,
+      card: parseFloat(c.querySelector('.edit-exp-card').value) || 0,
+      photos: photos
+    });
   });
+
   var rc = parseFloat(document.getElementById('editRc').value) || 0;
   var totalCash = exp.reduce(function(s, e) { return s + (e.cash || 0); }, 0);
   var totalCard = exp.reduce(function(s, e) { return s + (e.card || 0); }, 0);
-  var patch = { action: 'edit', data: {
-    id: editingId,
-    date: Y + '年' + M + '月' + D + '日',
-    project: document.getElementById('editPname').value.trim(),
-    workItems: document.getElementById('editWitem').value.trim(),
-    attendance: att,
-    expenses: exp,
-    receiptCash: rc,
-    totalCash: totalCash,
-    totalCard: totalCard,
-    remaining: rc - totalCash,
-    receiptNote: document.getElementById('editRn').value.trim(),
-    editedAt: new Date().toLocaleString('zh-TW'),
-    editedBy: currentReporter || '管理者'
-  }};
 
-  function doSend(data) {
-    // 先移除照片（太大），照片不透過此路徑傳
-    var dataNoPhoto = JSON.parse(JSON.stringify(data));
-    if (dataNoPhoto.data && dataNoPhoto.data.expenses) {
-      dataNoPhoto.data.expenses.forEach(function(ex){ ex.photos = []; });
+  var patch = {
+    action: 'edit',
+    data: {
+      id: editingId,
+      date: Y + '年' + M + '月' + D + '日',
+      project: document.getElementById('editPname').value.trim(),
+      workItems: document.getElementById('editWitem').value.trim(),
+      attendance: att,
+      expenses: exp,
+      receiptCash: rc,
+      totalCash: totalCash,
+      totalCard: totalCard,
+      remaining: rc - totalCash,
+      receiptNote: document.getElementById('editRn').value.trim(),
+      editedAt: new Date().toLocaleString('zh-TW'),
+      editedBy: currentReporter || '管理者'
     }
-    var url = API + '?payload=' + encodeURIComponent(JSON.stringify(dataNoPhoto));
-            // 用一般 fetch（不是 no-cors）才能確認回應
-    fetch(url)
-      .then(function(r) { return r.json(); })
-      .then(function(res) {
-                btn.textContent = '儲存'; btn.disabled = false;
-        if (res.ok) {
-          showToast('已更新！');
-          closeEditModal();
-          _reportCache = null;
-          setTimeout(function() {
-            if (document.getElementById('pageAdmin').classList.contains('show')) loadAllReports();
-            else loadHistory();
-          }, 1000);
-        } else {
-          showToast('儲存失敗：' + (res.error || ''));
-        }
-      })
-      .catch(function(err) {
-                // 備用：no-cors 模式
-        fetch(url, { mode: 'no-cors' })
-          .then(function() {
-            btn.textContent = '儲存'; btn.disabled = false;
-            showToast('已更新！');
-            closeEditModal();
-            _reportCache = null;
-            setTimeout(function() {
-              if (document.getElementById('pageAdmin').classList.contains('show')) loadAllReports();
-              else loadHistory();
-            }, 1500);
-          })
-          .catch(function() {
-            btn.textContent = '儲存'; btn.disabled = false;
-            showToast('儲存失敗，請重試');
-          });
-      });
-  }
+  };
 
-  // 壓縮照片
+  // 壓縮照片後送出
   var compressJobs = [];
   patch.data.expenses.forEach(function(ex, ei) {
-    ex.photos.forEach(function(src, pi) {
-      if (src && src.startsWith('data:image')) {
+    (ex.photos || []).forEach(function(src, pi) {
+      if (src && src.indexOf('data:image') === 0) {
         compressJobs.push(
-          compressPhoto(src, 600, 0.5).then(function(compressed) {
-            patch.data.expenses[ei].photos[pi] = compressed;
+          compressPhoto(src, 600, 0.5).then(function(c) {
+            patch.data.expenses[ei].photos[pi] = c;
           })
         );
       }
     });
   });
 
-  if (compressJobs.length > 0) {
-    Promise.all(compressJobs).then(function() { doSend(patch); }).catch(function() { doSend(patch); });
-  } else {
-    doSend(patch);
-  }
+  Promise.all(compressJobs).then(function() {
+    sendToGAS(patch, btn);
+  }).catch(function() {
+    sendToGAS(patch, btn);
+  });
 }
 
-function printReport(rpt) {
-  var pa = document.getElementById('printArea');
-  var attRows = '';
-  if (rpt.attendance && rpt.attendance.length) rpt.attendance.forEach(function(a) { attRows += '<tr><td>' + esc(a.name) + '</td><td>' + (a.am ? '✔' : '') + '</td><td>' + (a.pm ? '✔' : '') + '</td><td>' + (a.ot ? a.ot + 'h' : '') + '</td></tr>'; });
-  var expRows = '';
-  if (rpt.expenses && rpt.expenses.length) rpt.expenses.forEach(function(e) { expRows += '<tr><td>' + esc(e.item) + '</td><td>' + (e.inv ? '✔' : '') + '</td><td>' + (e.cash ? '$' + Number(e.cash).toLocaleString() : '') + '</td><td>' + (e.card ? '$' + Number(e.card).toLocaleString() : '') + '</td></tr>'; });
-  var photoHtml = '';
-  if (rpt.expenses) rpt.expenses.forEach(function(e) { if (e.photos && e.photos.length) e.photos.forEach(function(src) { photoHtml += '<img src="' + src + '" style="width:80px;height:80px;object-fit:cover;border-radius:4px;margin:2px">'; }); });
-  pa.innerHTML = '<div class="print-title">施工日報表</div><div class="print-meta">填表日期：' + esc(rpt.date) + '　填報者：' + esc(rpt.reporter) + '　工程名稱：' + esc(rpt.project) + '</div>' + (rpt.workItems ? '<div class="print-sh">施工項目</div><div class="print-content">' + esc(rpt.workItems) + '</div>' : '') + (attRows ? '<div class="print-sh">出工人數及人員簽到表</div><table class="print-table"><tr><th>姓名</th><th>上午</th><th>下午</th><th>加班(時)</th></tr>' + attRows + '</table>' : '') + (expRows ? '<div class="print-sh">公款支出每日明細表</div><table class="print-table"><tr><th>購買項目</th><th>發票</th><th>現金金額</th><th>刷卡金額</th></tr>' + expRows + '</table>' : '') + (photoHtml ? '<div class="print-sh">發票照片</div><div>' + photoHtml + '</div>' : '') + '<div class="print-sh">公款結算</div><table class="print-sum"><tr><td>本日接收現金</td><td>$' + Number(rpt.receiptCash || 0).toLocaleString() + '</td></tr><tr><td>本日支出合計</td><td>$' + Number(rpt.totalCash || 0).toLocaleString() + '</td></tr><tr><td>本日刷卡合計</td><td>$' + Number(rpt.totalCard || 0).toLocaleString() + '</td></tr><tr><td><strong>現金剩餘公款</strong></td><td><strong>$' + Number(rpt.remaining || 0).toLocaleString() + '</strong></td></tr>' + (rpt.receiptNote ? '<tr><td>備考</td><td>' + esc(rpt.receiptNote) + '</td></tr>' : '') + '</table><div style="margin-top:12px;font-size:11px;color:#888">上傳時間：' + esc(rpt.uploadedAt) + '</div>';
-  setTimeout(function() { window.print(); }, 150);
+function sendToGAS(data, btn) {
+  var url = API + '?payload=' + encodeURIComponent(JSON.stringify(data));
+  // 先試普通 fetch（可以拿到回應確認）
+  fetch(url, { redirect: 'follow' })
+    .then(function(r) {
+      if (!r.ok && r.status !== 0) throw new Error('HTTP ' + r.status);
+      return r.text();
+    })
+    .then(function(text) {
+      var res;
+      try { res = JSON.parse(text); } catch(e) { res = {ok: true}; }
+      if (btn) { btn.textContent = '儲存'; btn.disabled = false; }
+      if (res.ok !== false) {
+        showToast('已更新！');
+        closeEditModal();
+        _reportCache = null;
+        setTimeout(function() {
+          if (document.getElementById('pageAdmin').classList.contains('show')) loadAllReports();
+          else loadHistory();
+        }, 1000);
+      } else {
+        showToast('儲存失敗：' + (res.error || ''));
+      }
+    })
+    .catch(function() {
+      // 備用：no-cors（送出但拿不到回應）
+      fetch(url, { mode: 'no-cors' }).then(function() {
+        if (btn) { btn.textContent = '儲存'; btn.disabled = false; }
+        showToast('已更新！');
+        closeEditModal();
+        _reportCache = null;
+        setTimeout(function() {
+          if (document.getElementById('pageAdmin').classList.contains('show')) loadAllReports();
+          else loadHistory();
+        }, 2000);
+      }).catch(function() {
+        if (btn) { btn.textContent = '儲存'; btn.disabled = false; }
+        showToast('儲存失敗，請重試');
+      });
+    });
 }
 
-function openPhotoOverlay(src) {
-  document.getElementById('photoOverlayImg').src = src;
-  document.getElementById('photoOverlay').classList.add('show');
-}
-function closePhotoOverlay() {
-  document.getElementById('photoOverlay').classList.remove('show');
-  document.getElementById('photoOverlayImg').src = '';
-}
 
-function esc(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
-function showToast(msg) { var t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show'); setTimeout(function() { t.classList.remove('show'); }, 2500); }
-
-window.onload = function() { renderSelectPage(); };
 </script>
 </body>
 </html>

@@ -302,7 +302,7 @@ function showToast(msg) {
   t._timer = setTimeout(function() { t.classList.remove('show'); }, 2500);
 }
 
-var API = 'https://script.google.com/macros/s/AKfycbzj0knJIqFH1ehNJ-CJ0PUKnEmgPwtA9fB495HNRwDVfgJmb3KU19zEtuLgLP-X1u_g/exec';
+var API = 'https://script.google.com/macros/s/AKfycbxp0jV2jiQy6_2tPA1w-PTNh1Zhnw5sWPQBxrEEoooOsDY-QBWmx6r4GcmnVWVTpuvp/exec';
 var ADMIN_PW = '1234';
 var REPORTERS_KEY = 'gas_reporters';
 var currentReporter = '';
@@ -1331,22 +1331,18 @@ function saveEdit() {
     // 送主資料
     var img = new Image();
     img.onload = img.onerror = function() {
-      // 送照片（每張獨立）
-      var photoJobs = [];
-      allPhotos.forEach(function(photos, ei) {
-        photos.forEach(function(src, pi) {
-          if (!src || src.indexOf('data:image') < 0) return;
-          var photoPayload = {action:'edit', data:{
-            id: patch.data.id,
-            expenseIndex: ei,
-            photoIndex: pi,
-            photo: src
-          }};
-          var pUrl = API + '?payload=' + encodeURIComponent(JSON.stringify(photoPayload));
-          var pImg = new Image();
-          pImg.src = pUrl;
+      // 照片用 no-cors POST 送出（GAS 確實能收到）
+      var hasPhotos = allPhotos.some(function(p){ return p && p.length && p[0] && p[0].indexOf('data:') === 0; });
+      if (hasPhotos) {
+        // 把照片整合回 expenses，一次送出
+        var patchWithPhoto = JSON.parse(JSON.stringify(patch));
+        patchWithPhoto.data.expenses.forEach(function(ex, ei) {
+          ex.photos = allPhotos[ei] || [];
         });
-      });
+        var form = new FormData();
+        form.append('payload', JSON.stringify(patchWithPhoto));
+        fetch(API, { method: 'POST', body: form, mode: 'no-cors' });
+      }
       btn.textContent = '儲存'; btn.disabled = false;
       showToast('已更新！');
       closeEditModal();
@@ -1358,8 +1354,8 @@ function saveEdit() {
     };
     img.src = url;
   }).catch(function() {
-    var img = new Image();
-    img.onload = img.onerror = function() {
+    var img2 = new Image();
+    img2.onload = img2.onerror = function() {
       btn.textContent = '儲存'; btn.disabled = false;
       showToast('已更新！');
       closeEditModal();
@@ -1369,7 +1365,7 @@ function saveEdit() {
         else loadHistory();
       }, 800);
     };
-    img.src = url;
+    img2.src = url;
   });
 }
 

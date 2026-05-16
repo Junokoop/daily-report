@@ -293,7 +293,7 @@ table.st{width:100%;border-collapse:collapse;border-top:1.5px solid var(--bd)}
 <script>
 function esc(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
-var API = 'https://script.google.com/macros/s/AKfycbyw3eozaUHG438JYFHvrM_Oe9R0qLzEzaB-KpSbkAy-15YJpw3Mz_Rr7Zy6lQi6SKGj/exec';
+var API = 'https://script.google.com/macros/s/AKfycbzj0knJIqFH1ehNJ-CJ0PUKnEmgPwtA9fB495HNRwDVfgJmb3KU19zEtuLgLP-X1u_g/exec';
 var ADMIN_PW = '1234';
 var REPORTERS_KEY = 'gas_reporters';
 var currentReporter = '';
@@ -1319,6 +1319,15 @@ function saveEdit() {
 function sendToGAS(data, btn) {
   var payload = JSON.parse(JSON.stringify(data));
 
+  // 照片單獨處理，主資料不含照片
+  var allPhotos = [];
+  if (payload.data && payload.data.expenses) {
+    payload.data.expenses.forEach(function(ex, ei) {
+      allPhotos.push(ex.photos ? ex.photos.slice() : []);
+      ex.photos = [];
+    });
+  }
+
   function onSuccess() {
     if (btn) { btn.textContent = '儲存'; btn.disabled = false; }
     showToast('已更新！');
@@ -1335,48 +1344,59 @@ function sendToGAS(data, btn) {
     showToast('儲存失敗，請重試');
   }
 
-  function doSend() {
-    var jsonStr = JSON.stringify(payload);
-    // 用 POST FormData（不受 URL 長度限制）
-    var form = new FormData();
-    form.append('payload', jsonStr);
-    fetch(API, { method: 'POST', body: form })
-      .then(function(r) { return r.text(); })
-      .then(function(text) {
-        var res; try { res = JSON.parse(text); } catch(e) { res = {ok:true}; }
-        if (res.ok !== false) { onSuccess(); } else { onFail(); }
-      })
-      .catch(function() {
-        // 備用：no-cors POST（送出但不等回應）
-        var form2 = new FormData();
-        form2.append('payload', jsonStr);
-        fetch(API, { method: 'POST', body: form2, mode: 'no-cors' })
-          .then(onSuccess)
-          .catch(onFail);
-      });
-  }
-
-  // 壓縮所有照片
-  var compressJobs = [];
-  if (payload.data && payload.data.expenses) {
-    payload.data.expenses.forEach(function(ex, ei) {
-      (ex.photos || []).forEach(function(src, pi) {
+  function compressAndSend() {
+    // 壓縮照片到極小
+    var jobs = [];
+    allPhotos.forEach(function(photos, ei) {
+      photos.forEach(function(src, pi) {
         if (src && src.indexOf('data:image') === 0) {
-          compressJobs.push(
-            compressPhoto(src, 400, 0.4).then(function(c) {
-              payload.data.expenses[ei].photos[pi] = c;
-            })
-          );
+          jobs.push(compressPhoto(src, 300, 0.3).then(function(c) {
+            allPhotos[ei][pi] = c;
+          }));
         }
       });
     });
+    Promise.all(jobs).then(sendData).catch(sendData);
   }
 
-  if (compressJobs.length > 0) {
-    Promise.all(compressJobs).then(doSend).catch(doSend);
-  } else {
-    doSend();
+  function sendData() {
+    // 主資料（無照片）用 GET
+    var url = API + '?payload=' + encodeURIComponent(JSON.stringify(payload));
+    fetch(url, { redirect: 'follow' })
+      .then(function(r) { return r.text(); })
+      .then(function(text) {
+        var res; try { res = JSON.parse(text); } catch(e) { res = {ok:true}; }
+        if (res.ok === false) { onFail(); return; }
+        // 成功後，如果有照片，分批送照片
+        var hasPhotos = allPhotos.some(function(p){ return p && p.length; });
+        if (hasPhotos) {
+          sendPhotos(payload.data.id, allPhotos, 0, onSuccess);
+        } else {
+          onSuccess();
+        }
+      })
+      .catch(function() {
+        // no-cors 備用
+        fetch(url, {mode:'no-cors'}).then(onSuccess).catch(onFail);
+      });
   }
+
+  compressAndSend();
+}
+
+function sendPhotos(id, allPhotos, ei, onDone) {
+  if (ei >= allPhotos.length) { onDone(); return; }
+  var photos = allPhotos[ei];
+  if (!photos || !photos.length) { sendPhotos(id, allPhotos, ei+1, onDone); return; }
+  // 每張照片單獨送
+  var pi = 0;
+  function sendNext() {
+    if (pi >= photos.length) { sendPhotos(id, allPhotos, ei+1, onDone); return; }
+    var photoPayload = {action:'edit', data:{id:id, expenseIndex:ei, photoIndex:pi, photo:photos[pi]}};
+    var url = API + '?payload=' + encodeURIComponent(JSON.stringify(photoPayload));
+    fetch(url, {mode:'no-cors'}).then(function(){ pi++; sendNext(); }).catch(function(){ pi++; sendNext(); });
+  }
+  sendNext();
 }
 </script>
 </body>

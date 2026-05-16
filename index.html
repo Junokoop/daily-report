@@ -1069,6 +1069,7 @@ function openEditModal(rpt) {
 }
 
 function doOpenEditModal(rpt) {
+  showToast('開啟編輯...');
   editingId = rpt.id;
   var att = rpt.attendance || [];
   var attHtml = '';

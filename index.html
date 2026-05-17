@@ -1135,11 +1135,14 @@ function doOpenEditModal(rpt) {
   var exp = rpt.expenses || [];
   window._editExpPhotoMap = {};
 
-  // 計算上筆結餘和本日接收
-  // 需要從 allReports 找前一筆
-  var myReports = allReports.filter(function(r) { return r.reporter === rpt.reporter; });
-  var myIdx = myReports.findIndex(function(r) { return r.id === rpt.id; });
-  var prevRpt = (myIdx >= 0 && myIdx + 1 < myReports.length) ? myReports[myIdx + 1] : null;
+  // 計算上筆結餘和本日接收（從快取找前一筆）
+  var cacheData = _reportCache || allReports || [];
+  var myRpts = cacheData.filter(function(x) { return x.reporter === rpt.reporter; });
+  var myIdx = -1;
+  for (var mi = 0; mi < myRpts.length; mi++) {
+    if (myRpts[mi].id === rpt.id) { myIdx = mi; break; }
+  }
+  var prevRpt = (myIdx >= 0 && myIdx + 1 < myRpts.length) ? myRpts[myIdx + 1] : null;
   rpt.prevRemaining = prevRpt ? (parseFloat(prevRpt.remaining) || 0) : 0;
   rpt.todayReceived = (parseFloat(rpt.receiptCash) || 0) - rpt.prevRemaining;
 
@@ -1151,7 +1154,7 @@ function doOpenEditModal(rpt) {
 
   exp.forEach(function(ex, ei) {
     var epIdx = 'ep' + ei;
-    window._editExpPhotoMap[epIdx] = [];
+    window._editExpPhotoMap[epIdx] = ex.photos ? ex.photos.slice() : [];
   });
 
   // 建立出工人員 HTML
@@ -1221,6 +1224,8 @@ function doOpenEditModal(rpt) {
             photos.push(res.photos[pi]);
           }
           window._editExpPhotoMap[epIdx] = photos;
+          // 同時存進 exp 物件（確保儲存時能拿到）
+          if (exp[ei]) exp[ei].photos = photos.slice();
           var ec = document.querySelector('[data-ep-idx="' + epIdx + '"]');
           if (!ec) return;
           var row = ec.querySelector('.inv-photos-row');

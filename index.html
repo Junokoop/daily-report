@@ -979,7 +979,23 @@ function buildCard(rpt, isAdminView) {
   }
   var settlDiv = document.createElement('div');
   settlDiv.className = 'rbs';
-  settlDiv.innerHTML = '<div class="rbl">公款結算</div><div style="font-size:14px;line-height:2.2">接收現金：$' + Number(rpt.receiptCash || 0).toLocaleString() + '<br>現金支出：$' + Number(rpt.totalCash || 0).toLocaleString() + '　刷卡：$' + Number(rpt.totalCard || 0).toLocaleString() + '<br><strong style="color:var(--grn)">現金剩餘：$' + Number(rpt.remaining || 0).toLocaleString() + '</strong>' + (rpt.receiptNote ? '<br>備考：' + esc(rpt.receiptNote) : '') + '</div>';
+  // 計算上筆結餘和本日接收
+  var cacheData2 = _reportCache || allReports || [];
+  var myRpts2 = cacheData2.filter(function(x){ return x.reporter === rpt.reporter; });
+  var myIdx2 = -1;
+  for (var mi2 = 0; mi2 < myRpts2.length; mi2++) { if (myRpts2[mi2].id === rpt.id) { myIdx2 = mi2; break; } }
+  var prevRpt2 = (myIdx2 >= 0 && myIdx2 + 1 < myRpts2.length) ? myRpts2[myIdx2 + 1] : null;
+  var settlPrev = prevRpt2 ? (parseFloat(prevRpt2.remaining) || 0) : 0;
+  var settlToday = (parseFloat(rpt.receiptCash) || 0) - settlPrev;
+
+  settlDiv.innerHTML = '<div class="rbl">公款結算</div>' +
+    '<div style="font-size:13px;line-height:2.2">' +
+    '上筆結餘：<strong style="color:var(--grn)">$' + Number(settlPrev).toLocaleString() + '</strong><br>' +
+    '本日接收公款：<strong style="color:var(--ac)">$' + Number(settlToday).toLocaleString() + '</strong><br>' +
+    '現金支出：<strong style="color:var(--red)">$' + Number(rpt.totalCash || 0).toLocaleString() + '</strong>　刷卡：<strong>$' + Number(rpt.totalCard || 0).toLocaleString() + '</strong><br>' +
+    '<div style="border-top:1px solid var(--br);margin-top:2px;padding-top:4px"><strong style="color:' + (Number(rpt.remaining||0) < 0 ? 'var(--red)' : 'var(--grn)') + ';font-size:15px">現金剩餘：$' + Number(rpt.remaining || 0).toLocaleString() + '</strong></div>' +
+    (rpt.receiptNote ? '<div style="color:var(--mu);font-size:12px">備考：' + esc(rpt.receiptNote) + '</div>' : '') +
+    '</div>';
   body.appendChild(settlDiv);
   var timeDiv = document.createElement('div');
   timeDiv.className = 'rbs';

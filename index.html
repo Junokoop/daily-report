@@ -1086,6 +1086,35 @@ function openViewModal(rpt) {
   var delBtn = document.getElementById('delEditBtn');
   if (delBtn) delBtn.style.display = 'none';
   document.getElementById('editModal').classList.add('show');
+
+  // 非同步載入照片
+  var totalPC = (rpt.expenses || []).reduce(function(s,e){ return s + (e.photoCount||0); }, 0);
+  if (totalPC > 0) {
+    fetch(API + '?action=getphotos&id=' + rpt.id + '&t=' + Date.now())
+      .then(function(r) { return r.json(); })
+      .then(function(res) {
+        if (!res.ok || !res.photos || !res.photos.length) return;
+        var photoDiv = document.createElement('div');
+        photoDiv.style.cssText = 'margin-top:10px';
+        var label = document.createElement('div');
+        label.style.cssText = 'font-size:12px;color:var(--mu);font-weight:700;margin-bottom:6px';
+        label.textContent = '發票照片';
+        photoDiv.appendChild(label);
+        var row = document.createElement('div');
+        row.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px';
+        res.photos.forEach(function(src) {
+          if (!src) return;
+          var img = document.createElement('img');
+          img.src = src;
+          img.style.cssText = 'width:72px;height:72px;object-fit:cover;border-radius:6px;border:1px solid var(--br);cursor:pointer';
+          img.onclick = (function(s){ return function(){ openPhotoOverlay(s); }; })(src);
+          row.appendChild(img);
+        });
+        photoDiv.appendChild(row);
+        var mc = document.getElementById('editModalContent');
+        if (mc) mc.appendChild(photoDiv);
+      }).catch(function() {});
+  }
 }
 
 function openEditModal(rpt) {

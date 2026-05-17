@@ -1435,19 +1435,30 @@ function updateEditTotal() {
   }
 }
 
-function getEditedNote(orig) {
-  if (!orig) return '';
+function getEditedNote(orig, newData) {
+  if (!orig || !newData) return '';
   var changes = [];
-  var curProject = document.getElementById('editPname') ? document.getElementById('editPname').value.trim() : '';
-  var curWorkItems = document.getElementById('editWitem') ? document.getElementById('editWitem').value.trim() : '';
-  if (curProject !== (orig.project || '')) changes.push('工程名稱');
-  if (curWorkItems !== (orig.workItems || '')) changes.push('施工項目');
-  // 金額
-  var rcPrev2 = parseFloat(document.getElementById('editRcPrev') ? document.getElementById('editRcPrev').value : 0) || 0;
-  var rcToday2 = parseFloat(document.getElementById('editRcToday') ? document.getElementById('editRcToday').value : 0) || 0;
-  var newRc = rcPrev2 + rcToday2;
-  if (newRc !== (parseFloat(orig.receiptCash) || 0)) changes.push('接收公款');
-  return changes.join('、');
+
+  // 工程名稱
+  if ((newData.project||'') !== (orig.project||'')) changes.push('工程名稱');
+  // 施工項目
+  if ((newData.workItems||'') !== (orig.workItems||'')) changes.push('施工項目');
+  // 接收公款
+  if (String(newData.receiptCash||0) !== String(parseFloat(orig.receiptCash)||0)) changes.push('接收公款');
+  // 出工人員
+  var origAtt = JSON.stringify((orig.attendance||[]).map(function(a){ return {name:a.name,am:a.am,pm:a.pm,ot:a.ot}; }));
+  var newAtt = JSON.stringify((newData.attendance||[]).map(function(a){ return {name:a.name,am:a.am,pm:a.pm,ot:a.ot}; }));
+  if (origAtt !== newAtt) changes.push('出工人員');
+  // 支出項目
+  var origExp = JSON.stringify((orig.expenses||[]).map(function(e){ return {item:e.item,cash:e.cash,card:e.card,inv:e.inv}; }));
+  var newExp = JSON.stringify((newData.expenses||[]).map(function(e){ return {item:e.item,cash:e.cash,card:e.card,inv:e.inv}; }));
+  if (origExp !== newExp) changes.push('公款支出');
+  // 備考
+  if ((newData.receiptNote||'') !== (orig.receiptNote||'')) changes.push('備考');
+  // 日期
+  if ((newData.date||'') !== (orig.date||'')) changes.push('日期');
+
+  return changes.length ? changes.join('、') : '內容修正';
 }
 
 function closeEditModal() { document.getElementById('editModal').classList.remove('show'); editingId = null; }
@@ -1539,7 +1550,7 @@ function saveEdit() {
     receiptNote:document.getElementById('editRn').value.trim(),
     editedAt:new Date().toLocaleString('zh-TW'),
     editedBy:currentReporter||'管理者',
-    editedNote:getEditedNote(patchOrig)
+    editedNote:getEditedNote(patchOrig, patch.data)
   }};
 
   // 收集所有照片

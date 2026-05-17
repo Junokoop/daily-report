@@ -1503,13 +1503,20 @@ function compressPhoto(base64, maxWidth, quality) {
   return new Promise(function(resolve) {
     var img = new Image();
     img.onload = function() {
-      var canvas = document.createElement('canvas');
-      var scale = Math.min(1, maxWidth / img.width);
-      canvas.width = img.width * scale;
-      canvas.height = img.height * scale;
-      var ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      resolve(canvas.toDataURL('image/jpeg', quality || 0.6));
+      try {
+        var canvas = document.createElement('canvas');
+        var scale = Math.min(1, maxWidth / img.width);
+        canvas.width = img.width * scale;
+        canvas.height = img.height * scale;
+        var ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL('image/jpeg', quality || 0.6));
+      } catch(e) {
+        resolve(base64); // 壓縮失敗就用原圖
+      }
+    };
+    img.onerror = function() {
+      resolve(base64); // 載入失敗就用原圖
     };
     img.src = base64;
   });

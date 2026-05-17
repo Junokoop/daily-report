@@ -1135,6 +1135,14 @@ function doOpenEditModal(rpt) {
   var exp = rpt.expenses || [];
   window._editExpPhotoMap = {};
 
+  // 計算上筆結餘和本日接收
+  // 需要從 allReports 找前一筆
+  var myReports = allReports.filter(function(r) { return r.reporter === rpt.reporter; });
+  var myIdx = myReports.findIndex(function(r) { return r.id === rpt.id; });
+  var prevRpt = (myIdx >= 0 && myIdx + 1 < myReports.length) ? myReports[myIdx + 1] : null;
+  rpt.prevRemaining = prevRpt ? (parseFloat(prevRpt.remaining) || 0) : 0;
+  rpt.todayReceived = (parseFloat(rpt.receiptCash) || 0) - rpt.prevRemaining;
+
   // 解析日期
   var dateStr = String(rpt.date || '');
   var yr = dateStr.replace(/年.*/, '') || '115';
@@ -1166,7 +1174,9 @@ function doOpenEditModal(rpt) {
     '<div class="mrow"><span class="mlbl">施工項目</span><textarea id="editWitem" class="mi" rows="3" style="resize:vertical">' + esc(rpt.workItems) + '</textarea></div>' +
     '<div><div class="mlbl" style="margin-bottom:6px">出工人員</div><div id="editAttList">' + attHtml + '</div><button type="button" class="ab" onclick="addEditAtt()" style="margin-top:6px">＋ 新增人員</button></div>' +
     '<div><div class="mlbl" style="margin-bottom:6px">公款支出</div><div id="editExpList">' + expHtml + '</div><button type="button" class="ab" onclick="addEditExp()" style="margin-top:6px">＋ 新增支出項目</button></div>' +
-    '<div class="mrow"><span class="mlbl">接收現金：</span><input id="editRc" type="number" class="mi" value="' + (rpt.receiptCash || 0) + '" inputmode="numeric"></div>' +
+    '<div class="mrow"><span class="mlbl">上筆結餘公款：</span><input id="editRcPrev" type="number" class="mi" value="' + (rpt.prevRemaining || 0) + '" readonly style="background:#f5f5f5;color:var(--mu)"></div>' +
+    '<div class="mrow"><span class="mlbl">本日接收公款：</span><input id="editRcToday" type="number" class="mi" value="' + (rpt.todayReceived || 0) + '" inputmode="numeric"></div>' +
+    '<div id="editRc" style="display:none">' + (rpt.receiptCash || 0) + '</div>' +
     '<div class="mrow"><span class="mlbl">備考：</span><input id="editRn" class="mi" value="' + esc(rpt.receiptNote) + '"></div>' +
     '</div>';
 
@@ -1379,7 +1389,9 @@ function saveEdit() {
     exp.push({item:item, inv:c.querySelector('.edit-exp-inv').checked, cash:parseFloat(c.querySelector('.edit-exp-cash').value)||0, card:parseFloat(c.querySelector('.edit-exp-card').value)||0, photos:photos});
   });
 
-  var rc = parseFloat(document.getElementById('editRc').value)||0;
+  var rcPrev = parseFloat(document.getElementById('editRcPrev').value)||0;
+  var rcToday = parseFloat(document.getElementById('editRcToday') ? document.getElementById('editRcToday').value : 0)||0;
+  var rc = rcPrev + rcToday;
   var totalCash = exp.reduce(function(s,e){return s+(e.cash||0);},0);
   var totalCard = exp.reduce(function(s,e){return s+(e.card||0);},0);
 

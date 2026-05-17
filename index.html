@@ -662,22 +662,32 @@ function submitReport() {
       ex.photos = [];
     });
 
-    // 照片放回 report
-    reportNoPhoto.expenses.forEach(function(ex, i){ ex.photos = subPhotos[i] || []; });
+    // 主資料不含照片 GET 送出
     var submitUrl = API + '?payload=' + encodeURIComponent(JSON.stringify(reportNoPhoto));
-    fetch(submitUrl, {mode:'no-cors'})
-      .then(function() {
-        btn.textContent = '上傳報表'; btn.disabled = false;
-        showToast('報表已成功上傳！');
-        doReset(); _reportCache = null;
-        setTimeout(function(){ loadAccum(); }, 1200);
-      })
-      .catch(function() {
-        btn.textContent = '上傳報表'; btn.disabled = false;
-        showToast('報表已成功上傳！');
-        doReset(); _reportCache = null;
-        setTimeout(function(){ loadAccum(); }, 1200);
-      });
+    var hasPhotos = subPhotos.some(function(p){ return p && p.length; });
+
+    function onSubmitDone() {
+      btn.textContent = '上傳報表'; btn.disabled = false;
+      showToast('報表已成功上傳！');
+      doReset(); _reportCache = null;
+      setTimeout(function(){ loadAccum(); }, 1200);
+    }
+
+    var submitImg = new Image();
+    submitImg.onload = submitImg.onerror = function() {
+      if (hasPhotos) {
+        // 照片用 POST no-cors 送出
+        var reportWithPhotos = JSON.parse(JSON.stringify(reportNoPhoto));
+        reportWithPhotos.expenses.forEach(function(ex, i){ ex.photos = subPhotos[i] || []; });
+        var form = new FormData();
+        form.append('payload', JSON.stringify(reportWithPhotos));
+        fetch(API, { method: 'POST', body: form, mode: 'no-cors' })
+          .then(onSubmitDone).catch(onSubmitDone);
+      } else {
+        onSubmitDone();
+      }
+    };
+    submitImg.src = submitUrl;
   })();
 }
 

@@ -50,7 +50,7 @@ input.ti{flex:1;min-width:0;height:44px;border:1.5px solid var(--br);border-radi
 .ivw{flex:1;display:flex;align-items:center;gap:8px;padding:0 12px;height:auto;min-height:44px;flex-wrap:wrap}
 .ivw input[type=checkbox]{width:22px;height:22px;accent-color:var(--ac);cursor:pointer;flex-shrink:0}
 .ivw span{font-size:13px;color:var(--mu)}
-.inv-photo-btn,.inv-camera-btn{padding:4px 10px;background:var(--hbg);border:1px solid var(--br);border-radius:5px;font-size:12px;cursor:pointer;white-space:nowrap}
+.inv-photo-btn{padding:4px 10px;background:var(--hbg);border:1px solid var(--br);border-radius:5px;font-size:12px;cursor:pointer;white-space:nowrap}
 .inv-photos-row{display:flex;gap:10px;flex-wrap:wrap;padding:12px 14px 8px;border-bottom:1px solid var(--br);overflow:visible}
 .inv-thumb{width:52px;height:52px;border-radius:4px;object-fit:cover;border:1px solid var(--br);cursor:pointer}
 .db{background:none;border:none;color:#c0a090;font-size:20px;padding:0 8px;cursor:pointer;line-height:1;flex-shrink:0}
@@ -529,7 +529,7 @@ function addExp() {
   var idx = 'e' + Date.now() + Math.random();
   var c = document.createElement('div'); c.className = 'ec'; c.dataset.expIdx = idx;
   c.innerHTML = '<div class="er"><span class="el">購買項目</span><input type="text" placeholder="項目名稱"><button class="db" type="button">&#x2715;</button></div>' +
-    '<div class="er"><span class="el">發票</span><div class="ivw"><input type="checkbox"><span>已附發票</span><button class="inv-photo-btn" type="button">&#x1F4C1; 上傳</button><button class="inv-camera-btn" type="button">&#x1F4F7; 拍照</button><input type="file" accept="image/*" multiple style="display:none" class="inv-file-input"><input type="file" accept="image/*" capture="environment" style="display:none" class="inv-camera-input"></div></div>' +
+    '<div class="er"><span class="el">發票</span><div class="ivw"><input type="checkbox"><span>已附發票</span><button class="inv-photo-btn" type="button">&#x1F4C1; 上傳</button></div></div>' +
     '<div class="inv-photos-row" style="display:none"></div>' +
     '<div class="er"><span class="el">現金金額</span><input type="number" class="cc" placeholder="0" min="0" inputmode="numeric"></div>' +
     '<div class="er"><span class="el">刷卡金額</span><input type="number" class="kk" placeholder="0" min="0" inputmode="numeric"></div>';
@@ -537,9 +537,7 @@ function addExp() {
   c.querySelector('.db').onclick = function() { expList.removeChild(c); delete expPhotoMap[idx]; calc(); };
   c.querySelectorAll('.cc,.kk').forEach(function(el) { el.oninput = calc; });
   var pb = c.querySelector('.inv-photo-btn');
-  var cb = c.querySelector('.inv-camera-btn');
   var fi = c.querySelector('.inv-file-input');
-  var ci = c.querySelector('.inv-camera-input');
   var pr = c.querySelector('.inv-photos-row');
   pb.onclick = function() { fi.click(); };
   if (cb && ci) { cb.onclick = function() { ci.click(); }; }
@@ -551,7 +549,6 @@ function addExp() {
     });
   }
   fi.onchange = function() { handleFiles(fi.files); fi.value = ''; };
-  ci.onchange = function() { handleFiles(ci.files); ci.value = ''; };
   expList.insertBefore(c, addExpBtn);
   calc();
 }
@@ -1250,7 +1247,7 @@ function doOpenEditModal(rpt) {
   var expHtml = '';
   exp.forEach(function(ex, ei) {
     var epIdx = 'ep' + ei;
-    expHtml += '<div class="ec" style="margin-bottom:6px" data-ep-idx="' + epIdx + '"><div class="er"><span class="el">購買項目</span><input type="text" class="edit-exp-item" value="' + esc(ex.item) + '"><button class="db" type="button" onclick="this.closest(\'.ec\').remove()">✕</button></div><div class="er"><span class="el">發票</span><div class="ivw"><input type="checkbox" class="edit-exp-inv"' + (ex.inv ? ' checked' : '') + '><span>已附發票</span><button class="inv-photo-btn" type="button" onclick="editExpPhotoUpload(this,\'' + epIdx + '\')>📁 上傳</button><button class="inv-camera-btn" type="button" onclick="editExpPhotoCamera(this,\'' + epIdx + '\')">📷 拍照</button><input type="file" accept="image/*" multiple style="display:none" class="edit-inv-file-input"><input type="file" accept="image/*" capture="environment" style="display:none" class="edit-inv-camera-input"></div></div><div class="inv-photos-row" style="display:none;padding:8px 14px;gap:8px;flex-wrap:wrap;overflow:visible"></div><div class="er"><span class="el">現金金額</span><input type="number" class="edit-exp-cash" value="' + (ex.cash || 0) + '" min="0" inputmode="numeric"></div><div class="er"><span class="el">刷卡金額</span><input type="number" class="edit-exp-card" value="' + (ex.card || 0) + '" min="0" inputmode="numeric"></div></div>';
+    expHtml += '<div class="ec" style="margin-bottom:6px" data-ep-idx="' + epIdx + '"><div class="er"><span class="el">購買項目</span><input type="text" class="edit-exp-item" value="' + esc(ex.item) + '"><button class="db" type="button" onclick="this.closest(\'.ec\').remove()">✕</button></div><div class="er"><span class="el">發票</span><div class="ivw"><input type="checkbox" class="edit-exp-inv"' + (ex.inv ? ' checked' : '') + '><span>已附發票</span><button class="inv-photo-btn" type="button" onclick="editExpPhotoUpload(this,\'' + epIdx + '\')>📁 上傳</button></div></div><div class="inv-photos-row" style="display:none;padding:8px 14px;gap:8px;flex-wrap:wrap;overflow:visible"></div><div class="er"><span class="el">現金金額</span><input type="number" class="edit-exp-cash" value="' + (ex.cash || 0) + '" min="0" inputmode="numeric"></div><div class="er"><span class="el">刷卡金額</span><input type="number" class="edit-exp-card" value="' + (ex.card || 0) + '" min="0" inputmode="numeric"></div></div>';
   });
 
   document.getElementById('editModalContent').innerHTML =
@@ -1424,9 +1421,7 @@ function addEditExp() {
     '<div class="er"><span class="el">購買項目</span><input type="text" class="edit-exp-item" placeholder="項目名稱"><button class="db" type="button" onclick="this.closest(\'.ec\').remove()">✕</button></div>' +
     '<div class="er"><span class="el">發票</span><div class="ivw"><input type="checkbox" class="edit-exp-inv"><span>已附發票</span>' +
     '<button class="inv-photo-btn" type="button" onclick="editExpPhotoUpload(this,\'' + epIdx + '\')">📁 上傳</button>' +
-    '<button class="inv-camera-btn" type="button" onclick="editExpPhotoCamera(this,\'' + epIdx + '\')">📷 拍照</button>' +
     '<input type="file" accept="image/*" multiple style="display:none" class="edit-inv-file-input">' +
-    '<input type="file" accept="image/*" capture="environment" style="display:none" class="edit-inv-camera-input">' +
     '</div></div>' +
     '<div class="inv-photos-row" style="display:none;padding:8px 14px;gap:8px;flex-wrap:wrap;overflow:visible"></div>' +
     '<div class="er"><span class="el">現金金額</span><input type="number" class="edit-exp-cash" value="0" min="0" inputmode="numeric"></div>' +
@@ -1470,13 +1465,6 @@ function getEditedNote(orig, newData) {
   if ((newData.date||'') !== (orig.date||'')) changes.push('日期');
 
   return changes.length ? changes.join('、') : '內容修正';
-}
-
-function editExpPhotoCamera(btn, epIdx) {
-  var ec = btn.closest('.ec');
-  var ci = ec.querySelector('.edit-inv-camera-input');
-  ci.onchange = function() { handleEditPhotos(ci.files, epIdx, ec); ci.value = ''; };
-  ci.click();
 }
 
 function closeEditModal() { document.getElementById('editModal').classList.remove('show'); editingId = null; }

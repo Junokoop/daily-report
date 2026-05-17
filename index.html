@@ -1543,7 +1543,6 @@ function saveEdit() {
     var item = c.querySelector('.edit-exp-item').value.trim();
     if (!item) return;
     var epIdx = c.dataset.epIdx || '';
-    // 從 _editExpPhotoMap 取（包含新上傳 + 已載入的）
     var photos = (epIdx && window._editExpPhotoMap && window._editExpPhotoMap[epIdx]) ? window._editExpPhotoMap[epIdx] : [];
     exp.push({item:item, inv:c.querySelector('.edit-exp-inv').checked, cash:parseFloat(c.querySelector('.edit-exp-cash').value)||0, card:parseFloat(c.querySelector('.edit-exp-card').value)||0, photos:photos});
   });
@@ -1554,95 +1553,66 @@ function saveEdit() {
   var totalCash = exp.reduce(function(s,e){return s+(e.cash||0);},0);
   var totalCard = exp.reduce(function(s,e){return s+(e.card||0);},0);
 
-  // 記錄修改前的原始資料
+  // 找原始資料用來記錄修改欄位
   var patchOrig = null;
   var cacheArr = _reportCache || allReports || [];
   for (var pi3 = 0; pi3 < cacheArr.length; pi3++) {
     if (cacheArr[pi3].id === editingId) { patchOrig = cacheArr[pi3]; break; }
   }
 
-  var patch = {action:'edit', data:{
-    id:editingId,
-    date:Y+'年'+M+'月'+D+'日',
-    project:document.getElementById('editPname').value.trim(),
-    workItems:document.getElementById('editWitem').value.trim(),
-    attendance:att, expenses:exp,
-    receiptCash:rc, totalCash:totalCash, totalCard:totalCard,
-    remaining:rc-totalCash,
-    receiptNote:document.getElementById('editRn').value.trim(),
-    editedAt:new Date().toLocaleString('zh-TW'),
-    editedBy:currentReporter||'管理者',
-    editedNote:getEditedNote(patchOrig, patch.data)
-  }};
+  var patchData = {
+    id: editingId,
+    date: Y+'年'+M+'月'+D+'日',
+    project: document.getElementById('editPname').value.trim(),
+    workItems: document.getElementById('editWitem').value.trim(),
+    attendance: att,
+    expenses: exp,
+    receiptCash: rc,
+    totalCash: totalCash,
+    totalCard: totalCard,
+    remaining: rc - totalCash,
+    receiptNote: document.getElementById('editRn').value.trim(),
+    editedAt: new Date().toLocaleString('zh-TW'),
+    editedBy: currentReporter || '管理者',
+    editedNote: getEditedNote(patchOrig, {project: document.getElementById('editPname').value.trim(), workItems: document.getElementById('editWitem').value.trim(), receiptCash: rc, attendance: att, expenses: exp, receiptNote: document.getElementById('editRn').value.trim(), date: Y+'年'+M+'月'+D+'日'})
+  };
 
-  // 收集所有照片
+  // 分離照片
   var allPhotos = [];
-  patch.data.expenses.forEach(function(ex) {
+  var patchNoPhoto = JSON.parse(JSON.stringify(patchData));
+  patchNoPhoto.expenses.forEach(function(ex, ei) {
     allPhotos.push(ex.photos ? ex.photos.slice() : []);
+    ex.photos = [];
   });
 
-  // 主資料不含照片
-  var patchNoPhoto = JSON.parse(JSON.stringify(patch));
-  patchNoPhoto.data.expenses.forEach(function(ex){ ex.photos = []; });
-  var url = API + '?payload=' + encodeURIComponent(JSON.stringify(patchNoPhoto));
+  var payload = {action:'edit', data: patchNoPhoto};
+  var sendUrl = API + '?payload=' + encodeURIComponent(JSON.stringify(payload));
 
-  btn.textContent = '儲存中…'; btn.disabled = true;
-
-  // 壓縮照片
-  var compressJobs = [];
-  allPhotos.forEach(function(photos, ei) {
-    photos.forEach(function(src, pi) {
-      if (src && src.indexOf('data:image') === 0) {
-        compressJobs.push(compressPhoto(src, 1200, 0.85).then(function(c) {
-          allPhotos[ei][pi] = c;
-        }));
-      }
-    });
-  });
-
-  function doFinalSend() {
-    function onSaveSuccess() {
-      btn.textContent = '儲存'; btn.disabled = false;
-      showToast('已更新！');
-      closeEditModal();
-      _reportCache = null;
-      delete _photoCache[editingId];
-      setTimeout(function() {
-        if (document.getElementById('pageAdmin').classList.contains('show')) loadAllReports();
-        else loadHistory();
-      }, 800);
-    }
-    // 送出主資料（no-cors，3秒後一定成功）
-    fetch(url, { mode: 'no-cors' }).catch(function(){});
-    // 送出照片
-    var hasPhotos = allPhotos.some(function(p){ return p && p.length && p[0] && p[0].indexOf('data:') === 0; });
-    if (hasPhotos) {
-      var patchWithPhoto = JSON.parse(JSON.stringify(patch));
-      patchWithPhoto.data.expenses.forEach(function(ex, ei) { ex.photos = allPhotos[ei] || []; });
-      var form = new FormData();
-      form.append('payload', JSON.stringify(patchWithPhoto));
-      fetch(API, { method: 'POST', body: form, mode: 'no-cors' }).catch(function(){});
-    }
-    // 1.5秒後直接顯示成功（no-cors 不等回應）
-    setTimeout(onSaveSuccess, 1500);
+  function finish() {
+    btn.textContent = '儲存'; btn.disabled = false;
+    showToast('已更新！');
+    closeEditModal();
+    _reportCache = null;
+    delete _photoCache[editingId];
+    setTimeout(function() {
+      if (document.getElementById('pageAdmin').classList.contains('show')) loadAllReports();
+      else loadHistory();
+    }, 800);
   }
 
-  if (compressJobs.length > 0) {
-    // 加 10 秒超時保護
-    var compressDone = false;
-    var compressTimer = setTimeout(function() {
-      if (!compressDone) { compressDone = true; doFinalSend(); }
-    }, 10000);
-    Promise.all(compressJobs).then(function() {
-      if (!compressDone) { compressDone = true; clearTimeout(compressTimer); doFinalSend(); }
-    }).catch(function() {
-      if (!compressDone) { compressDone = true; clearTimeout(compressTimer); doFinalSend(); }
-    });
-  } else {
-    doFinalSend();
+  // 送出（no-cors），2秒後直接完成
+  try { fetch(sendUrl, {mode:'no-cors'}).catch(function(){}); } catch(e) {}
+
+  var hasPhotos = allPhotos.some(function(p){ return p && p.length; });
+  if (hasPhotos) {
+    var patchWithPhoto = {action:'edit', data: JSON.parse(JSON.stringify(patchData))};
+    var form = new FormData();
+    form.append('payload', JSON.stringify(patchWithPhoto));
+    try { fetch(API, {method:'POST', body:form, mode:'no-cors'}).catch(function(){}); } catch(e) {}
   }
+
+  setTimeout(finish, 2000);
 }
-
 
 </script>
 </body>

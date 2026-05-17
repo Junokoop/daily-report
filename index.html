@@ -331,6 +331,7 @@ var expList = null;
 var _reportCache = null;
 var _reportCacheTime = 0;
 var CACHE_TTL = 60000; // 60秒快取
+var _photoCache = {}; // 照片快取 {id: [src,...]}
 
 function getReporters() {
   try {
@@ -737,6 +738,16 @@ function loadAllReports() {
     .then(function(data) {
       allReports = data;
       document.getElementById('adminCount').textContent = '共 ' + allReports.length + ' 筆';
+      // 背景預抓有照片的報表（最多5筆）
+      allReports.filter(function(r){
+        return (r.expenses||[]).some(function(e){ return e.photoCount > 0; });
+      }).slice(0, 5).forEach(function(r) {
+        if (_photoCache[r.id]) return;
+        fetch(API + '?action=getphotos&id=' + r.id)
+          .then(function(res){ return res.json(); })
+          .then(function(res){ if (res.ok && res.photos) _photoCache[r.id] = res.photos; })
+          .catch(function(){});
+      });
       try { updateFilterDropdown(); } catch(e) {}
       try { renderSummaryTable(allReports); } catch(e) {}
       try { renderNotifyList(allReports); } catch(e) {}
@@ -916,8 +927,11 @@ function buildCard(rpt, isAdminView) {
     body.innerHTML += h + '</table></div>';
   }
   if (rpt.expenses && rpt.expenses.length) {
-    var h2 = '<div class="rbs"><div class="rbl">公款支出</div><table class="rbt"><tr><th>項目</th><th>發票</th><th>現金</th><th>刷卡</th></tr>';
-    rpt.expenses.forEach(function(e) { h2 += '<tr><td>' + esc(e.item) + '</td><td>' + (e.inv ? '✔' : '—') + '</td><td>' + (e.cash ? '$' + Number(e.cash).toLocaleString() : '—') + '</td><td>' + (e.card ? '$' + Number(e.card).toLocaleString() : '—') + '</td></tr>'; });
+    var h2 = '<div class="rbs"><div class="rbl">公款支出</div><table class="rbt"><tr><th>項目</th><th>發票</th><th>現金</th><th>刷卡</th><th>照片</th></tr>';
+    rpt.expenses.forEach(function(e) {
+      var pc = (e.photos && e.photos.length) ? e.photos.length : (e.photoCount || 0);
+      h2 += '<tr><td>' + esc(e.item) + '</td><td>' + (e.inv ? '✔' : '—') + '</td><td>' + (e.cash ? '$' + Number(e.cash).toLocaleString() : '—') + '</td><td>' + (e.card ? '$' + Number(e.card).toLocaleString() : '—') + '</td><td>' + (pc ? '📷' + pc : '—') + '</td></tr>';
+    });
     body.innerHTML += h2 + '</table></div>';
     var allPhotos = [];
     rpt.expenses.forEach(function(e) { if (e.photos && e.photos.length) allPhotos = allPhotos.concat(e.photos); });
@@ -959,20 +973,33 @@ function buildCard(rpt, isAdminView) {
       // 非管理者（填報者）直接載入，不等展開
       if (!isAdminView) {
         (function(rptId, wrap) {
-          fetch(API + '?action=getphotos&id=' + rptId + '&t=' + Date.now())
-            .then(function(r) { return r.json(); })
-            .then(function(res) {
-              if (!res.ok || !res.photos || !res.photos.length) return;
-              wrap.dataset.loaded = '1';
-              res.photos.forEach(function(src) {
-                if (!src) return;
-                var img = document.createElement('img');
-                img.style.cssText = 'width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--br);cursor:pointer';
-                img.src = src;
-                img.onclick = (function(s){ return function(e){ e.stopPropagation(); openPhotoOverlay(s); }; })(src);
-                wrap.appendChild(img);
-              });
-            }).catch(function() {});
+          if (_photoCache[rptId]) {
+            wrap.dataset.loaded = '1';
+            _photoCache[rptId].forEach(function(src) {
+              if (!src) return;
+              var img = document.createElement('img');
+              img.style.cssText = 'width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--br);cursor:pointer';
+              img.src = src;
+              img.onclick = (function(s){ return function(e){ e.stopPropagation(); openPhotoOverlay(s); }; })(src);
+              wrap.appendChild(img);
+            });
+          } else {
+            fetch(API + '?action=getphotos&id=' + rptId + '&t=' + Date.now())
+              .then(function(r) { return r.json(); })
+              .then(function(res) {
+                if (!res.ok || !res.photos || !res.photos.length) return;
+                _photoCache[rptId] = res.photos;
+                wrap.dataset.loaded = '1';
+                res.photos.forEach(function(src) {
+                  if (!src) return;
+                  var img = document.createElement('img');
+                  img.style.cssText = 'width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--br);cursor:pointer';
+                  img.src = src;
+                  img.onclick = (function(s){ return function(e){ e.stopPropagation(); openPhotoOverlay(s); }; })(src);
+                  wrap.appendChild(img);
+                });
+              }).catch(function() {});
+          }
         })(rpt.id, photoWrap2);
       }
     }
@@ -1051,20 +1078,30 @@ function buildCard(rpt, isAdminView) {
         wrap = body.querySelector('[data-rpt-id]');
       }
       if (!wrap) return;
-      fetch(API + '?action=getphotos&id=' + body.dataset.rptId + '&t=' + Date.now())
-        .then(function(r) { return r.json(); })
-        .then(function(res) {
-          if (!res.ok || !res.photos || !res.photos.length) { body.dataset.photosLoaded = '0'; return; }
-          res.photos.forEach(function(src) {
-            if (!src) return;
-            var img = document.createElement('img');
-            img.style.cssText = 'width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--br);cursor:pointer';
-            img.src = src;
-            img.onclick = (function(s){ return function(e){ e.stopPropagation(); openPhotoOverlay(s); }; })(src);
-            wrap.appendChild(img);
-          });
-        })
-        .catch(function() { body.dataset.photosLoaded = '0'; });
+      function renderPhotosToWrap(photos, w) {
+        photos.forEach(function(src) {
+          if (!src) return;
+          var img = document.createElement('img');
+          img.style.cssText = 'width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--br);cursor:pointer';
+          img.src = src;
+          img.onclick = (function(s){ return function(e){ e.stopPropagation(); openPhotoOverlay(s); }; })(src);
+          w.appendChild(img);
+        });
+      }
+      var rid = body.dataset.rptId;
+      if (_photoCache[rid]) {
+        // 直接從 cache 顯示
+        renderPhotosToWrap(_photoCache[rid], wrap);
+      } else {
+        fetch(API + '?action=getphotos&id=' + rid + '&t=' + Date.now())
+          .then(function(r) { return r.json(); })
+          .then(function(res) {
+            if (!res.ok || !res.photos || !res.photos.length) { body.dataset.photosLoaded = '0'; return; }
+            _photoCache[rid] = res.photos;
+            renderPhotosToWrap(res.photos, wrap);
+          })
+          .catch(function() { body.dataset.photosLoaded = '0'; });
+      }
     }
   };
   wrap.appendChild(head); wrap.appendChild(body);
@@ -1083,10 +1120,12 @@ function openViewModal(rpt) {
   }).join('');
 
   var expRows = exp.map(function(e) {
+    var pc = (e.photos && e.photos.length) ? e.photos.length : (e.photoCount || 0);
     return '<tr><td style="padding:6px 8px;border:1px solid var(--br)">' + esc(e.item) + '</td>' +
       '<td style="padding:6px 8px;border:1px solid var(--br);text-align:center">' + (e.inv?'✔':'—') + '</td>' +
       '<td style="padding:6px 8px;border:1px solid var(--br);text-align:center">' + (e.cash?'$'+Number(e.cash).toLocaleString():'—') + '</td>' +
-      '<td style="padding:6px 8px;border:1px solid var(--br);text-align:center">' + (e.card?'$'+Number(e.card).toLocaleString():'—') + '</td></tr>';
+      '<td style="padding:6px 8px;border:1px solid var(--br);text-align:center">' + (e.card?'$'+Number(e.card).toLocaleString():'—') + '</td>' +
+      '<td style="padding:6px 8px;border:1px solid var(--br);text-align:center">' + (pc?'📷'+pc:'—') + '</td></tr>';
   }).join('');
 
   var rows = [
@@ -1106,7 +1145,7 @@ function openViewModal(rpt) {
     '<div style="margin-bottom:12px">' + infoHtml + '</div>' +
     (rpt.workItems ? '<div style="margin-bottom:12px"><div style="font-size:12px;color:var(--mu);font-weight:700;margin-bottom:4px">施工項目</div><div style="background:var(--st);border-radius:8px;padding:10px;font-size:14px;line-height:1.7;white-space:pre-wrap">' + esc(rpt.workItems) + '</div></div>' : '') +
     (attRows ? '<div style="margin-bottom:12px"><div style="font-size:12px;color:var(--mu);font-weight:700;margin-bottom:4px">出工人員</div><table style="width:100%;border-collapse:collapse;font-size:13px"><tr style="background:var(--hbg)"><th style="padding:6px 8px;border:1px solid var(--br)">姓名</th><th style="padding:6px 8px;border:1px solid var(--br)">上午</th><th style="padding:6px 8px;border:1px solid var(--br)">下午</th><th style="padding:6px 8px;border:1px solid var(--br)">加班</th></tr>' + attRows + '</table></div>' : '') +
-    (expRows ? '<div style="margin-bottom:12px"><div style="font-size:12px;color:var(--mu);font-weight:700;margin-bottom:4px">公款支出</div><table style="width:100%;border-collapse:collapse;font-size:13px"><tr style="background:var(--hbg)"><th style="padding:6px 8px;border:1px solid var(--br)">項目</th><th style="padding:6px 8px;border:1px solid var(--br)">發票</th><th style="padding:6px 8px;border:1px solid var(--br)">現金</th><th style="padding:6px 8px;border:1px solid var(--br)">刷卡</th></tr>' + expRows + '</table></div>' : '') +
+    (expRows ? '<div style="margin-bottom:12px"><div style="font-size:12px;color:var(--mu);font-weight:700;margin-bottom:4px">公款支出</div><table style="width:100%;border-collapse:collapse;font-size:13px"><tr style="background:var(--hbg)"><th style="padding:6px 8px;border:1px solid var(--br)">項目</th><th style="padding:6px 8px;border:1px solid var(--br)">發票</th><th style="padding:6px 8px;border:1px solid var(--br)">現金</th><th style="padding:6px 8px;border:1px solid var(--br)">刷卡</th><th style="padding:6px 8px;border:1px solid var(--br)">照片</th></tr>' + expRows + '</table></div>' : '') +
     '<div style="background:#eaf4ec;border-radius:8px;padding:12px;font-size:13px">' +
       '<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:var(--mu)">接收現金</span><span style="font-weight:600">$' + Number(rpt.receiptCash||0).toLocaleString() + '</span></div>' +
       '<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:var(--mu)">現金支出</span><span style="font-weight:600">$' + Number(rpt.totalCash||0).toLocaleString() + '</span></div>' +
@@ -1236,30 +1275,37 @@ function doOpenEditModal(rpt) {
   // 非同步載入照片
   var needPhotos = exp.some(function(ex){ return ex.photoCount > 0; });
   if (needPhotos) {
-    fetch(API + '?action=getphotos&id=' + rpt.id + '&t=' + Date.now())
-      .then(function(r) { return r.json(); })
-      .then(function(res) {
-        if (!res.ok || !res.photos || !res.photos.length) return;
-        var pi = 0;
-        exp.forEach(function(ex, ei) {
-          var epIdx = 'ep' + ei;
-          var count = ex.photoCount || 0;
-          if (!count) return;
-          var photos = [];
-          for (var i = 0; i < count && pi < res.photos.length; i++, pi++) {
-            photos.push(res.photos[pi]);
-          }
-          window._editExpPhotoMap[epIdx] = photos;
-          // 同時存進 exp 物件（確保儲存時能拿到）
-          if (exp[ei]) exp[ei].photos = photos.slice();
-          var ec = document.querySelector('[data-ep-idx="' + epIdx + '"]');
-          if (!ec) return;
-          var row = ec.querySelector('.inv-photos-row');
-          if (!row) return;
-          renderEditInvPhotos(row, epIdx);
-        });
-      })
-      .catch(function() {});
+    function applyPhotos(allP) {
+      var pi = 0;
+      exp.forEach(function(ex, ei) {
+        var epIdx = 'ep' + ei;
+        var count = ex.photoCount || 0;
+        if (!count) return;
+        var photos = [];
+        for (var i = 0; i < count && pi < allP.length; i++, pi++) {
+          photos.push(allP[pi]);
+        }
+        window._editExpPhotoMap[epIdx] = photos;
+        var ec = document.querySelector('[data-ep-idx="' + epIdx + '"]');
+        if (!ec) return;
+        var row = ec.querySelector('.inv-photos-row');
+        if (!row) return;
+        renderEditInvPhotos(row, epIdx);
+      });
+    }
+    // 先查快取
+    if (_photoCache[rpt.id] && _photoCache[rpt.id].length) {
+      applyPhotos(_photoCache[rpt.id]);
+    } else {
+      fetch(API + '?action=getphotos&id=' + rpt.id + '&t=' + Date.now())
+        .then(function(r) { return r.json(); })
+        .then(function(res) {
+          if (!res.ok || !res.photos || !res.photos.length) return;
+          _photoCache[rpt.id] = res.photos;
+          applyPhotos(res.photos);
+        })
+        .catch(function() {});
+    }
   }
 }
 
@@ -1447,6 +1493,7 @@ function saveEdit() {
     var item = c.querySelector('.edit-exp-item').value.trim();
     if (!item) return;
     var epIdx = c.dataset.epIdx || '';
+    // 從 _editExpPhotoMap 取（包含新上傳 + 已載入的）
     var photos = (epIdx && window._editExpPhotoMap && window._editExpPhotoMap[epIdx]) ? window._editExpPhotoMap[epIdx] : [];
     exp.push({item:item, inv:c.querySelector('.edit-exp-inv').checked, cash:parseFloat(c.querySelector('.edit-exp-cash').value)||0, card:parseFloat(c.querySelector('.edit-exp-card').value)||0, photos:photos});
   });

@@ -1072,103 +1072,67 @@ function doOpenEditModal(rpt) {
   showToast('開啟編輯...');
   editingId = rpt.id;
   var att = rpt.attendance || [];
-  var attHtml = '';
-  att.forEach(function(a) {
-    attHtml += '<div class="ec" style="margin-bottom:6px"><div class="er"><span class="el">姓名</span><input type="text" class="edit-att-name" value="' + esc(a.name) + '"><button class="db" type="button" onclick="this.closest(\'.ec\').remove()">✕</button></div><div class="achks"><label class="ci"><input type="checkbox" class="edit-att-am"' + (a.am ? ' checked' : '') + '><span>上午</span></label><label class="ci"><input type="checkbox" class="edit-att-pm"' + (a.pm ? ' checked' : '') + '><span>下午</span></label><div class="ci-ot"><span>加班(時)</span><input type="number" class="edit-att-ot" min="0" max="24" step="0.5" value="' + (a.ot || 0) + '"></div></div></div>';
-  });
   var exp = rpt.expenses || [];
-  var expHtml = '';
   window._editExpPhotoMap = {};
-  exp.forEach(function(ex, ei) {
-    var epIdx = 'ep' + ei;
-    window._editExpPhotoMap[epIdx] = ex.photos ? ex.photos.slice() : [];
-    var hasPhotos = ex.photos && ex.photos.length > 0;
-    expHtml += '<div class="ec" style="margin-bottom:6px" data-ep-idx="' + epIdx + '">' +
-      '<div class="er"><span class="el">購買項目</span><input type="text" class="edit-exp-item" value="' + esc(ex.item) + '"><button class="db" type="button" onclick="this.closest(\'.ec\').remove()">✕</button></div>' +
-      '<div class="er"><span class="el">發票</span><div class="ivw"><input type="checkbox" class="edit-exp-inv"' + (ex.inv ? ' checked' : '') + '><span>已附發票</span>' +
-        '<button class="inv-photo-btn" type="button" onclick="editExpPhotoUpload(this,\'' + epIdx + '\')">📁 上傳</button>' +
-        '<button class="inv-camera-btn" type="button" onclick="editExpPhotoCamera(this,\'' + epIdx + '\')">📷 拍照</button>' +
-        '<input type="file" accept="image/*" multiple style="display:none" class="edit-inv-file-input">' +
-        '<input type="file" accept="image/*" capture="environment" style="display:none" class="edit-inv-camera-input">' +
-      '</div></div>' +
-      '<div class="inv-photos-row" style="' + (hasPhotos ? 'display:flex' : 'display:none') + ';padding:8px 14px;gap:8px;flex-wrap:wrap;overflow:visible"></div>' +
-      '<div class="er"><span class="el">現金金額</span><input type="number" class="edit-exp-cash" value="' + (ex.cash || 0) + '" min="0" inputmode="numeric"></div>' +
-      '<div class="er"><span class="el">刷卡金額</span><input type="number" class="edit-exp-card" value="' + (ex.card || 0) + '" min="0" inputmode="numeric"></div>' +
-    '</div>';
-  });
+
   // 解析日期
-  var dateStr = rpt.date || '';
+  var dateStr = String(rpt.date || '');
   var yr = dateStr.replace(/年.*/, '') || '115';
   var mo = (dateStr.match(/(\d+)月/) || ['','5'])[1];
   var da = (dateStr.match(/(\d+)日/) || ['','1'])[1];
 
+  exp.forEach(function(ex, ei) {
+    var epIdx = 'ep' + ei;
+    window._editExpPhotoMap[epIdx] = [];
+  });
+
+  // 建立出工人員 HTML
+  var attHtml = '';
+  att.forEach(function(a) {
+    attHtml += '<div class="ec" style="margin-bottom:6px"><div class="er"><span class="el">姓名</span><input type="text" class="edit-att-name" value="' + esc(a.name) + '"><button class="db" type="button" onclick="this.closest(\'.ec\').remove()">✕</button></div><div class="er"><span class="el">上午</span><input type="checkbox" class="edit-att-am"' + (a.am ? ' checked' : '') + '></div><div class="er"><span class="el">下午</span><input type="checkbox" class="edit-att-pm"' + (a.pm ? ' checked' : '') + '></div><div class="er"><span class="el">加班(時)</span><input type="number" class="edit-att-ot" value="' + (a.ot || 0) + '" min="0" inputmode="numeric"></div></div>';
+  });
+
+  // 建立支出 HTML
+  var expHtml = '';
+  exp.forEach(function(ex, ei) {
+    var epIdx = 'ep' + ei;
+    expHtml += '<div class="ec" style="margin-bottom:6px" data-ep-idx="' + epIdx + '"><div class="er"><span class="el">購買項目</span><input type="text" class="edit-exp-item" value="' + esc(ex.item) + '"><button class="db" type="button" onclick="this.closest(\'.ec\').remove()">✕</button></div><div class="er"><span class="el">發票</span><div class="ivw"><input type="checkbox" class="edit-exp-inv"' + (ex.inv ? ' checked' : '') + '><span>已附發票</span><button class="inv-photo-btn" type="button" onclick="editExpPhotoUpload(this,\'' + epIdx + '\')">📁 上傳</button><button class="inv-camera-btn" type="button" onclick="editExpPhotoCamera(this,\'' + epIdx + '\')">📷 拍照</button><input type="file" accept="image/*" multiple style="display:none" class="edit-inv-file-input"><input type="file" accept="image/*" capture="environment" style="display:none" class="edit-inv-camera-input"></div></div><div class="inv-photos-row" style="display:none;padding:8px 14px;gap:8px;flex-wrap:wrap;overflow:visible"></div><div class="er"><span class="el">現金金額</span><input type="number" class="edit-exp-cash" value="' + (ex.cash || 0) + '" min="0" inputmode="numeric"></div><div class="er"><span class="el">刷卡金額</span><input type="number" class="edit-exp-card" value="' + (ex.card || 0) + '" min="0" inputmode="numeric"></div></div>';
+  });
+
   document.getElementById('editModalContent').innerHTML =
     '<div style="display:flex;flex-direction:column;gap:14px">' +
-    '<div><div class="mlbl" style="margin-bottom:6px">填表日期</div><div class="dgrp"><input class="di" id="editY" value="' + yr + '" style="width:60px"> 年 <input class="di" id="editM" value="' + mo + '" style="width:46px"> 月 <input class="di" id="editD" value="' + dy + '" style="width:46px"> 日</div></div>' +
-    '<div class="mrow"><span class="mlbl">工程名稱：</span><input class="ti" id="editPname" value="' + esc(rpt.project) + '"></div>' +
-    '<div><span class="mlbl" style="display:block;margin-bottom:6px">施工項目：</span><textarea id="editWitem" style="width:100%;min-height:90px;border:1.5px solid var(--br);border-radius:6px;background:var(--ib);font-size:14px;padding:10px;resize:vertical;outline:none">' + esc(rpt.workItems) + '</textarea></div>' +
-    '<div><div class="mlbl" style="margin-bottom:6px">出工人員</div><div id="editAttList">' + attHtml + '</div><button type="button" class="ab" onclick="addEditAtt()" style="margin-top:4px">＋ 新增人員</button></div>' +
-    '<div><div class="mlbl" style="margin-bottom:6px">公款支出</div><div id="editExpList">' + expHtml + '</div><button type="button" class="ab" onclick="addEditExp()" style="margin-top:4px">＋ 新增支出項目</button></div>' +
-    '<div class="mrow"><span class="mlbl">接收現金：</span><input class="ti" id="editRc" type="number" value="' + (rpt.receiptCash || 0) + '"></div>' +
-    '<div class="mrow"><span class="mlbl">備考：</span><input class="ti" id="editRn" value="' + esc(rpt.receiptNote) + '"></div>' +
+    '<div><div class="mlbl" style="margin-bottom:6px">填表日期</div><div class="dgrp"><input class="di" id="editY" value="' + yr + '" style="width:60px"> 年 <input class="di" id="editM" value="' + mo + '" style="width:40px"> 月 <input class="di" id="editD" value="' + da + '" style="width:40px"> 日</div></div>' +
+    '<div class="mrow"><span class="mlbl">工程名稱</span><input id="editPname" class="mi" value="' + esc(rpt.project) + '"></div>' +
+    '<div class="mrow"><span class="mlbl">施工項目</span><textarea id="editWitem" class="mi" rows="3" style="resize:vertical">' + esc(rpt.workItems) + '</textarea></div>' +
+    '<div><div class="mlbl" style="margin-bottom:6px">出工人員</div><div id="editAttList">' + attHtml + '</div><button type="button" class="ab" onclick="addEditAtt()" style="margin-top:6px">＋ 新增人員</button></div>' +
+    '<div><div class="mlbl" style="margin-bottom:6px">公款支出</div><div id="editExpList">' + expHtml + '</div><button type="button" class="ab" onclick="addEditExp()" style="margin-top:6px">＋ 新增支出項目</button></div>' +
+    '<div class="mrow"><span class="mlbl">接收現金：</span><input id="editRc" type="number" class="mi" value="' + (rpt.receiptCash || 0) + '" inputmode="numeric"></div>' +
+    '<div class="mrow"><span class="mlbl">備考：</span><input id="editRn" class="mi" value="' + esc(rpt.receiptNote) + '"></div>' +
     '</div>';
+
   document.getElementById('saveEditBtn').style.display = '';
   var delBtnEl2 = document.getElementById('delEditBtn');
   if (delBtnEl2) delBtnEl2.style.display = '';
-
-  // 用 DOM 操作插入照片（避免 innerHTML 字串太長）
-  exp.forEach(function(ex, ei) {
-    var epIdx = 'ep' + ei;
-    var photos = window._editExpPhotoMap[epIdx] || [];
-    if (!photos.length) return;
-    var ec = document.querySelector('[data-ep-idx="' + epIdx + '"]');
-    if (!ec) return;
-    var row = ec.querySelector('.inv-photos-row');
-    if (!row) return;
-    row.style.display = 'flex';
-    row.innerHTML = '';
-    photos.forEach(function(src, pi) {
-      var wrap = document.createElement('div');
-      wrap.style.cssText = 'position:relative;display:inline-block;margin-top:4px';
-      var img = document.createElement('img');
-      img.src = src;
-      img.style.cssText = 'width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--br);cursor:pointer;display:block';
-      img.onclick = (function(s){ return function(){ openPhotoOverlay(s); }; })(src);
-      var delBtn = document.createElement('button');
-      delBtn.type = 'button';
-      delBtn.textContent = '✕';
-      delBtn.style.cssText = 'position:absolute;top:-8px;right:-8px;width:22px;height:22px;border-radius:50%;background:#9b2226;color:#fff;border:none;font-size:12px;font-weight:700;cursor:pointer;line-height:22px;text-align:center;padding:0;z-index:10';
-      delBtn.setAttribute('data-ep', epIdx);
-      delBtn.setAttribute('data-pi', pi);
-      delBtn.onclick = function(e) { e.stopPropagation(); doRemoveEditPhoto(this); };
-      wrap.appendChild(img);
-      wrap.appendChild(delBtn);
-      row.appendChild(wrap);
-    });
-  });
-
-  showToast('開啟Modal');
   document.getElementById('editModal').classList.add('show');
-  showToast('Modal已開啟');
+  showToast('編輯已開啟');
 
-  // 非同步載入照片到編輯框
-  var needPhotos = (rpt.expenses || []).some(function(ex){ return ex.photoCount > 0 && (!ex.photos || !ex.photos.length); });
+  // 非同步載入照片
+  var needPhotos = exp.some(function(ex){ return ex.photoCount > 0; });
   if (needPhotos) {
     fetch(API + '?action=getphotos&id=' + rpt.id + '&t=' + Date.now())
       .then(function(r) { return r.json(); })
       .then(function(res) {
         if (!res.ok || !res.photos || !res.photos.length) return;
         var pi = 0;
-        (rpt.expenses || []).forEach(function(ex, ei) {
-          var count = ex.photoCount || 0;
+        exp.forEach(function(ex, ei) {
           var epIdx = 'ep' + ei;
+          var count = ex.photoCount || 0;
           if (!count) return;
           var photos = [];
           for (var i = 0; i < count && pi < res.photos.length; i++, pi++) {
             photos.push(res.photos[pi]);
           }
           window._editExpPhotoMap[epIdx] = photos;
-          // 找到對應的 inv-photos-row 並插入照片
           var ec = document.querySelector('[data-ep-idx="' + epIdx + '"]');
           if (!ec) return;
           var row = ec.querySelector('.inv-photos-row');
@@ -1391,7 +1355,7 @@ function saveEdit() {
   allPhotos.forEach(function(photos, ei) {
     photos.forEach(function(src, pi) {
       if (src && src.indexOf('data:image') === 0) {
-        compressJobs.push(compressPhoto(src, 800, 0.7).then(function(c) {
+        compressJobs.push(compressPhoto(src, 1200, 0.85).then(function(c) {
           allPhotos[ei][pi] = c;
         }));
       }

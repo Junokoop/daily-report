@@ -183,9 +183,9 @@ table.st{width:100%;border-collapse:collapse;border-top:1.5px solid var(--bd)}
     <div class="sh">公款支出每日明細表</div>
     <div class="ewrap" id="expList"></div>
     <div class="sh">本日接收公款</div>
-    <div class="accum-bar" id="accumBar">&#x1F4B0; 上筆結餘：計算中…</div>
     <div class="rb">
-      <div class="rr"><span class="rl">現金</span><input id="rc" type="number" placeholder="0" min="0" inputmode="numeric" oninput="calc()"><span style="font-size:14px">元</span></div>
+      <div class="rr"><span class="rl">上筆結餘公款</span><input id="rc" type="number" placeholder="0" min="0" inputmode="numeric" readonly style="background:#f5f5f5;color:var(--mu)"><span style="font-size:14px">元</span></div>
+      <div class="rr"><span class="rl">本日接收公款</span><input id="rc2" type="number" placeholder="0" min="0" inputmode="numeric" oninput="calc()"><span style="font-size:14px">元</span></div>
       <div class="rr"><span class="rl">備考</span><input id="rn" type="text"></div>
     </div>
     <table class="st">
@@ -208,7 +208,7 @@ table.st{width:100%;border-collapse:collapse;border-top:1.5px solid var(--bd)}
   <div class="card" style="padding:12px 14px;margin-bottom:12px;background:#eaf4ec;border-color:var(--grn)">
     <div style="display:flex;flex-direction:column;gap:6px">
       <div style="display:flex;justify-content:space-between;font-size:13px">
-        <span style="color:var(--mu)">上筆結餘</span>
+        <span style="color:var(--mu)">上筆結餘公款</span>
         <span id="historyLastRemain" style="font-weight:700;color:var(--grn)">—</span>
       </div>
       <div style="display:flex;justify-content:space-between;font-size:13px">
@@ -464,6 +464,7 @@ function initForm() {
   document.getElementById('pname').value = '';
   document.getElementById('witem').value = '';
   document.getElementById('rc').value = '';
+  document.getElementById('rc2').value = '';
   document.getElementById('rn').value = '';
   while (attList.firstChild) attList.removeChild(attList.firstChild);
   attList.appendChild(addAttBtn);
@@ -508,12 +509,10 @@ function loadAccum() {
       var myReports = data.filter(function(r) { return r.reporter === currentReporter; });
       var lastRemaining = myReports.length > 0 ? (parseFloat(myReports[0].remaining) || 0) : 0;
       document.getElementById('rc').value = lastRemaining;
+      document.getElementById('rc2').value = 0;
       calc();
-      document.getElementById('accumBar').textContent = myReports.length > 0
-        ? '上筆結餘：$' + lastRemaining.toLocaleString() + '（已帶入接收現金）'
-        : '尚無歷史紀錄，請填入接收現金';
     })
-    .catch(function() { document.getElementById('accumBar').textContent = '累計資料載入失敗'; });
+    .catch(function() {});
 }
 
 function addAtt() {
@@ -597,6 +596,7 @@ function doReset() {
   document.getElementById('pname').value = '';
   document.getElementById('witem').value = '';
   document.getElementById('rc').value = '';
+  document.getElementById('rc2').value = '';
   document.getElementById('rn').value = '';
   expPhotoMap = {};
   var d = new Date();
@@ -701,13 +701,17 @@ function loadHistory() {
         document.getElementById('historyCount').textContent = '共 ' + data.length + ' 筆';
         if (data.length > 0) {
           var lastRemain = parseFloat(data[0].remaining) || 0;
-          var lastReceipt = parseFloat(data[0].receiptCash) || 0;
+          var lastReceiptCash = parseFloat(data[0].receiptCash) || 0;
           var lastTotalCash = parseFloat(data[0].totalCash) || 0;
+          // 上筆結餘 = 前一筆的 remaining（data[1]），若無則 0
+          var prevRemaining = data.length > 1 ? (parseFloat(data[1].remaining) || 0) : 0;
+          // 本日接收 = 總接收 - 上筆結餘
+          var todayReceived = lastReceiptCash - prevRemaining;
           var isNeg = lastRemain < 0;
           var color = isNeg ? 'var(--red)' : 'var(--grn)';
-          document.getElementById('historyLastRemain').textContent = '$' + lastRemain.toLocaleString();
-          document.getElementById('historyLastRemain').style.color = color;
-          document.getElementById('historyLastOut').textContent = '$' + lastReceipt.toLocaleString();
+          document.getElementById('historyLastRemain').textContent = '$' + prevRemaining.toLocaleString();
+          document.getElementById('historyLastRemain').style.color = 'var(--grn)';
+          document.getElementById('historyLastOut').textContent = '$' + todayReceived.toLocaleString();
           document.getElementById('historyLastTotalCash').textContent = '$' + lastTotalCash.toLocaleString();
           document.getElementById('historyAccum').textContent = '$' + lastRemain.toLocaleString();
           document.getElementById('historyAccum').style.color = color;
@@ -771,16 +775,20 @@ function renderSummaryTable(data) {
     var r = reporters[i];
     var myData = data.filter(function(d) { return d.reporter === r; });
     var lastRemain = myData.length > 0 ? (parseFloat(myData[0].remaining) || 0) : null;
-    var lastReceipt = myData.length > 0 ? (parseFloat(myData[0].receiptCash) || 0) : 0;
+    var lastReceiptCash = myData.length > 0 ? (parseFloat(myData[0].receiptCash) || 0) : 0;
     var lastTotalCash = myData.length > 0 ? (parseFloat(myData[0].totalCash) || 0) : 0;
+    // 上筆結餘 = 前一筆的 remaining
+    var prevRemaining = myData.length > 1 ? (parseFloat(myData[1].remaining) || 0) : 0;
+    // 本日接收 = 總接收 - 上筆結餘
+    var todayReceived = lastReceiptCash - prevRemaining;
     var isNeg = lastRemain !== null && lastRemain < 0;
     var remainText = lastRemain !== null ? '$' + lastRemain.toLocaleString() : '—';
     var remainColor = isNeg ? 'var(--red)' : 'var(--grn)';
     html += '<div class="summary-row">' +
       '<div style="font-weight:700;font-size:15px;margin-bottom:6px">' + esc(r) + '</div>' +
       '<div style="display:flex;flex-direction:column;gap:4px;font-size:13px">' +
-        '<div style="display:flex;justify-content:space-between"><span style="color:var(--mu)">上筆結餘</span><span style="font-weight:700;color:' + remainColor + '">' + remainText + '</span></div>' +
-        '<div style="display:flex;justify-content:space-between"><span style="color:var(--mu)">本日接收公款</span><span style="font-weight:700;color:var(--ac)">$' + lastReceipt.toLocaleString() + '</span></div>' +
+        '<div style="display:flex;justify-content:space-between"><span style="color:var(--mu)">上筆結餘公款</span><span style="font-weight:700;color:var(--grn)">$' + prevRemaining.toLocaleString() + '</span></div>' +
+        '<div style="display:flex;justify-content:space-between"><span style="color:var(--mu)">本日接收公款</span><span style="font-weight:700;color:var(--ac)">$' + todayReceived.toLocaleString() + '</span></div>' +
         '<div style="display:flex;justify-content:space-between"><span style="color:var(--mu)">本日支出金額</span><span style="font-weight:700;color:var(--red)">$' + lastTotalCash.toLocaleString() + '</span></div>' +
         '<div style="height:1px;background:var(--br);margin:2px 0"></div>' +
         '<div style="display:flex;justify-content:space-between;font-size:15px"><span style="font-weight:700">現金剩餘公款</span><span style="font-weight:900;color:' + remainColor + '">' + remainText + '</span></div>' +

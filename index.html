@@ -503,13 +503,12 @@ function fetchReports(forceRefresh) {
 }
 
 function loadAccum() {
-  document.getElementById('accumBar').textContent = '上筆結餘：計算中…';
   fetchReports(false)
     .then(function(data) {
       var myReports = data.filter(function(r) { return r.reporter === currentReporter; });
       var lastRemaining = myReports.length > 0 ? (parseFloat(myReports[0].remaining) || 0) : 0;
       document.getElementById('rc').value = lastRemaining;
-      document.getElementById('rc2').value = 0;
+      document.getElementById('rc2').value = '';
       calc();
     })
     .catch(function() {});

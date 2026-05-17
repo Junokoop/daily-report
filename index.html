@@ -1150,11 +1150,26 @@ function openViewModal(rpt) {
       '<div style="height:1px;background:var(--br);margin:6px 0"></div>' +
       '<div style="display:flex;justify-content:space-between"><span style="font-weight:700">現金剩餘公款</span><span style="font-weight:900;color:var(--grn);font-size:16px">$' + Number(rpt.remaining||0).toLocaleString() + '</span></div>' +
     '</div>' +
-    (rpt.editedAt ? '<div style="margin-top:10px;background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:10px 12px;font-size:12px;color:#856404">' +
-      '<div style="font-weight:700;font-size:13px;margin-bottom:4px">✏️ 已修正</div>' +
-      '<div>修正者：' + esc(rpt.editedBy) + '　時間：' + esc(rpt.editedAt) + '</div>' +
-      (rpt.editedNote ? '<div style="margin-top:6px;background:#ffc107;color:#000;border-radius:4px;padding:4px 8px;font-weight:700">修正項目：' + esc(rpt.editedNote) + '</div>' : '') +
-    '</div>' : '');
+    (rpt.editedAt ?
+      '<div style="margin-top:12px;border:2px solid #ffc107;border-radius:10px;overflow:hidden">' +
+        '<div style="background:#ffc107;padding:8px 12px;font-weight:700;font-size:13px;color:#000">✏️ 修正記錄</div>' +
+        '<div style="padding:10px 12px;background:#fffbe6;display:flex;flex-direction:column;gap:8px">' +
+          '<div style="display:flex;justify-content:space-between;font-size:13px">' +
+            '<span style="color:var(--mu)">修正者</span>' +
+            '<span style="font-weight:700">' + esc(rpt.editedBy) + '</span>' +
+          '</div>' +
+          '<div style="display:flex;justify-content:space-between;font-size:13px">' +
+            '<span style="color:var(--mu)">修正時間</span>' +
+            '<span style="font-weight:700">' + esc(rpt.editedAt) + '</span>' +
+          '</div>' +
+          (rpt.editedNote ?
+            '<div style="display:flex;justify-content:space-between;align-items:flex-start;font-size:13px">' +
+              '<span style="color:var(--mu);flex-shrink:0">修正位置</span>' +
+              '<span style="font-weight:700;color:#b45309;background:#fef3c7;border:1px solid #fcd34d;border-radius:4px;padding:3px 10px;margin-left:8px;text-align:right">' + esc(rpt.editedNote) + '</span>' +
+            '</div>' : '') +
+        '</div>' +
+      '</div>'
+    : '');
 
   document.getElementById('saveEditBtn').style.display = 'none';
   var delBtn = document.getElementById('delEditBtn');

@@ -1593,18 +1593,13 @@ function saveEdit() {
     });
   });
 
-  Promise.all(compressJobs).then(function() {
-    // 送主資料
-    var img = new Image();
-    img.onload = img.onerror = function() {
-      // 照片用 no-cors POST 送出（GAS 確實能收到）
+  function doFinalSend() {
+    var imgS = new Image();
+    imgS.onload = imgS.onerror = function() {
       var hasPhotos = allPhotos.some(function(p){ return p && p.length && p[0] && p[0].indexOf('data:') === 0; });
       if (hasPhotos) {
-        // 把照片整合回 expenses，一次送出
         var patchWithPhoto = JSON.parse(JSON.stringify(patch));
-        patchWithPhoto.data.expenses.forEach(function(ex, ei) {
-          ex.photos = allPhotos[ei] || [];
-        });
+        patchWithPhoto.data.expenses.forEach(function(ex, ei) { ex.photos = allPhotos[ei] || []; });
         var form = new FormData();
         form.append('payload', JSON.stringify(patchWithPhoto));
         fetch(API, { method: 'POST', body: form, mode: 'no-cors' });
@@ -1613,26 +1608,29 @@ function saveEdit() {
       showToast('已更新！');
       closeEditModal();
       _reportCache = null;
+      _photoCache[editingId] = null;
       setTimeout(function() {
         if (document.getElementById('pageAdmin').classList.contains('show')) loadAllReports();
         else loadHistory();
       }, 800);
     };
-    img.src = url;
-  }).catch(function() {
-    var img2 = new Image();
-    img2.onload = img2.onerror = function() {
-      btn.textContent = '儲存'; btn.disabled = false;
-      showToast('已更新！');
-      closeEditModal();
-      _reportCache = null;
-      setTimeout(function() {
-        if (document.getElementById('pageAdmin').classList.contains('show')) loadAllReports();
-        else loadHistory();
-      }, 800);
-    };
-    img2.src = url;
-  });
+    imgS.src = url;
+  }
+
+  if (compressJobs.length > 0) {
+    // 加 10 秒超時保護
+    var compressDone = false;
+    var compressTimer = setTimeout(function() {
+      if (!compressDone) { compressDone = true; doFinalSend(); }
+    }, 10000);
+    Promise.all(compressJobs).then(function() {
+      if (!compressDone) { compressDone = true; clearTimeout(compressTimer); doFinalSend(); }
+    }).catch(function() {
+      if (!compressDone) { compressDone = true; clearTimeout(compressTimer); doFinalSend(); }
+    });
+  } else {
+    doFinalSend();
+  }
 }
 
 

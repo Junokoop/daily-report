@@ -23,7 +23,7 @@ body{background:#f0ede8;font-family:sans-serif;color:var(--tx);font-size:15px;pa
 .sh{background:var(--hbg);font-size:14px;font-weight:700;letter-spacing:.1em;padding:9px 14px;border-top:1px solid var(--br);border-bottom:1px solid var(--br)}
 .meta{padding:12px 14px;border-bottom:1px solid var(--br);display:flex;flex-direction:column;gap:10px}
 .mrow{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-.mlbl{font-weight:600;font-size:14px;white-space:nowrap}
+.mlbl{font-weight:600;font-size:14px;white-space:nowrap}.mi{flex:1;border:1px solid var(--br);border-radius:8px;padding:8px 10px;font-size:15px;width:100%;box-sizing:border-box;background:#fff;outline:none}
 .dgrp{display:flex;align-items:center;gap:4px}
 input.di{width:56px;height:44px;border:1.5px solid var(--br);border-radius:6px;background:var(--ib);font-size:15px;text-align:center;color:var(--tx);outline:none}
 input.ti{flex:1;min-width:0;height:44px;border:1.5px solid var(--br);border-radius:6px;background:var(--ib);font-size:15px;padding:0 10px;color:var(--tx);outline:none}
@@ -929,6 +929,7 @@ function buildCard(rpt, isAdminView) {
   if (rpt.expenses && rpt.expenses.length) {
     var h2 = '<div class="rbs"><div class="rbl">公款支出</div><table class="rbt"><tr><th>項目</th><th>發票</th><th>現金</th><th>刷卡</th></tr>';
     rpt.expenses.forEach(function(e) {
+      h2 += '<tr><td>' + esc(e.item) + '</td><td>' + (e.inv ? '✔' : '—') + '</td><td>' + (e.cash ? '$' + Number(e.cash).toLocaleString() : '—') + '</td><td>' + (e.card ? '$' + Number(e.card).toLocaleString() : '—') + '</td></tr>';
     });
     body.innerHTML += h2 + '</table></div>';
     var allPhotos = [];

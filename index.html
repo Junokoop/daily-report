@@ -939,6 +939,25 @@ function buildCard(rpt, isAdminView) {
       photoWrap2.dataset.loaded = '0';
       photoContainer2.appendChild(photoWrap2);
       body.appendChild(photoContainer2);
+      // 非管理者（填報者）直接載入，不等展開
+      if (!isAdminView) {
+        (function(rptId, wrap) {
+          fetch(API + '?action=getphotos&id=' + rptId + '&t=' + Date.now())
+            .then(function(r) { return r.json(); })
+            .then(function(res) {
+              if (!res.ok || !res.photos || !res.photos.length) return;
+              wrap.dataset.loaded = '1';
+              res.photos.forEach(function(src) {
+                if (!src) return;
+                var img = document.createElement('img');
+                img.style.cssText = 'width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--br);cursor:pointer';
+                img.src = src;
+                img.onclick = (function(s){ return function(e){ e.stopPropagation(); openPhotoOverlay(s); }; })(src);
+                wrap.appendChild(img);
+              });
+            }).catch(function() {});
+        })(rpt.id, photoWrap2);
+      }
     }
   }
   var settlDiv = document.createElement('div');
@@ -1065,7 +1084,6 @@ function openEditModal(rpt) {
 }
 
 function doOpenEditModal(rpt) {
-  showToast('開啟編輯...');
   editingId = rpt.id;
   var att = rpt.attendance || [];
   var exp = rpt.expenses || [];
@@ -1110,7 +1128,6 @@ function doOpenEditModal(rpt) {
   var delBtnEl2 = document.getElementById('delEditBtn');
   if (delBtnEl2) delBtnEl2.style.display = '';
   document.getElementById('editModal').classList.add('show');
-  showToast('編輯已開啟');
 
   // 非同步載入照片
   var needPhotos = exp.some(function(ex){ return ex.photoCount > 0; });

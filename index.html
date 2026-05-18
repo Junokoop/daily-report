@@ -114,7 +114,7 @@ table.st{width:100%;border-collapse:collapse;border-top:1.5px solid var(--bd)}
 .summary-row{display:block;padding:12px 16px;border-bottom:1px solid var(--br)}
 .summary-row:last-child{border-bottom:none}
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;display:none;align-items:flex-end;justify-content:center}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}.batch-check{display:none;width:18px;height:18px;accent-color:var(--red);cursor:pointer;flex-shrink:0}.batch-mode .batch-check{display:inline-block}.batch-bar{display:none;position:fixed;bottom:0;left:0;right:0;background:#9b2226;color:#fff;padding:14px;text-align:center;font-size:15px;font-weight:700;z-index:200;gap:12px;align-items:center;justify-content:center}.batch-bar.show{display:flex}.photo-overlay{position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:500;display:none;align-items:center;justify-content:center;cursor:pointer}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}.batch-check{width:18px;height:18px;accent-color:var(--red);cursor:pointer;flex-shrink:0}.batch-bar{display:none;position:fixed;bottom:0;left:0;right:0;background:#9b2226;color:#fff;padding:14px;font-size:15px;font-weight:700;z-index:200;gap:12px;align-items:center;justify-content:center}.batch-bar.show{display:flex}.photo-overlay{position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:500;display:none;align-items:center;justify-content:center;cursor:pointer}
 .photo-overlay.show{display:flex}
 .photo-overlay img{max-width:95vw;max-height:90vh;object-fit:contain;border-radius:8px}
 .modal-overlay.show{display:flex}
@@ -204,7 +204,6 @@ table.st{width:100%;border-collapse:collapse;border-top:1.5px solid var(--bd)}
   <div class="admin-header">
     <h2>&#x1F4CB; 我的填報紀錄</h2>
     <span class="admin-count" id="historyCount">共 0 筆</span>
-    <button id="batchDeleteBtn" onclick="toggleBatchMode()" style="font-size:12px;padding:4px 10px;border:1px solid var(--red);border-radius:6px;background:#fff;color:var(--red);cursor:pointer">☑ 批次刪除</button>
   </div>
   <div class="card" style="padding:12px 14px;margin-bottom:12px;background:#eaf4ec;border-color:var(--grn)">
     <div style="display:flex;flex-direction:column;gap:6px">
@@ -683,7 +682,6 @@ function submitReport() {
     setTimeout(function(){ loadAccum(); }, 1200);
   }
 
-  // 收集有照片的任務
   var flat = [];
   report.expenses.forEach(function(ex, ei) {
     (ex.photos||[]).forEach(function(src, pi) { if (src) flat.push({ei:ei, pi:pi}); });
@@ -696,7 +694,6 @@ function submitReport() {
     return;
   }
 
-  // 壓縮後 POST
   var done = 0;
   flat.forEach(function(task) {
     var src = report.expenses[task.ei].photos[task.pi];
@@ -940,8 +937,11 @@ function toggleBatchMode() {
 
 function updateBatchCount() {
   var checked = document.querySelectorAll('.batch-check:checked');
+  var count = checked.length;
   var el = document.getElementById('batchCount');
-  if (el) el.textContent = '已選 ' + checked.length + ' 筆';
+  if (el) el.textContent = '已選 ' + count + ' 筆';
+  var bar = document.getElementById('batchBar');
+  if (bar) bar.classList.toggle('show', count > 0);
 }
 
 function cancelBatchMode() {
@@ -959,11 +959,11 @@ function confirmBatchDelete() {
   if (!confirm('確定刪除選取的 ' + checked.length + ' 筆報表？此動作無法復原。')) return;
   var ids = checked.map(function(c){ return c.dataset.rptId; });
   ids.forEach(function(id) {
-    var url = API + '?action=delete&id=' + id;
-    fetch(url, {mode:'no-cors'}).catch(function(){});
+    fetch(API + '?action=delete&id=' + id, {mode:'no-cors'}).catch(function(){});
   });
   setTimeout(function() {
-    cancelBatchMode();
+    document.querySelectorAll('.batch-check').forEach(function(c){ c.checked=false; });
+    var bar = document.getElementById('batchBar'); if (bar) bar.classList.remove('show');
     _reportCache = null;
     showToast('已刪除 ' + ids.length + ' 筆');
     if (document.getElementById('pageAdmin').classList.contains('show')) loadAllReports();
@@ -991,7 +991,7 @@ function deleteReport(id, onSuccess, onFail) {
 function buildCard(rpt, isAdminView) {
   var wrap = document.createElement('div'); wrap.className = 'report-card';
   var head = document.createElement('div'); head.className = 'report-head';
-  head.innerHTML = '<input type="checkbox" class="batch-check" data-rpt-id="' + rpt.id + '" onclick="event.stopPropagation();updateBatchCount()" style="display:none;margin-right:8px;width:18px;height:18px;accent-color:var(--red);cursor:pointer"><div class="report-meta"><div class="r-project">' + esc(rpt.project) + '</div><div class="r-sub">' + esc(rpt.date) + ' | ' + esc(rpt.reporter) + '</div></div><span class="report-arrow">›</span>';
+  head.innerHTML = '<input type="checkbox" class="batch-check" data-rpt-id="' + rpt.id + '" onclick="event.stopPropagation();updateBatchCount()" style="margin-right:8px;width:18px;height:18px;accent-color:var(--red);cursor:pointer;flex-shrink:0"><div class="report-meta"><div class="r-project">' + esc(rpt.project) + '</div><div class="r-sub">' + esc(rpt.date) + ' | ' + esc(rpt.reporter) + '</div></div><span class="report-arrow">›</span>';
   var body = document.createElement('div'); body.className = 'report-body';
   if (rpt.workItems) body.innerHTML += '<div class="rbs"><div class="rbl">施工項目</div><div class="rbc">' + esc(rpt.workItems) + '</div></div>';
   if (rpt.attendance && rpt.attendance.length) {

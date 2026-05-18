@@ -646,7 +646,7 @@ function submitReport() {
 
   // 出工人員
   var att = [];
-  document.getElementById('attList').querySelectorAll('.ec').forEach(function(c) {
+  document.getElementById('attList').querySelectorAll('.ac').forEach(function(c) {
     var nameEl = c.querySelector('input[type="text"]');
     if (!nameEl || !nameEl.value.trim()) return;
     var cbs = c.querySelectorAll('input[type="checkbox"]');

@@ -674,21 +674,41 @@ function submitReport() {
       setTimeout(function(){ loadAccum(); }, 1200);
     }
 
-    var submitImg = new Image();
-    submitImg.onload = submitImg.onerror = function() {
-      if (hasPhotos) {
-        // 照片用 POST no-cors 送出
+    // 送主資料
+    fetch(submitUrl, {mode:'no-cors'}).catch(function(){});
+    if (hasPhotos) {
+      // 壓縮照片後用 POST 送出
+      var allFlat = [];
+      subPhotos.forEach(function(photos, ei) {
+        (photos || []).forEach(function(src, pi) {
+          if (src && src.indexOf('data:image') === 0) {
+            allFlat.push({ei:ei, pi:pi, src:src});
+          }
+        });
+      });
+      var compressed = {};
+      var jobs = allFlat.map(function(item) {
+        return compressPhoto(item.src, 1000, 0.75).then(function(out) {
+          compressed[item.ei + '_' + item.pi] = out;
+        }).catch(function() {
+          compressed[item.ei + '_' + item.pi] = item.src;
+        });
+      });
+      Promise.all(jobs).then(function() {
         var reportWithPhotos = JSON.parse(JSON.stringify(reportNoPhoto));
-        reportWithPhotos.expenses.forEach(function(ex, i){ ex.photos = subPhotos[i] || []; });
+        reportWithPhotos.expenses.forEach(function(ex, ei) {
+          ex.photos = (subPhotos[ei] || []).map(function(_, pi) {
+            return compressed[ei + '_' + pi] || (subPhotos[ei] || [])[pi];
+          });
+        });
         var form = new FormData();
         form.append('payload', JSON.stringify(reportWithPhotos));
-        fetch(API, { method: 'POST', body: form, mode: 'no-cors' })
-          .then(onSubmitDone).catch(onSubmitDone);
-      } else {
-        onSubmitDone();
-      }
-    };
-    submitImg.src = submitUrl;
+        fetch(API, {method:'POST', body:form, mode:'no-cors'}).catch(function(){});
+        setTimeout(onSubmitDone, 1500);
+      }).catch(function() { setTimeout(onSubmitDone, 1500); });
+    } else {
+      setTimeout(onSubmitDone, 1500);
+    }
   })();
 }
 
@@ -1541,7 +1561,6 @@ function saveEdit() {
   if (!editingId) return;
   var btn = document.getElementById('saveEditBtn');
   btn.textContent = '儲存中…'; btn.disabled = true;
-  console.log('[saveEdit] start, editingId:', editingId);
 
   var Y = document.getElementById('editY').value;
   var M = document.getElementById('editM').value;
@@ -1594,7 +1613,6 @@ function saveEdit() {
   };
 
   // 分離照片
-  console.log('[saveEdit] exp:', JSON.stringify(exp).length, '_editExpPhotoMap:', JSON.stringify(window._editExpPhotoMap).length);
   var allPhotos = [];
   var patchNoPhoto = JSON.parse(JSON.stringify(patchData));
   patchNoPhoto.expenses.forEach(function(ex, ei) {
@@ -1621,7 +1639,6 @@ function saveEdit() {
   try { fetch(sendUrl, {mode:'no-cors'}).catch(function(){}); } catch(e) {}
 
   var hasPhotos = allPhotos.some(function(p){ return p && p.length; });
-  console.log('[saveEdit] hasPhotos:', hasPhotos, 'allPhotos:', allPhotos.map(function(p){return p?p.length:0;}));
   if (hasPhotos) {
     // 壓縮所有照片再送出
     var compressJobs = [];
@@ -1647,19 +1664,17 @@ function saveEdit() {
     });
 
     Promise.all(compressJobs).then(function() {
-      console.log('[saveEdit] compress done, compressedMap keys:', Object.keys(compressedMap).length);
+      // 用 allPhotos（原始照片）重建含照片的 patch
       var patchWithPhoto = {action:'edit', data: JSON.parse(JSON.stringify(patchData))};
       patchWithPhoto.data.expenses.forEach(function(ex, ei) {
-        if (ex.photos && ex.photos.length) {
-          ex.photos = ex.photos.map(function(_, pi) {
-            return compressedMap[ei + '_' + pi] || ex.photos[pi];
-          });
-        }
+        // 從 allPhotos[ei] 取對應照片（壓縮後）
+        ex.photos = (allPhotos[ei] || []).map(function(src, pi) {
+          return compressedMap[ei + '_' + pi] || src;
+        });
       });
       var form = new FormData();
       form.append('payload', JSON.stringify(patchWithPhoto));
-      try { fetch(API, {method:'POST', body:form, mode:'no-cors'}).then(function(){ console.log('[saveEdit] photo fetch done'); }).catch(function(err){ console.error('[saveEdit] photo fetch error:', err); }); } catch(e) { console.error('[saveEdit] fetch exception:', e); }
-      console.log('[saveEdit] payload size:', JSON.stringify(patchWithPhoto).length);
+      try { fetch(API, {method:'POST', body:form, mode:'no-cors'}); } catch(e) {}
     });
 
     // 超時保護 - 5秒後一定執行 finish

@@ -1580,12 +1580,14 @@ function getEditedNote(orig, newData) {
   // 支出項目
   var origItems = (orig.expenses||[]).map(function(e){return e.item;}).join(',');
   var newItems = (newData.expenses||[]).map(function(e){return e.item;}).join(',');
+  var origTotalCash = (orig.expenses||[]).reduce(function(s,e){return s+(parseFloat(e.cash)||0);},0);
+  var newTotalCash = (newData.expenses||[]).reduce(function(s,e){return s+(parseFloat(e.cash)||0);},0);
+  var origTotalCard = (orig.expenses||[]).reduce(function(s,e){return s+(parseFloat(e.card)||0);},0);
+  var newTotalCard = (newData.expenses||[]).reduce(function(s,e){return s+(parseFloat(e.card)||0);},0);
   if (origItems !== newItems) {
     changes.push('支出項目：' + (origItems||'—') + ' → ' + (newItems||'—'));
-  } else {
-    var origAmt = (orig.expenses||[]).map(function(e){return (e.cash||0)+(e.card||0);}).join(',');
-    var newAmt = (newData.expenses||[]).map(function(e){return (e.cash||0)+(e.card||0);}).join(',');
-    if (origAmt !== newAmt) changes.push('支出金額：$' + Number(orig.totalCash||0).toLocaleString() + ' → $' + Number(newData.totalCash||0).toLocaleString());
+  } else if (origTotalCash !== newTotalCash || origTotalCard !== newTotalCard) {
+    changes.push('支出金額：現金 $' + origTotalCash.toLocaleString() + ' → $' + newTotalCash.toLocaleString() + (origTotalCard !== newTotalCard ? '　刷卡 $' + origTotalCard.toLocaleString() + ' → $' + newTotalCard.toLocaleString() : ''));
   }
 
   return changes.length ? changes.join(' | ') : '';

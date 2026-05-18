@@ -674,39 +674,48 @@ function submitReport() {
       setTimeout(function(){ loadAccum(); }, 1200);
     }
 
-    // 送主資料
-    fetch(submitUrl, {mode:'no-cors'}).catch(function(){});
     if (hasPhotos) {
-      // 壓縮照片後用 POST 送出
+      // 先送主資料（GET，新增報表），再送照片（POST edit，只更新照片欄位）
+      fetch(submitUrl, {mode:'no-cors'}).catch(function(){});
+
+      // 壓縮照片
       var allFlat = [];
       subPhotos.forEach(function(photos, ei) {
         (photos || []).forEach(function(src, pi) {
-          if (src && src.indexOf('data:image') === 0) {
-            allFlat.push({ei:ei, pi:pi, src:src});
-          }
+          if (src) allFlat.push({ei:ei, pi:pi, src:src});
         });
       });
       var compressed = {};
       var jobs = allFlat.map(function(item) {
         return compressPhoto(item.src, 1000, 0.75).then(function(out) {
           compressed[item.ei + '_' + item.pi] = out;
-        }).catch(function() {
-          compressed[item.ei + '_' + item.pi] = item.src;
-        });
+        }).catch(function() { compressed[item.ei + '_' + item.pi] = item.src; });
       });
+
+      // 等 GAS 新增完成（約 2 秒），再送照片更新
       Promise.all(jobs).then(function() {
-        var reportWithPhotos = JSON.parse(JSON.stringify(reportNoPhoto));
-        reportWithPhotos.expenses.forEach(function(ex, ei) {
-          ex.photos = (subPhotos[ei] || []).map(function(_, pi) {
-            return compressed[ei + '_' + pi] || (subPhotos[ei] || [])[pi];
-          });
-        });
-        var form = new FormData();
-        form.append('payload', JSON.stringify(reportWithPhotos));
-        fetch(API, {method:'POST', body:form, mode:'no-cors'}).catch(function(){});
+        setTimeout(function() {
+          // 用 edit action 更新照片（不新增）
+          var editPhotoPatch = {action:'edit', data:{
+            id: reportNoPhoto.id,
+            expenses: reportNoPhoto.expenses.map(function(ex, ei) {
+              return {
+                item: ex.item, inv: ex.inv, cash: ex.cash, card: ex.card,
+                photos: (subPhotos[ei] || []).map(function(_, pi) {
+                  return compressed[ei + '_' + pi] || (subPhotos[ei]||[])[pi];
+                })
+              };
+            })
+          }};
+          var form = new FormData();
+          form.append('payload', JSON.stringify(editPhotoPatch));
+          fetch(API, {method:'POST', body:form, mode:'no-cors'}).catch(function(){});
+        }, 2000);
         setTimeout(onSubmitDone, 1500);
       }).catch(function() { setTimeout(onSubmitDone, 1500); });
     } else {
+      // 無照片直接送主資料
+      fetch(submitUrl, {mode:'no-cors'}).catch(function(){});
       setTimeout(onSubmitDone, 1500);
     }
   })();

@@ -1586,6 +1586,11 @@ function getEditedNote(orig, newData) {
   var newItems = (newData.expenses||[]).map(function(e){return String(e.item||'');}).join(',');
   if (origItems !== newItems) changes.push('支出項目');
 
+  // 照片
+  var origPhotoCnt = (orig.expenses||[]).reduce(function(s,e){return s+(e.photoCount||0)+(e.photos&&e.photos.length?e.photos.length:0);},0);
+  var newPhotoCnt = (newData.expenses||[]).reduce(function(s,e){return s+(e.photos&&e.photos.length?e.photos.length:0);},0);
+  if (newPhotoCnt !== origPhotoCnt) changes.push('發票照片');
+
   return changes.length ? changes.join('、') : '';
 }
 

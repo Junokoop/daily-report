@@ -1560,35 +1560,52 @@ function getEditedNote(orig, newData) {
   if (!orig || !newData) return '';
   var changes = [];
 
-  if ((newData.date||'') !== (orig.date||'')) changes.push('日期');
-  if ((newData.project||'') !== (orig.project||'')) changes.push('工程名稱：' + (orig.project||'—') + ' → ' + (newData.project||'—'));
-  if ((newData.workItems||'') !== (orig.workItems||'')) changes.push('施工項目');
-  if (Number(newData.receiptCash||0) !== Number(orig.receiptCash||0)) changes.push('接收公款：$' + Number(orig.receiptCash||0).toLocaleString() + ' → $' + Number(newData.receiptCash||0).toLocaleString());
-  if ((newData.receiptNote||'') !== (orig.receiptNote||'')) changes.push('備考');
+  // 日期
+  if (String(newData.date||'') !== String(orig.date||'')) changes.push('日期');
+
+  // 工程名稱
+  if (String(newData.project||'') !== String(orig.project||''))
+    changes.push('工程名稱：' + (orig.project||'—') + ' → ' + (newData.project||'—'));
+
+  // 施工項目
+  if (String(newData.workItems||'') !== String(orig.workItems||''))
+    changes.push('施工項目');
+
+  // 接收公款（用 totalCash 比較，因為 receiptCash 可能含上筆結餘）
+  var origTCash = parseFloat(orig.totalCash)||0;
+  var newTCash = parseFloat(newData.totalCash)||0;
+  var origTCard = parseFloat(orig.totalCard)||0;
+  var newTCard = parseFloat(newData.totalCard)||0;
+  if (origTCash !== newTCash || origTCard !== newTCard) {
+    var cashStr = origTCash !== newTCash ? '現金 $' + origTCash.toLocaleString() + '→$' + newTCash.toLocaleString() : '';
+    var cardStr = origTCard !== newTCard ? '刷卡 $' + origTCard.toLocaleString() + '→$' + newTCard.toLocaleString() : '';
+    changes.push('支出金額：' + [cashStr, cardStr].filter(Boolean).join(' '));
+  }
+
+  // 接收公款
+  if (parseFloat(newData.receiptCash||0) !== parseFloat(orig.receiptCash||0))
+    changes.push('接收公款：$' + Number(orig.receiptCash||0).toLocaleString() + '→$' + Number(newData.receiptCash||0).toLocaleString());
+
+  // 備考
+  if (String(newData.receiptNote||'') !== String(orig.receiptNote||''))
+    changes.push('備考');
 
   // 出工人員
   var origNames = (orig.attendance||[]).map(function(a){return a.name;}).sort().join(',');
   var newNames = (newData.attendance||[]).map(function(a){return a.name;}).sort().join(',');
   if (origNames !== newNames) {
-    changes.push('出工人員：' + (origNames||'—') + ' → ' + (newNames||'—'));
+    changes.push('出工人員：' + (origNames||'—') + '→' + (newNames||'—'));
   } else {
-    var origAtt = JSON.stringify((orig.attendance||[]).map(function(a){return {am:a.am,pm:a.pm,ot:a.ot};}));
-    var newAtt = JSON.stringify((newData.attendance||[]).map(function(a){return {am:a.am,pm:a.pm,ot:a.ot};}));
-    if (origAtt !== newAtt) changes.push('出工時段');
+    var origHrs = (orig.attendance||[]).map(function(a){return (a.am?'上':'-')+(a.pm?'下':'-')+(a.ot||0);}).join(',');
+    var newHrs = (newData.attendance||[]).map(function(a){return (a.am?'上':'-')+(a.pm?'下':'-')+(a.ot||0);}).join(',');
+    if (origHrs !== newHrs) changes.push('出工時段');
   }
 
-  // 支出項目
-  var origItems = (orig.expenses||[]).map(function(e){return e.item;}).join(',');
-  var newItems = (newData.expenses||[]).map(function(e){return e.item;}).join(',');
-  var origTotalCash = (orig.expenses||[]).reduce(function(s,e){return s+(parseFloat(e.cash)||0);},0);
-  var newTotalCash = (newData.expenses||[]).reduce(function(s,e){return s+(parseFloat(e.cash)||0);},0);
-  var origTotalCard = (orig.expenses||[]).reduce(function(s,e){return s+(parseFloat(e.card)||0);},0);
-  var newTotalCard = (newData.expenses||[]).reduce(function(s,e){return s+(parseFloat(e.card)||0);},0);
-  if (origItems !== newItems) {
-    changes.push('支出項目：' + (origItems||'—') + ' → ' + (newItems||'—'));
-  } else if (origTotalCash !== newTotalCash || origTotalCard !== newTotalCard) {
-    changes.push('支出金額：現金 $' + origTotalCash.toLocaleString() + ' → $' + newTotalCash.toLocaleString() + (origTotalCard !== newTotalCard ? '　刷卡 $' + origTotalCard.toLocaleString() + ' → $' + newTotalCard.toLocaleString() : ''));
-  }
+  // 支出項目（名稱）
+  var origItems = (orig.expenses||[]).map(function(e){return String(e.item||'');}).join(',');
+  var newItems = (newData.expenses||[]).map(function(e){return String(e.item||'');}).join(',');
+  if (origItems !== newItems)
+    changes.push('支出項目：' + (origItems||'—') + '→' + (newItems||'—'));
 
   return changes.length ? changes.join(' | ') : '';
 }

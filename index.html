@@ -1578,7 +1578,7 @@ function saveEdit() {
     var item = c.querySelector('.edit-exp-item').value.trim();
     if (!item) return;
     var epIdx = c.dataset.epIdx || '';
-    var photos = (epIdx && window._editExpPhotoMap && window._editExpPhotoMap[epIdx]) ? window._editExpPhotoMap[epIdx] : [];
+    var photos = (epIdx && window._editExpPhotoMap && window._editExpPhotoMap[epIdx]) ? window._editExpPhotoMap[epIdx].slice() : [];
     exp.push({item:item, inv:c.querySelector('.edit-exp-inv').checked, cash:parseFloat(c.querySelector('.edit-exp-cash').value)||0, card:parseFloat(c.querySelector('.edit-exp-card').value)||0, photos:photos});
   });
 
@@ -1588,7 +1588,6 @@ function saveEdit() {
   var totalCash = exp.reduce(function(s,e){return s+(e.cash||0);},0);
   var totalCard = exp.reduce(function(s,e){return s+(e.card||0);},0);
 
-  // 找原始資料用來記錄修改欄位
   var patchOrig = null;
   var cacheArr = _reportCache || allReports || [];
   for (var pi3 = 0; pi3 < cacheArr.length; pi3++) {
@@ -1612,17 +1611,6 @@ function saveEdit() {
     editedNote: getEditedNote(patchOrig, {project: document.getElementById('editPname').value.trim(), workItems: document.getElementById('editWitem').value.trim(), receiptCash: rc, attendance: att, expenses: exp, receiptNote: document.getElementById('editRn').value.trim(), date: Y+'年'+M+'月'+D+'日'})
   };
 
-  // 分離照片
-  var allPhotos = [];
-  var patchNoPhoto = JSON.parse(JSON.stringify(patchData));
-  patchNoPhoto.expenses.forEach(function(ex, ei) {
-    allPhotos.push(ex.photos ? ex.photos.slice() : []);
-    ex.photos = [];
-  });
-
-  var payload = {action:'edit', data: patchNoPhoto};
-  var sendUrl = API + '?payload=' + encodeURIComponent(JSON.stringify(payload));
-
   function finish() {
     btn.textContent = '儲存'; btn.disabled = false;
     showToast('已更新！');
@@ -1635,51 +1623,57 @@ function saveEdit() {
     }, 800);
   }
 
-  // 送出（no-cors），2秒後直接完成
-  try { fetch(sendUrl, {mode:'no-cors'}).catch(function(){}); } catch(e) {}
+  // 判斷有沒有照片（含已載入的舊照片 + 新上傳的）
+  var hasAnyPhoto = exp.some(function(e){ return e.photos && e.photos.length; });
 
-  var hasPhotos = allPhotos.some(function(p){ return p && p.length; });
-  if (hasPhotos) {
-    // 壓縮所有照片再送出
-    var compressJobs = [];
-    var allPhotosFlat = [];
-    allPhotos.forEach(function(photos, ei) {
-      photos.forEach(function(src, pi) {
-        if (src && src.indexOf('data:image') === 0) {
-          allPhotosFlat.push({ei: ei, pi: pi, src: src});
+  if (hasAnyPhoto) {
+    // 收集所有照片壓縮
+    var tasks = [];
+    exp.forEach(function(e, ei) {
+      (e.photos || []).forEach(function(src, pi) {
+        if (src) {
+          tasks.push({ei:ei, pi:pi, src:src});
         }
       });
     });
 
-    var compressedMap = {};
-    allPhotosFlat.forEach(function(item) {
-      var key = item.ei + '_' + item.pi;
-      compressJobs.push(
-        compressPhoto(item.src, 1000, 0.75).then(function(out) {
-          compressedMap[key] = out;
-        }).catch(function() {
-          compressedMap[key] = item.src;
-        })
-      );
-    });
-
-    Promise.all(compressJobs).then(function() {
-      // 用 allPhotos（原始照片）重建含照片的 patch
-      var patchWithPhoto = {action:'edit', data: JSON.parse(JSON.stringify(patchData))};
-      patchWithPhoto.data.expenses.forEach(function(ex, ei) {
-        // 從 allPhotos[ei] 取對應照片（壓縮後）
-        ex.photos = (allPhotos[ei] || []).map(function(src, pi) {
-          return compressedMap[ei + '_' + pi] || src;
-        });
-      });
+    var done = 0;
+    var total = tasks.length;
+    if (total === 0) {
+      // 有 expenses 但沒有實際 src，直接送
       var form = new FormData();
-      form.append('payload', JSON.stringify(patchWithPhoto));
-      try { fetch(API, {method:'POST', body:form, mode:'no-cors'}); } catch(e) {}
+      form.append('payload', JSON.stringify({action:'edit', data:patchData}));
+      fetch(API, {method:'POST', body:form, mode:'no-cors'}).catch(function(){});
+      setTimeout(finish, 2000);
+      return;
+    }
+
+    // 逐一壓縮
+    tasks.forEach(function(task) {
+      compressPhoto(task.src, 1000, 0.75).then(function(out) {
+        exp[task.ei].photos[task.pi] = out;
+        done++;
+        if (done >= total) sendWithPhotos();
+      }).catch(function() {
+        done++;
+        if (done >= total) sendWithPhotos();
+      });
     });
 
-    // 超時保護 - 5秒後一定執行 finish
-    setTimeout(finish, 5000);
+    // 10秒超時
+    setTimeout(function() { if (done < total) sendWithPhotos(); }, 10000);
+
+    function sendWithPhotos() {
+      patchData.expenses = exp; // 用壓縮後的照片
+      var form = new FormData();
+      form.append('payload', JSON.stringify({action:'edit', data:patchData}));
+      fetch(API, {method:'POST', body:form, mode:'no-cors'}).catch(function(){});
+      setTimeout(finish, 2000);
+    }
   } else {
+    // 無照片直接送
+    var url = API + '?payload=' + encodeURIComponent(JSON.stringify({action:'edit', data:patchData}));
+    fetch(url, {mode:'no-cors'}).catch(function(){});
     setTimeout(finish, 2000);
   }
 }

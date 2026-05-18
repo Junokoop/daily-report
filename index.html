@@ -1620,13 +1620,48 @@ function saveEdit() {
 
   var hasPhotos = allPhotos.some(function(p){ return p && p.length; });
   if (hasPhotos) {
-    var patchWithPhoto = {action:'edit', data: JSON.parse(JSON.stringify(patchData))};
-    var form = new FormData();
-    form.append('payload', JSON.stringify(patchWithPhoto));
-    try { fetch(API, {method:'POST', body:form, mode:'no-cors'}).catch(function(){}); } catch(e) {}
-  }
+    // 壓縮所有照片再送出
+    var compressJobs = [];
+    var allPhotosFlat = [];
+    allPhotos.forEach(function(photos, ei) {
+      photos.forEach(function(src, pi) {
+        if (src && src.indexOf('data:image') === 0) {
+          allPhotosFlat.push({ei: ei, pi: pi, src: src});
+        }
+      });
+    });
 
-  setTimeout(finish, 2000);
+    var compressedMap = {};
+    allPhotosFlat.forEach(function(item) {
+      var key = item.ei + '_' + item.pi;
+      compressJobs.push(
+        compressPhoto(item.src, 1000, 0.75).then(function(out) {
+          compressedMap[key] = out;
+        }).catch(function() {
+          compressedMap[key] = item.src;
+        })
+      );
+    });
+
+    Promise.all(compressJobs).then(function() {
+      var patchWithPhoto = {action:'edit', data: JSON.parse(JSON.stringify(patchData))};
+      patchWithPhoto.data.expenses.forEach(function(ex, ei) {
+        if (ex.photos && ex.photos.length) {
+          ex.photos = ex.photos.map(function(_, pi) {
+            return compressedMap[ei + '_' + pi] || ex.photos[pi];
+          });
+        }
+      });
+      var form = new FormData();
+      form.append('payload', JSON.stringify(patchWithPhoto));
+      try { fetch(API, {method:'POST', body:form, mode:'no-cors'}).catch(function(){}); } catch(e) {}
+    });
+
+    // 超時保護 - 5秒後一定執行 finish
+    setTimeout(finish, 5000);
+  } else {
+    setTimeout(finish, 2000);
+  }
 }
 
 </script>

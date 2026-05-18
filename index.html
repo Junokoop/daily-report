@@ -1586,10 +1586,15 @@ function getEditedNote(orig, newData) {
   var newItems = (newData.expenses||[]).map(function(e){return String(e.item||'');}).join(',');
   if (origItems !== newItems) changes.push('支出項目');
 
-  // 照片
-  var origPhotoCnt = (orig.expenses||[]).reduce(function(s,e){return s+(e.photoCount||0)+(e.photos&&e.photos.length?e.photos.length:0);},0);
-  var newPhotoCnt = (newData.expenses||[]).reduce(function(s,e){return s+(e.photos&&e.photos.length?e.photos.length:0);},0);
-  if (newPhotoCnt !== origPhotoCnt) changes.push('發票照片');
+  // 照片（orig 可能是 noPhotos 模式只有 photoCount，newData 有 photos 陣列）
+  var origPhotoCnt = (orig.expenses||[]).reduce(function(s,e){
+    return s + (e.photoCount||0) + (e.photos&&e.photos.length ? e.photos.length : 0);
+  }, 0);
+  var newPhotoCnt = (newData.expenses||[]).reduce(function(s,e){
+    return s + (e.photos&&e.photos.length ? e.photos.length : 0);
+  }, 0);
+  // 若新照片數 > 原照片數，代表有新增照片
+  if (newPhotoCnt > origPhotoCnt) changes.push('發票照片');
 
   return changes.length ? changes.join('、') : '';
 }

@@ -1588,8 +1588,7 @@ function getEditedNote(orig, newData) {
     if (origAmt !== newAmt) changes.push('支出金額：$' + Number(orig.totalCash||0).toLocaleString() + ' → $' + Number(newData.totalCash||0).toLocaleString());
   }
 
-  return changes.length ? changes.join('
-') : '';
+  return changes.length ? changes.join(' | ') : '';
 }
 
 function closeEditModal() { document.getElementById('editModal').classList.remove('show'); editingId = null; }

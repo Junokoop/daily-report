@@ -1541,6 +1541,7 @@ function saveEdit() {
   if (!editingId) return;
   var btn = document.getElementById('saveEditBtn');
   btn.textContent = '儲存中…'; btn.disabled = true;
+  console.log('[saveEdit] start, editingId:', editingId);
 
   var Y = document.getElementById('editY').value;
   var M = document.getElementById('editM').value;
@@ -1593,6 +1594,7 @@ function saveEdit() {
   };
 
   // 分離照片
+  console.log('[saveEdit] exp:', JSON.stringify(exp).length, '_editExpPhotoMap:', JSON.stringify(window._editExpPhotoMap).length);
   var allPhotos = [];
   var patchNoPhoto = JSON.parse(JSON.stringify(patchData));
   patchNoPhoto.expenses.forEach(function(ex, ei) {
@@ -1619,6 +1621,7 @@ function saveEdit() {
   try { fetch(sendUrl, {mode:'no-cors'}).catch(function(){}); } catch(e) {}
 
   var hasPhotos = allPhotos.some(function(p){ return p && p.length; });
+  console.log('[saveEdit] hasPhotos:', hasPhotos, 'allPhotos:', allPhotos.map(function(p){return p?p.length:0;}));
   if (hasPhotos) {
     // 壓縮所有照片再送出
     var compressJobs = [];
@@ -1644,6 +1647,7 @@ function saveEdit() {
     });
 
     Promise.all(compressJobs).then(function() {
+      console.log('[saveEdit] compress done, compressedMap keys:', Object.keys(compressedMap).length);
       var patchWithPhoto = {action:'edit', data: JSON.parse(JSON.stringify(patchData))};
       patchWithPhoto.data.expenses.forEach(function(ex, ei) {
         if (ex.photos && ex.photos.length) {
@@ -1654,7 +1658,8 @@ function saveEdit() {
       });
       var form = new FormData();
       form.append('payload', JSON.stringify(patchWithPhoto));
-      try { fetch(API, {method:'POST', body:form, mode:'no-cors'}).catch(function(){}); } catch(e) {}
+      try { fetch(API, {method:'POST', body:form, mode:'no-cors'}).then(function(){ console.log('[saveEdit] photo fetch done'); }).catch(function(err){ console.error('[saveEdit] photo fetch error:', err); }); } catch(e) { console.error('[saveEdit] fetch exception:', e); }
+      console.log('[saveEdit] payload size:', JSON.stringify(patchWithPhoto).length);
     });
 
     // 超時保護 - 5秒後一定執行 finish

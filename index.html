@@ -226,6 +226,13 @@ table.st{width:100%;border-collapse:collapse;border-top:1.5px solid var(--bd)}
       </div>
     </div>
   </div>
+  <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 2px;margin-bottom:4px">
+    <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;color:var(--mu)">
+      <input type="checkbox" id="selectAllHistCheck" onchange="toggleSelectAllHist(this.checked)" style="width:16px;height:16px;accent-color:var(--bd);cursor:pointer">
+      全選
+    </label>
+    <button id="batchDeleteHistBtn" onclick="confirmBatchDelete()" style="display:none;background:#9b2226;color:#fff;border:none;border-radius:7px;padding:5px 14px;font-size:13px;font-weight:600;cursor:pointer">刪除選取</button>
+  </div>
   <div id="historyList"></div>
 </div>
 
@@ -933,6 +940,13 @@ function addReporter() {
 
 var _batchMode = false;
 
+function toggleSelectAllHist(checked) {
+  document.querySelectorAll('.batch-check').forEach(function(c) { c.checked = checked; });
+  updateBatchCount();
+  var delBtn = document.getElementById('batchDeleteHistBtn');
+  if (delBtn) delBtn.style.display = checked ? '' : 'none';
+}
+
 function toggleSelectAll(checked) {
   document.querySelectorAll('.batch-check').forEach(function(c) {
     c.checked = checked;
@@ -965,12 +979,22 @@ function updateBatchCount() {
   // 管理頁刪除按鈕
   var delBtn = document.getElementById('batchDeleteAdminBtn');
   if (delBtn) delBtn.style.display = count > 0 ? '' : 'none';
-  // 全選 checkbox 狀態
+  // 填報者頁刪除按鈕
+  var delBtnH = document.getElementById('batchDeleteHistBtn');
+  if (delBtnH) delBtnH.style.display = count > 0 ? '' : 'none';
+  // 全選 checkbox 狀態（管理頁）
   var allCheck = document.getElementById('selectAllCheck');
   if (allCheck) {
     var total = document.querySelectorAll('.batch-check').length;
     allCheck.indeterminate = count > 0 && count < total;
     allCheck.checked = total > 0 && count === total;
+  }
+  // 全選 checkbox 狀態（填報者頁）
+  var allCheckH = document.getElementById('selectAllHistCheck');
+  if (allCheckH) {
+    var totalH = document.querySelectorAll('.batch-check').length;
+    allCheckH.indeterminate = count > 0 && count < totalH;
+    allCheckH.checked = totalH > 0 && count === totalH;
   }
 }
 

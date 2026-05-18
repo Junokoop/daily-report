@@ -605,10 +605,18 @@ function calc() {
   var cash = 0, card = 0;
   document.querySelectorAll('.cc').forEach(function(el) { cash += parseFloat(el.value) || 0; });
   document.querySelectorAll('.kk').forEach(function(el) { card += parseFloat(el.value) || 0; });
-  var rC = parseFloat(document.getElementById('rc').value) || 0;
+  var rc0 = parseFloat(document.getElementById('rc').value) || 0;
+  var rc2El = document.getElementById('rc2');
+  var rc2 = rc2El ? (parseFloat(rc2El.value) || 0) : 0;
+  var totalRc = rc0 + rc2;
+  var remaining = totalRc - cash;
   document.getElementById('tca').textContent = '$' + cash.toLocaleString();
   document.getElementById('tcd').textContent = '$' + card.toLocaleString();
-  document.getElementById('trm').textContent = '$' + (rC - cash).toLocaleString();
+  var trmEl = document.getElementById('trm');
+  if (trmEl) {
+    trmEl.textContent = '$' + remaining.toLocaleString();
+    trmEl.style.color = remaining < 0 ? 'var(--red)' : 'var(--grn)';
+  }
 }
 
 function doReset() {

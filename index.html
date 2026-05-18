@@ -114,7 +114,7 @@ table.st{width:100%;border-collapse:collapse;border-top:1.5px solid var(--bd)}
 .summary-row{display:block;padding:12px 16px;border-bottom:1px solid var(--br)}
 .summary-row:last-child{border-bottom:none}
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;display:none;align-items:flex-end;justify-content:center}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}.batch-check{display:none;width:22px;height:22px;accent-color:var(--red);cursor:pointer}.batch-mode .batch-check{display:block}.batch-bar{display:none;position:fixed;bottom:0;left:0;right:0;background:#9b2226;color:#fff;padding:14px;text-align:center;font-size:15px;font-weight:700;z-index:200;gap:12px;align-items:center;justify-content:center}.batch-bar.show{display:flex}.photo-overlay{position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:500;display:none;align-items:center;justify-content:center;cursor:pointer}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}.batch-check{display:none;width:18px;height:18px;accent-color:var(--red);cursor:pointer;flex-shrink:0}.batch-mode .batch-check{display:inline-block}.batch-bar{display:none;position:fixed;bottom:0;left:0;right:0;background:#9b2226;color:#fff;padding:14px;text-align:center;font-size:15px;font-weight:700;z-index:200;gap:12px;align-items:center;justify-content:center}.batch-bar.show{display:flex}.photo-overlay{position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:500;display:none;align-items:center;justify-content:center;cursor:pointer}
 .photo-overlay.show{display:flex}
 .photo-overlay img{max-width:95vw;max-height:90vh;object-fit:contain;border-radius:8px}
 .modal-overlay.show{display:flex}
@@ -620,18 +620,38 @@ function submitReport() {
   var btn = document.getElementById('btnSubmit');
   if (btn) { btn.textContent = '上傳中…'; btn.disabled = true; }
 
+  // 出工人員
   var att = [];
   document.getElementById('attList').querySelectorAll('.ec').forEach(function(c) {
-    var n = c.querySelector('.att-name'); if (!n || !n.value.trim()) return;
-    att.push({name:n.value.trim(), am:c.querySelector('.att-am').checked, pm:c.querySelector('.att-pm').checked, ot:parseFloat(c.querySelector('.att-ot').value)||0});
+    var nameEl = c.querySelector('input[type="text"]');
+    if (!nameEl || !nameEl.value.trim()) return;
+    var cbs = c.querySelectorAll('input[type="checkbox"]');
+    var otEl = c.querySelector('.ot-input');
+    att.push({
+      name: nameEl.value.trim(),
+      am: cbs[0] ? cbs[0].checked : false,
+      pm: cbs[1] ? cbs[1].checked : false,
+      ot: otEl ? (parseFloat(otEl.value)||0) : 0
+    });
   });
 
+  // 公款支出
   var exps = [];
   document.getElementById('expList').querySelectorAll('.ec').forEach(function(c) {
-    var itEl = c.querySelector('.exp-item'); if (!itEl || !itEl.value.trim()) return;
+    var itemEl = c.querySelector('input[type="text"]');
+    if (!itemEl || !itemEl.value.trim()) return;
     var expIdx = c.dataset.expIdx || '';
+    var invEl = c.querySelector('input[type="checkbox"]');
+    var cashEl = c.querySelector('.cc');
+    var cardEl = c.querySelector('.kk');
     var photos = expPhotoMap[expIdx] ? expPhotoMap[expIdx].slice() : [];
-    exps.push({item:itEl.value.trim(), inv:c.querySelector('.exp-inv').checked, cash:parseFloat(c.querySelector('.exp-cash').value)||0, card:parseFloat(c.querySelector('.exp-card').value)||0, photos:photos});
+    exps.push({
+      item: itemEl.value.trim(),
+      inv: invEl ? invEl.checked : false,
+      cash: cashEl ? (parseFloat(cashEl.value)||0) : 0,
+      card: cardEl ? (parseFloat(cardEl.value)||0) : 0,
+      photos: photos
+    });
   });
 
   var rc0 = parseFloat(document.getElementById('rc').value)||0;
@@ -663,31 +683,28 @@ function submitReport() {
     setTimeout(function(){ loadAccum(); }, 1200);
   }
 
-  // 收集所有照片
+  // 收集有照片的任務
   var flat = [];
   report.expenses.forEach(function(ex, ei) {
     (ex.photos||[]).forEach(function(src, pi) { if (src) flat.push({ei:ei, pi:pi}); });
   });
 
   if (!flat.length) {
-    // 無照片：GET 送出
     var url = API + '?payload=' + encodeURIComponent(JSON.stringify(report));
     fetch(url, {mode:'no-cors'}).catch(function(){});
     setTimeout(onDone, 1500);
     return;
   }
 
-  // 有照片：壓縮後 POST 一次送
+  // 壓縮後 POST
   var done = 0;
   flat.forEach(function(task) {
     var src = report.expenses[task.ei].photos[task.pi];
     compressPhoto(src, 1000, 0.75).then(function(out) {
       report.expenses[task.ei].photos[task.pi] = out;
-      done++;
-      if (done >= flat.length) doPost();
+      done++; if (done >= flat.length) doPost();
     }).catch(function() {
-      done++;
-      if (done >= flat.length) doPost();
+      done++; if (done >= flat.length) doPost();
     });
   });
   setTimeout(function() { if (done < flat.length) doPost(); }, 10000);
@@ -911,8 +928,8 @@ var _batchMode = false;
 
 function toggleBatchMode() {
   _batchMode = !_batchMode;
-  var list = document.getElementById('historyList') || document.getElementById('reportList');
-  if (list) list.classList.toggle('batch-mode', _batchMode);
+  // 對所有 report-head 套用 batch-mode
+  document.querySelectorAll('.report-head').forEach(function(h){ h.classList.toggle('batch-mode', _batchMode); });
   var btn = document.getElementById('batchDeleteBtn');
   if (btn) btn.textContent = _batchMode ? '✕ 取消' : '☑ 批次刪除';
   var bar = document.getElementById('batchBar');
@@ -930,7 +947,7 @@ function updateBatchCount() {
 function cancelBatchMode() {
   _batchMode = false;
   document.querySelectorAll('.batch-check').forEach(function(c){ c.checked=false; });
-  ['historyList','reportList'].forEach(function(id){ var el=document.getElementById(id); if(el) el.classList.remove('batch-mode'); });
+  document.querySelectorAll('.report-head').forEach(function(h){ h.classList.remove('batch-mode'); });
   var bar = document.getElementById('batchBar'); if (bar) bar.classList.remove('show');
   var btn = document.getElementById('batchDeleteBtn'); if (btn) btn.textContent = '☑ 批次刪除';
   updateBatchCount();
@@ -974,7 +991,7 @@ function deleteReport(id, onSuccess, onFail) {
 function buildCard(rpt, isAdminView) {
   var wrap = document.createElement('div'); wrap.className = 'report-card';
   var head = document.createElement('div'); head.className = 'report-head';
-  head.innerHTML = '<div class="report-meta"><div class="r-project">' + esc(rpt.project) + '</div><div class="r-sub">' + esc(rpt.date) + ' | ' + esc(rpt.reporter) + '</div></div><span class="report-arrow">›</span>';
+  head.innerHTML = '<input type="checkbox" class="batch-check" data-rpt-id="' + rpt.id + '" onclick="event.stopPropagation();updateBatchCount()" style="display:none;margin-right:8px;width:18px;height:18px;accent-color:var(--red);cursor:pointer"><div class="report-meta"><div class="r-project">' + esc(rpt.project) + '</div><div class="r-sub">' + esc(rpt.date) + ' | ' + esc(rpt.reporter) + '</div></div><span class="report-arrow">›</span>';
   var body = document.createElement('div'); body.className = 'report-body';
   if (rpt.workItems) body.innerHTML += '<div class="rbs"><div class="rbl">施工項目</div><div class="rbc">' + esc(rpt.workItems) + '</div></div>';
   if (rpt.attendance && rpt.attendance.length) {

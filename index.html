@@ -114,7 +114,7 @@ table.st{width:100%;border-collapse:collapse;border-top:1.5px solid var(--bd)}
 .summary-row{display:block;padding:12px 16px;border-bottom:1px solid var(--br)}
 .summary-row:last-child{border-bottom:none}
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;display:none;align-items:flex-end;justify-content:center}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}.photo-overlay{position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:500;display:none;align-items:center;justify-content:center;cursor:pointer}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}.batch-check{display:none;width:22px;height:22px;accent-color:var(--red);cursor:pointer}.batch-mode .batch-check{display:block}.batch-bar{display:none;position:fixed;bottom:0;left:0;right:0;background:#9b2226;color:#fff;padding:14px;text-align:center;font-size:15px;font-weight:700;z-index:200;gap:12px;align-items:center;justify-content:center}.batch-bar.show{display:flex}.photo-overlay{position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:500;display:none;align-items:center;justify-content:center;cursor:pointer}
 .photo-overlay.show{display:flex}
 .photo-overlay img{max-width:95vw;max-height:90vh;object-fit:contain;border-radius:8px}
 .modal-overlay.show{display:flex}
@@ -204,6 +204,7 @@ table.st{width:100%;border-collapse:collapse;border-top:1.5px solid var(--bd)}
   <div class="admin-header">
     <h2>&#x1F4CB; 我的填報紀錄</h2>
     <span class="admin-count" id="historyCount">共 0 筆</span>
+    <button id="batchDeleteBtn" onclick="toggleBatchMode()" style="font-size:12px;padding:4px 10px;border:1px solid var(--red);border-radius:6px;background:#fff;color:var(--red);cursor:pointer">☑ 批次刪除</button>
   </div>
   <div class="card" style="padding:12px 14px;margin-bottom:12px;background:#eaf4ec;border-color:var(--grn)">
     <div style="display:flex;flex-direction:column;gap:6px">
@@ -286,6 +287,7 @@ table.st{width:100%;border-collapse:collapse;border-top:1.5px solid var(--bd)}
 </div>
 
 <div id="printArea"></div>
+<div class="batch-bar" id="batchBar"><span id="batchCount">已選 0 筆</span><button onclick="confirmBatchDelete()" style="background:#fff;color:#9b2226;border:none;border-radius:6px;padding:8px 20px;font-size:15px;font-weight:700;cursor:pointer">刪除選取</button><button onclick="cancelBatchMode()" style="background:rgba(255,255,255,0.2);color:#fff;border:none;border-radius:6px;padding:8px 16px;font-size:14px;cursor:pointer">取消</button></div>
 <div class="photo-overlay" id="photoOverlay" onclick="closePhotoOverlay()">
   <img id="photoOverlayImg" src="" alt="">
 </div>
@@ -615,110 +617,87 @@ function clearForm() {
 }
 
 function submitReport() {
-  var pname = document.getElementById('pname').value.trim();
-  if (!currentReporter) { showToast('請先選擇填報者'); return; }
-  if (!pname) { showToast('請填寫工程名稱'); return; }
-  var Y = document.getElementById('Y').value, M = document.getElementById('M').value, D = document.getElementById('D').value;
-  var attendance = [];
-  if (attList) attList.querySelectorAll('.ac').forEach(function(card) {
-    var name = card.querySelector('input[type=text]').value.trim(); if (!name) return;
-    var chks = card.querySelectorAll('input[type=checkbox]');
-    var otEl = card.querySelector('.ot-input');
-    attendance.push({ name: name, am: chks[0].checked, pm: chks[1].checked, ot: otEl ? parseFloat(otEl.value) || 0 : 0 });
-  });
-  var expenses = [];
-  if (expList) expList.querySelectorAll('.ec').forEach(function(card) {
-    var item = card.querySelector('input[type=text]').value.trim(); if (!item) return;
-    var idx = card.dataset.expIdx;
-    expenses.push({ item: item, inv: card.querySelector('input[type=checkbox]').checked, cash: parseFloat(card.querySelector('.cc').value) || 0, card: parseFloat(card.querySelector('.kk').value) || 0, photos: expPhotoMap[idx] || [] });
-  });
-  var totalCash = parseFloat(document.getElementById('tca').textContent.replace(/[$,]/g, '')) || 0;
-  var totalCard = parseFloat(document.getElementById('tcd').textContent.replace(/[$,]/g, '')) || 0;
-  var receiptCash = parseFloat(document.getElementById('rc').value) || 0;
-  var report = { id: Date.now(), date: Y + '年' + M + '月' + D + '日', reporter: currentReporter, project: pname, workItems: document.getElementById('witem').value.trim(), attendance: attendance, expenses: expenses, receiptCash: receiptCash, receiptNote: document.getElementById('rn').value.trim(), totalCash: totalCash, totalCard: totalCard, remaining: receiptCash - totalCash, uploadedAt: new Date().toLocaleString('zh-TW') };
   var btn = document.getElementById('btnSubmit');
-  btn.textContent = '上傳中…'; btn.disabled = true;
-  // 壓縮照片後上傳
-  (async function() {
-    try {
-      for (var ei = 0; ei < report.expenses.length; ei++) {
-        var photos = report.expenses[ei].photos || [];
-        var compressed = [];
-        for (var pi = 0; pi < photos.length; pi++) {
-          if (photos[pi] && photos[pi].startsWith('data:image')) {
-            compressed.push(await compressPhoto(photos[pi], 800, 0.6));
-          } else {
-            compressed.push(photos[pi]);
-          }
-        }
-        report.expenses[ei].photos = compressed;
-      }
-    } catch(e) {  }
+  if (btn) { btn.textContent = '上傳中…'; btn.disabled = true; }
 
-    // 分離照片
-    var reportNoPhoto = JSON.parse(JSON.stringify(report));
-    var subPhotos = [];
-    reportNoPhoto.expenses.forEach(function(ex) {
-      subPhotos.push(ex.photos ? ex.photos.slice() : []);
-      ex.photos = [];
+  var att = [];
+  document.getElementById('attList').querySelectorAll('.ec').forEach(function(c) {
+    var n = c.querySelector('.att-name'); if (!n || !n.value.trim()) return;
+    att.push({name:n.value.trim(), am:c.querySelector('.att-am').checked, pm:c.querySelector('.att-pm').checked, ot:parseFloat(c.querySelector('.att-ot').value)||0});
+  });
+
+  var exps = [];
+  document.getElementById('expList').querySelectorAll('.ec').forEach(function(c) {
+    var itEl = c.querySelector('.exp-item'); if (!itEl || !itEl.value.trim()) return;
+    var expIdx = c.dataset.expIdx || '';
+    var photos = expPhotoMap[expIdx] ? expPhotoMap[expIdx].slice() : [];
+    exps.push({item:itEl.value.trim(), inv:c.querySelector('.exp-inv').checked, cash:parseFloat(c.querySelector('.exp-cash').value)||0, card:parseFloat(c.querySelector('.exp-card').value)||0, photos:photos});
+  });
+
+  var rc0 = parseFloat(document.getElementById('rc').value)||0;
+  var rc2 = parseFloat(document.getElementById('rc2').value)||0;
+  var rc = rc0 + rc2;
+  var totalCash = exps.reduce(function(s,e){return s+(e.cash||0);},0);
+  var totalCard = exps.reduce(function(s,e){return s+(e.card||0);},0);
+
+  var report = {
+    id: Date.now().toString(),
+    date: document.getElementById('Y').value + '年' + document.getElementById('M').value + '月' + document.getElementById('D').value + '日',
+    reporter: currentReporter,
+    project: document.getElementById('pname').value.trim(),
+    workItems: document.getElementById('witem').value.trim(),
+    attendance: att,
+    expenses: exps,
+    receiptCash: rc,
+    totalCash: totalCash,
+    totalCard: totalCard,
+    remaining: rc - totalCash,
+    receiptNote: document.getElementById('rn').value.trim(),
+    uploadedAt: new Date().toISOString()
+  };
+
+  function onDone() {
+    if (btn) { btn.textContent = '上傳報表'; btn.disabled = false; }
+    showToast('報表已成功上傳！');
+    doReset(); _reportCache = null;
+    setTimeout(function(){ loadAccum(); }, 1200);
+  }
+
+  // 收集所有照片
+  var flat = [];
+  report.expenses.forEach(function(ex, ei) {
+    (ex.photos||[]).forEach(function(src, pi) { if (src) flat.push({ei:ei, pi:pi}); });
+  });
+
+  if (!flat.length) {
+    // 無照片：GET 送出
+    var url = API + '?payload=' + encodeURIComponent(JSON.stringify(report));
+    fetch(url, {mode:'no-cors'}).catch(function(){});
+    setTimeout(onDone, 1500);
+    return;
+  }
+
+  // 有照片：壓縮後 POST 一次送
+  var done = 0;
+  flat.forEach(function(task) {
+    var src = report.expenses[task.ei].photos[task.pi];
+    compressPhoto(src, 1000, 0.75).then(function(out) {
+      report.expenses[task.ei].photos[task.pi] = out;
+      done++;
+      if (done >= flat.length) doPost();
+    }).catch(function() {
+      done++;
+      if (done >= flat.length) doPost();
     });
+  });
+  setTimeout(function() { if (done < flat.length) doPost(); }, 10000);
 
-    // 主資料不含照片 GET 送出
-    var submitUrl = API + '?payload=' + encodeURIComponent(JSON.stringify(reportNoPhoto));
-    var hasPhotos = subPhotos.some(function(p){ return p && p.length; });
-
-    function onSubmitDone() {
-      btn.textContent = '上傳報表'; btn.disabled = false;
-      showToast('報表已成功上傳！');
-      doReset(); _reportCache = null;
-      setTimeout(function(){ loadAccum(); }, 1200);
-    }
-
-    if (hasPhotos) {
-      // 先送主資料（GET，新增報表），再送照片（POST edit，只更新照片欄位）
-      fetch(submitUrl, {mode:'no-cors'}).catch(function(){});
-
-      // 壓縮照片
-      var allFlat = [];
-      subPhotos.forEach(function(photos, ei) {
-        (photos || []).forEach(function(src, pi) {
-          if (src) allFlat.push({ei:ei, pi:pi, src:src});
-        });
-      });
-      var compressed = {};
-      var jobs = allFlat.map(function(item) {
-        return compressPhoto(item.src, 1000, 0.75).then(function(out) {
-          compressed[item.ei + '_' + item.pi] = out;
-        }).catch(function() { compressed[item.ei + '_' + item.pi] = item.src; });
-      });
-
-      // 等 GAS 新增完成（約 2 秒），再送照片更新
-      Promise.all(jobs).then(function() {
-        setTimeout(function() {
-          // 用 edit action 更新照片（不新增）
-          var editPhotoPatch = {action:'edit', data:{
-            id: reportNoPhoto.id,
-            expenses: reportNoPhoto.expenses.map(function(ex, ei) {
-              return {
-                item: ex.item, inv: ex.inv, cash: ex.cash, card: ex.card,
-                photos: (subPhotos[ei] || []).map(function(_, pi) {
-                  return compressed[ei + '_' + pi] || (subPhotos[ei]||[])[pi];
-                })
-              };
-            })
-          }};
-          var form = new FormData();
-          form.append('payload', JSON.stringify(editPhotoPatch));
-          fetch(API, {method:'POST', body:form, mode:'no-cors'}).catch(function(){});
-        }, 2000);
-        setTimeout(onSubmitDone, 1500);
-      }).catch(function() { setTimeout(onSubmitDone, 1500); });
-    } else {
-      // 無照片直接送主資料
-      fetch(submitUrl, {mode:'no-cors'}).catch(function(){});
-      setTimeout(onSubmitDone, 1500);
-    }
-  })();
+  function doPost() {
+    var form = new FormData();
+    form.append('payload', JSON.stringify(report));
+    fetch(API, {method:'POST', body:form, mode:'no-cors'}).catch(function(){});
+    setTimeout(onDone, 1500);
+  }
 }
 
 function loadHistory() {
@@ -926,6 +905,53 @@ function addReporter() {
   document.getElementById('newReporterInput').value = '';
   renderReporterMgmt(); renderSelectPage(); updateFilterDropdown();
   showToast('已新增：' + name);
+}
+
+var _batchMode = false;
+
+function toggleBatchMode() {
+  _batchMode = !_batchMode;
+  var list = document.getElementById('historyList') || document.getElementById('reportList');
+  if (list) list.classList.toggle('batch-mode', _batchMode);
+  var btn = document.getElementById('batchDeleteBtn');
+  if (btn) btn.textContent = _batchMode ? '✕ 取消' : '☑ 批次刪除';
+  var bar = document.getElementById('batchBar');
+  if (bar) bar.classList.toggle('show', _batchMode);
+  if (!_batchMode) { document.querySelectorAll('.batch-check').forEach(function(c){ c.checked=false; }); }
+  updateBatchCount();
+}
+
+function updateBatchCount() {
+  var checked = document.querySelectorAll('.batch-check:checked');
+  var el = document.getElementById('batchCount');
+  if (el) el.textContent = '已選 ' + checked.length + ' 筆';
+}
+
+function cancelBatchMode() {
+  _batchMode = false;
+  document.querySelectorAll('.batch-check').forEach(function(c){ c.checked=false; });
+  ['historyList','reportList'].forEach(function(id){ var el=document.getElementById(id); if(el) el.classList.remove('batch-mode'); });
+  var bar = document.getElementById('batchBar'); if (bar) bar.classList.remove('show');
+  var btn = document.getElementById('batchDeleteBtn'); if (btn) btn.textContent = '☑ 批次刪除';
+  updateBatchCount();
+}
+
+function confirmBatchDelete() {
+  var checked = Array.from(document.querySelectorAll('.batch-check:checked'));
+  if (!checked.length) { showToast('請先勾選要刪除的報表'); return; }
+  if (!confirm('確定刪除選取的 ' + checked.length + ' 筆報表？此動作無法復原。')) return;
+  var ids = checked.map(function(c){ return c.dataset.rptId; });
+  ids.forEach(function(id) {
+    var url = API + '?action=delete&id=' + id;
+    fetch(url, {mode:'no-cors'}).catch(function(){});
+  });
+  setTimeout(function() {
+    cancelBatchMode();
+    _reportCache = null;
+    showToast('已刪除 ' + ids.length + ' 筆');
+    if (document.getElementById('pageAdmin').classList.contains('show')) loadAllReports();
+    else loadHistory();
+  }, 1800);
 }
 
 function deleteReport(id, onSuccess, onFail) {

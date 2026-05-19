@@ -254,6 +254,7 @@ table.st{width:100%;border-collapse:collapse;border-top:1.5px solid var(--bd)}
     <h2>&#x1F4CA; 報表管理</h2>
     <span class="admin-count" id="adminCount">共 0 筆</span>
   </div>
+  <div style="display:flex;justify-content:flex-end;margin-bottom:6px"><button onclick="_reportCache=null;loadAllReports();showToast('已刷新')" style="font-size:12px;padding:4px 12px;border:1px solid var(--br);border-radius:6px;background:#fff;cursor:pointer;color:var(--mu)">↻ 手動刷新</button></div>
   <div class="card" id="notifyCard" style="margin-bottom:12px;border-color:#ffc107">
     <div class="sh" style="background:#fff3cd;color:#856404;border-color:#ffc107">&#x1F514; 填報者更新通知</div>
     <div id="notifyList" style="padding:8px 14px;font-size:14px;color:var(--mu)">載入中…</div>
@@ -429,6 +430,8 @@ function setNavMode(mode) {
 }
 
 function showRawPage(pid) {
+  // 離開 admin 頁時停止 auto refresh
+  if (pid !== 'pageAdmin') stopAdminRefresh();
   var pages = ['pageSelect','pageForm','pageHistory','pageAdminLogin','pageAdmin'];
   for (var i = 0; i < pages.length; i++) {
     document.getElementById(pages[i]).classList.remove('show');
@@ -454,6 +457,7 @@ function checkPw() {
     showRawPage('pageAdmin');
     loadAllReports();
     renderReporterMgmt();
+    startAdminRefresh();
   } else {
     showToast('密碼錯誤');
     document.getElementById('pwInput').value = '';
@@ -777,6 +781,22 @@ function loadHistory() {
     .catch(function(err) {
       listEl.innerHTML = '<div class="empty"><div class="ei">❌</div><p>載入失敗，請重新整理頁面</p></div>';
     });
+}
+
+var _adminRefreshTimer = null;
+
+function startAdminRefresh() {
+  stopAdminRefresh();
+  _adminRefreshTimer = setInterval(function() {
+    if (document.getElementById('pageAdmin').classList.contains('show')) {
+      _reportCache = null;
+      loadAllReports();
+    }
+  }, 30000); // 每 30 秒自動刷新
+}
+
+function stopAdminRefresh() {
+  if (_adminRefreshTimer) { clearInterval(_adminRefreshTimer); _adminRefreshTimer = null; }
 }
 
 function loadAllReports() {

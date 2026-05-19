@@ -792,7 +792,7 @@ function startAdminRefresh() {
       _reportCache = null;
       loadAllReports();
     }
-  }, 30000); // 每 30 秒自動刷新
+  }, 15000); // 每 15 秒自動刷新
 }
 
 function stopAdminRefresh() {
@@ -875,10 +875,22 @@ function renderSummaryTable(data) {
   el.innerHTML = html || '<div style="padding:16px;text-align:center;color:var(--mu)">尚無資料</div>';
 }
 
+var _lastNotifyCount = -1;
 function renderNotifyList(data) {
   var el = document.getElementById('notifyList');
   if (!el) return;
   var edited = data.filter(function(r) { return r.editedAt && r.editedAt !== ''; });
+  // 若有新增通知，顯示提示
+  if (_lastNotifyCount >= 0 && edited.length > _lastNotifyCount) {
+    showToast('有 ' + (edited.length - _lastNotifyCount) + ' 筆新更新通知！');
+    var card = document.getElementById('notifyCard');
+    if (card) {
+      card.style.borderColor = '#ffc107';
+      card.style.boxShadow = '0 0 0 3px rgba(255,193,7,0.3)';
+      setTimeout(function(){ card.style.borderColor=''; card.style.boxShadow=''; }, 3000);
+    }
+  }
+  _lastNotifyCount = edited.length;
   if (!edited.length) {
     el.innerHTML = '<div style="padding:4px 0;color:var(--mu)">目前無更新通知</div>';
     return;
@@ -898,6 +910,8 @@ function renderNotifyList(data) {
         '<div style="font-size:12px;color:#856404;margin-top:3px;background:#fff3cd;padding:3px 8px;border-radius:4px;display:inline-block">' +
           '修正者：' + esc(r.editedBy) + '　' + esc(r.editedAt) +
         '</div>' +
+        (r.editedNote ?
+          '<div style="font-size:12px;color:#374151;margin-top:4px;font-weight:600">修正項目：' + esc(r.editedNote) + '</div>' : '') +
       '</div>' +
       '<span style="color:var(--mu);font-size:18px;align-self:center;flex-shrink:0">›</span>';
     row.onclick = (function(rpt) {

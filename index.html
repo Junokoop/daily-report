@@ -789,7 +789,6 @@ function startAdminRefresh() {
   stopAdminRefresh();
   _adminRefreshTimer = setInterval(function() {
     if (document.getElementById('pageAdmin').classList.contains('show')) {
-      showToast('自動刷新中…');
       _reportCache = null;
       _reportCacheTime = 0;
       loadAllReports();
@@ -877,14 +876,15 @@ function renderSummaryTable(data) {
   el.innerHTML = html || '<div style="padding:16px;text-align:center;color:var(--mu)">尚無資料</div>';
 }
 
-var _lastNotifyCount = -1;
+var _lastNotifyAt = null;
 function renderNotifyList(data) {
   var el = document.getElementById('notifyList');
   if (!el) return;
   var edited = data.filter(function(r) { return r.editedAt && r.editedAt !== ''; });
   // 若有新增通知，顯示提示
-  if (_lastNotifyCount >= 0 && edited.length > _lastNotifyCount) {
-    showToast('有 ' + (edited.length - _lastNotifyCount) + ' 筆新更新通知！');
+  var latestEditedAt = edited.length ? edited[0].editedAt : '';
+  if (_lastNotifyAt && latestEditedAt && latestEditedAt !== _lastNotifyAt) {
+    showToast('有新的修正通知！');
     var card = document.getElementById('notifyCard');
     if (card) {
       card.style.borderColor = '#ffc107';
@@ -892,7 +892,7 @@ function renderNotifyList(data) {
       setTimeout(function(){ card.style.borderColor=''; card.style.boxShadow=''; }, 3000);
     }
   }
-  _lastNotifyCount = edited.length;
+  _lastNotifyAt = latestEditedAt;
   if (!edited.length) {
     el.innerHTML = '<div style="padding:4px 0;color:var(--mu)">目前無更新通知</div>';
     return;
@@ -1417,6 +1417,7 @@ function doOpenEditModal(rpt) {
   }
   var prevRpt = (myIdx >= 0 && myIdx + 1 < myRpts.length) ? myRpts[myIdx + 1] : null;
   rpt.prevRemaining = prevRpt ? (parseFloat(prevRpt.remaining) || 0) : 0;
+  window._editPrevRemaining = rpt.prevRemaining;
   rpt.todayReceived = (parseFloat(rpt.receiptCash) || 0) - rpt.prevRemaining;
 
   // 解析日期
@@ -1643,13 +1644,11 @@ function addEditExp() {
 }
 
 function updateEditTotal() {
-  var prev = parseFloat(document.getElementById('editRcPrev') ? document.getElementById('editRcPrev').value : 0) || 0;
+  var prev = window._editPrevRemaining || 0;
   var today = parseFloat(document.getElementById('editRcToday') ? document.getElementById('editRcToday').value : 0) || 0;
-  // 從編輯框即時計算現金支出合計
   var totalCash = 0;
   document.querySelectorAll('.edit-exp-cash').forEach(function(el) { totalCash += parseFloat(el.value) || 0; });
   var remaining = prev + today - totalCash;
-  showToast('prev:' + prev + ' today:' + today + ' cash:' + totalCash + ' rem:' + remaining);
   var el = document.getElementById('editRemaining');
   if (el) {
     el.textContent = '$' + remaining.toLocaleString();
@@ -1658,8 +1657,7 @@ function updateEditTotal() {
 }
 
 function getEditedNote(orig, newData) {
-  if (!orig || !newData) { showToast('找不到原始資料'); return ''; }
-  showToast('比對中:id=' + (orig.id||'?'));
+  if (!orig || !newData) return '';
   var changes = [];
 
   if (String(newData.date||'') !== String(orig.date||'')) changes.push('日期');
@@ -1772,7 +1770,7 @@ function saveEdit() {
     exp.push({item:item, inv:c.querySelector('.edit-exp-inv').checked, cash:parseFloat(c.querySelector('.edit-exp-cash').value)||0, card:parseFloat(c.querySelector('.edit-exp-card').value)||0, photos:photos});
   });
 
-  var rcPrev = parseFloat(document.getElementById('editRcPrev') ? document.getElementById('editRcPrev').value : 0) || 0;
+  var rcPrev = window._editPrevRemaining || 0;
   var rcToday = parseFloat(document.getElementById('editRcToday') ? document.getElementById('editRcToday').value : 0) || 0;
   var rc = rcPrev + rcToday;
   var totalCash = exp.reduce(function(s,e){return s+(e.cash||0);},0);
@@ -1799,7 +1797,7 @@ function saveEdit() {
     receiptNote: document.getElementById('editRn').value.trim(),
     editedAt: new Date().toLocaleString('zh-TW'),
     editedBy: currentReporter || '管理者',
-    editedNote: getEditedNote(patchOrig, {project: document.getElementById('editPname').value.trim(), workItems: document.getElementById('editWitem').value.trim(), receiptCash: rc, attendance: att, expenses: exp, receiptNote: document.getElementById('editRn').value.trim(), date: Y+'年'+M+'月'+D+'日'})
+    editedNote: getEditedNote(patchOrig, {project: document.getElementById('editPname').value.trim(), workItems: document.getElementById('editWitem').value.trim(), receiptCash: rc, totalCash: totalCash, totalCard: totalCard, attendance: att, expenses: exp, receiptNote: document.getElementById('editRn').value.trim(), date: Y+'年'+M+'月'+D+'日'})
   };
 
   function finish() {

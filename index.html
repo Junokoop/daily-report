@@ -504,7 +504,7 @@ function fetchReports(forceRefresh) {
     return Promise.resolve(_reportCache);
   }
   var url = API + '?action=list&noPhotos=1&t=' + now;
-  return fetch(url, { redirect: 'follow' })
+  return fetch(url, { redirect: 'follow', cache: 'no-store' })
     .then(function(r) {
       if (!r.ok && r.type !== 'opaque') throw new Error('HTTP ' + r.status);
       return r.text();
@@ -1449,7 +1449,7 @@ function doOpenEditModal(rpt) {
       '</div></div>' +
       '<div class="inv-photos-row" style="display:none;padding:8px 14px;gap:8px;flex-wrap:wrap;overflow:visible"></div>' +
       '<div class="er"><span class="el">現金金額</span><input type="number" class="edit-exp-cash" value="' + (ex.cash || 0) + '" min="0" inputmode="numeric" oninput="updateEditTotal()"></div>' +
-      '<div class="er"><span class="el">刷卡金額</span><input type="number" class="edit-exp-card" value="' + (ex.card || 0) + '" min="0" inputmode="numeric"></div>' +
+      '<div class="er"><span class="el">刷卡金額</span><input type="number" class="edit-exp-card" value="' + (ex.card || 0) + '" min="0" inputmode="numeric" oninput="updateEditTotal()"></div>' +
     '</div>';
   });
 
@@ -1636,8 +1636,8 @@ function addEditExp() {
     '<input type="file" accept="image/*" capture="environment" style="display:none" class="edit-inv-camera-input">' +
     '</div></div>' +
     '<div class="inv-photos-row" style="display:none;padding:8px 14px;gap:8px;flex-wrap:wrap;overflow:visible"></div>' +
-    '<div class="er"><span class="el">現金金額</span><input type="number" class="edit-exp-cash" value="0" min="0" inputmode="numeric"></div>' +
-    '<div class="er"><span class="el">刷卡金額</span><input type="number" class="edit-exp-card" value="0" min="0" inputmode="numeric"></div>';
+    '<div class="er"><span class="el">現金金額</span><input type="number" class="edit-exp-cash" value="0" min="0" inputmode="numeric" oninput="updateEditTotal()"></div>' +
+    '<div class="er"><span class="el">刷卡金額</span><input type="number" class="edit-exp-card" value="0" min="0" inputmode="numeric" oninput="updateEditTotal()"></div>';
   document.getElementById('editExpList').appendChild(div);
 }
 
@@ -1776,9 +1776,10 @@ function saveEdit() {
   var totalCard = exp.reduce(function(s,e){return s+(e.card||0);},0);
 
   var patchOrig = null;
-  var cacheArr = _reportCache || allReports || [];
+  // 同時搜尋兩個來源
+  var cacheArr = (_reportCache || []).concat(allReports || []);
   for (var pi3 = 0; pi3 < cacheArr.length; pi3++) {
-    if (cacheArr[pi3].id === editingId) { patchOrig = cacheArr[pi3]; break; }
+    if (String(cacheArr[pi3].id) === String(editingId)) { patchOrig = cacheArr[pi3]; break; }
   }
 
   var patchData = {

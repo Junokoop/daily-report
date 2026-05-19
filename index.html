@@ -1776,8 +1776,8 @@ function saveEdit() {
   var totalCash = exp.reduce(function(s,e){return s+(e.cash||0);},0);
   var totalCard = exp.reduce(function(s,e){return s+(e.card||0);},0);
 
+  // 找原始資料比對修正項目
   var patchOrig = null;
-  // 同時搜尋兩個來源
   var cacheArr = (_reportCache || []).concat(allReports || []);
   for (var pi3 = 0; pi3 < cacheArr.length; pi3++) {
     if (String(cacheArr[pi3].id) === String(editingId)) { patchOrig = cacheArr[pi3]; break; }
@@ -1797,7 +1797,17 @@ function saveEdit() {
     receiptNote: document.getElementById('editRn').value.trim(),
     editedAt: new Date().toLocaleString('zh-TW'),
     editedBy: currentReporter || '管理者',
-    editedNote: getEditedNote(patchOrig, {project: document.getElementById('editPname').value.trim(), workItems: document.getElementById('editWitem').value.trim(), receiptCash: rc, totalCash: totalCash, totalCard: totalCard, attendance: att, expenses: exp, receiptNote: document.getElementById('editRn').value.trim(), date: Y+'年'+M+'月'+D+'日'})
+    editedNote: getEditedNote(patchOrig, {
+      project: document.getElementById('editPname').value.trim(),
+      workItems: document.getElementById('editWitem').value.trim(),
+      receiptCash: rc,
+      totalCash: totalCash,
+      totalCard: totalCard,
+      attendance: att,
+      expenses: exp,
+      receiptNote: document.getElementById('editRn').value.trim(),
+      date: Y+'年'+M+'月'+D+'日'
+    })
   };
 
   function finish() {
@@ -1812,55 +1822,32 @@ function saveEdit() {
     }, 800);
   }
 
-  // 判斷有沒有照片（含已載入的舊照片 + 新上傳的）
   var hasAnyPhoto = exp.some(function(e){ return e.photos && e.photos.length; });
 
   if (hasAnyPhoto) {
-    // 收集所有照片壓縮
     var tasks = [];
     exp.forEach(function(e, ei) {
-      (e.photos || []).forEach(function(src, pi) {
-        if (src) {
-          tasks.push({ei:ei, pi:pi, src:src});
-        }
-      });
+      (e.photos||[]).forEach(function(src, pi) { if (src) tasks.push({ei:ei, pi:pi}); });
     });
-
     var done = 0;
-    var total = tasks.length;
-    if (total === 0) {
-      // 有 expenses 但沒有實際 src，直接送
-      var form = new FormData();
-      form.append('payload', JSON.stringify({action:'edit', data:patchData}));
-      fetch(API, {method:'POST', body:form, mode:'no-cors'}).catch(function(){});
-      setTimeout(finish, 2000);
-      return;
-    }
-
-    // 逐一壓縮
     tasks.forEach(function(task) {
-      compressPhoto(task.src, 1000, 0.75).then(function(out) {
+      var src = exp[task.ei].photos[task.pi];
+      compressPhoto(src, 1000, 0.75).then(function(out) {
         exp[task.ei].photos[task.pi] = out;
-        done++;
-        if (done >= total) sendWithPhotos();
+        done++; if (done >= tasks.length) sendWithPhotos();
       }).catch(function() {
-        done++;
-        if (done >= total) sendWithPhotos();
+        done++; if (done >= tasks.length) sendWithPhotos();
       });
     });
-
-    // 10秒超時
-    setTimeout(function() { if (done < total) sendWithPhotos(); }, 10000);
-
+    setTimeout(function() { if (done < tasks.length) sendWithPhotos(); }, 10000);
     function sendWithPhotos() {
-      patchData.expenses = exp; // 用壓縮後的照片
+      patchData.expenses = exp;
       var form = new FormData();
       form.append('payload', JSON.stringify({action:'edit', data:patchData}));
       fetch(API, {method:'POST', body:form, mode:'no-cors'}).catch(function(){});
       setTimeout(finish, 2000);
     }
   } else {
-    // 無照片直接送
     var url = API + '?payload=' + encodeURIComponent(JSON.stringify({action:'edit', data:patchData}));
     fetch(url, {mode:'no-cors'}).catch(function(){});
     setTimeout(finish, 2000);

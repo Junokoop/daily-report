@@ -925,13 +925,20 @@ function renderNotifyList(data) {
     delBtn.onclick = (function(rpt) {
       return function(e) {
         e.stopPropagation();
-        if (!confirm('確定刪除此報表？')) return;
-        fetch(API + '?action=delete&id=' + rpt.id, {mode:'no-cors'}).catch(function(){});
+        if (!confirm('確定清除此通知？（報表資料保留，僅清除修正記錄）')) return;
+        // 只清除修正記錄欄位，不刪除報表
+        var payload = JSON.stringify({action:'edit', data:{
+          id: rpt.id,
+          editedAt: '',
+          editedBy: '',
+          editedNote: ''
+        }});
+        fetch(API + '?payload=' + encodeURIComponent(payload), {mode:'no-cors'}).catch(function(){});
         setTimeout(function() {
           _reportCache = null;
           _reportCacheTime = 0;
           loadAllReports();
-          showToast('已刪除');
+          showToast('通知已清除');
         }, 1500);
       };
     })(r);

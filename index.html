@@ -918,6 +918,24 @@ function renderNotifyList(data) {
     row.onclick = (function(rpt) {
       return function() { openViewModal(rpt); };
     })(r);
+    // 刪除按鈕
+    var delBtn = document.createElement('button');
+    delBtn.textContent = '✕';
+    delBtn.style.cssText = 'flex-shrink:0;background:#9b2226;color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:13px;cursor:pointer;margin-left:4px';
+    delBtn.onclick = (function(rpt) {
+      return function(e) {
+        e.stopPropagation();
+        if (!confirm('確定刪除此報表？')) return;
+        fetch(API + '?action=delete&id=' + rpt.id, {mode:'no-cors'}).catch(function(){});
+        setTimeout(function() {
+          _reportCache = null;
+          _reportCacheTime = 0;
+          loadAllReports();
+          showToast('已刪除');
+        }, 1500);
+      };
+    })(r);
+    row.appendChild(delBtn);
     el.appendChild(row);
   });
 }

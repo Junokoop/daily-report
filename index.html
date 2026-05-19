@@ -789,6 +789,7 @@ function startAdminRefresh() {
   stopAdminRefresh();
   _adminRefreshTimer = setInterval(function() {
     if (document.getElementById('pageAdmin').classList.contains('show')) {
+      showToast('自動刷新中…');
       _reportCache = null;
       _reportCacheTime = 0;
       loadAllReports();
@@ -1648,6 +1649,7 @@ function updateEditTotal() {
   var totalCash = 0;
   document.querySelectorAll('.edit-exp-cash').forEach(function(el) { totalCash += parseFloat(el.value) || 0; });
   var remaining = prev + today - totalCash;
+  showToast('prev:' + prev + ' today:' + today + ' cash:' + totalCash + ' rem:' + remaining);
   var el = document.getElementById('editRemaining');
   if (el) {
     el.textContent = '$' + remaining.toLocaleString();
@@ -1656,7 +1658,8 @@ function updateEditTotal() {
 }
 
 function getEditedNote(orig, newData) {
-  if (!orig || !newData) return '';
+  if (!orig || !newData) { showToast('找不到原始資料'); return ''; }
+  showToast('比對中:id=' + (orig.id||'?'));
   var changes = [];
 
   if (String(newData.date||'') !== String(orig.date||'')) changes.push('日期');

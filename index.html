@@ -790,6 +790,7 @@ function startAdminRefresh() {
   _adminRefreshTimer = setInterval(function() {
     if (document.getElementById('pageAdmin').classList.contains('show')) {
       _reportCache = null;
+      _reportCacheTime = 0;
       loadAllReports();
     }
   }, 15000); // 每 15 秒自動刷新
@@ -1447,7 +1448,7 @@ function doOpenEditModal(rpt) {
       '<input type="file" accept="image/*" capture="environment" style="display:none" class="edit-inv-camera-input">' +
       '</div></div>' +
       '<div class="inv-photos-row" style="display:none;padding:8px 14px;gap:8px;flex-wrap:wrap;overflow:visible"></div>' +
-      '<div class="er"><span class="el">現金金額</span><input type="number" class="edit-exp-cash" value="' + (ex.cash || 0) + '" min="0" inputmode="numeric"></div>' +
+      '<div class="er"><span class="el">現金金額</span><input type="number" class="edit-exp-cash" value="' + (ex.cash || 0) + '" min="0" inputmode="numeric" oninput="updateEditTotal()"></div>' +
       '<div class="er"><span class="el">刷卡金額</span><input type="number" class="edit-exp-card" value="' + (ex.card || 0) + '" min="0" inputmode="numeric"></div>' +
     '</div>';
   });
@@ -1643,7 +1644,9 @@ function addEditExp() {
 function updateEditTotal() {
   var prev = parseFloat(document.getElementById('editRcPrev') ? document.getElementById('editRcPrev').value : 0) || 0;
   var today = parseFloat(document.getElementById('editRcToday') ? document.getElementById('editRcToday').value : 0) || 0;
-  var totalCash = parseFloat(document.getElementById('editTotalCash') ? document.getElementById('editTotalCash').value : 0) || 0;
+  // 從編輯框即時計算現金支出合計
+  var totalCash = 0;
+  document.querySelectorAll('.edit-exp-cash').forEach(function(el) { totalCash += parseFloat(el.value) || 0; });
   var remaining = prev + today - totalCash;
   var el = document.getElementById('editRemaining');
   if (el) {
@@ -1692,7 +1695,7 @@ function getEditedNote(orig, newData) {
   // 若新照片數 > 原照片數，代表有新增照片
   if (newPhotoCnt > origPhotoCnt) changes.push('發票照片');
 
-  return changes.length ? changes.join('、') : '';
+  return changes.join('、');
 }
 
 function closeEditModal() { document.getElementById('editModal').classList.remove('show'); editingId = null; }

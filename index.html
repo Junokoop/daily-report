@@ -912,8 +912,7 @@ function renderNotifyList(data) {
         '<div style="font-size:12px;color:#856404;margin-top:3px;background:#fff3cd;padding:3px 8px;border-radius:4px;display:inline-block">' +
           '修正者：' + esc(r.editedBy) + '　' + esc(r.editedAt) +
         '</div>' +
-        (r.editedNote ?
-          '<div style="font-size:12px;color:#374151;margin-top:4px;font-weight:600">修正項目：' + esc(r.editedNote) + '</div>' : '') +
+        '<div style="font-size:12px;color:#374151;margin-top:4px;font-weight:600">修正項目：' + esc(r.editedNote || '內容已修正') + '</div>' +
       '</div>' +
       '<span style="color:var(--mu);font-size:18px;align-self:center;flex-shrink:0">›</span>';
     row.onclick = (function(rpt) {
@@ -1200,7 +1199,7 @@ function buildCard(rpt, isAdminView) {
   var editBadge = rpt.editedAt ? ' <span style="background:#fff3cd;color:#856404;border:1px solid #ffc107;border-radius:4px;padding:2px 8px;font-size:11px">✏️ 已修正</span>' : '';
   timeDiv.innerHTML = '上傳時間：' + esc(rpt.uploadedAt) + editBadge +
     (rpt.editedAt ? '<br><span style="color:#856404">修正：' + esc(rpt.editedAt) + ' / ' + esc(rpt.editedBy) + '</span>' : '') +
-    (rpt.editedNote ? '<br><span style="background:#ffc107;color:#000;border-radius:3px;padding:1px 6px;font-size:11px;font-weight:700">修正項目：' + esc(rpt.editedNote) + '</span>' : '');
+    (rpt.editedAt ? '<br><span style="background:#ffc107;color:#000;border-radius:3px;padding:1px 6px;font-size:11px;font-weight:700">修正項目：' + esc(rpt.editedNote || '內容已修正') + '</span>' : '');
   body.appendChild(timeDiv);
   var aw = document.createElement('div'); aw.className = 'action-wrap';
   var editBtn = document.createElement('button'); editBtn.className = 'btn-edit'; editBtn.textContent = '✏️ 編輯';
@@ -1696,7 +1695,7 @@ function getEditedNote(orig, newData) {
   // 若新照片數 > 原照片數，代表有新增照片
   if (newPhotoCnt > origPhotoCnt) changes.push('發票照片');
 
-  return changes.join('、');
+  return changes.length ? changes.join('、') : '內容已修正';
 }
 
 function closeEditModal() { document.getElementById('editModal').classList.remove('show'); editingId = null; }

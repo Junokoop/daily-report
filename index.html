@@ -253,8 +253,8 @@ table.st{width:100%;border-collapse:collapse;border-top:1.5px solid var(--bd)}
   <div class="admin-header">
     <h2>&#x1F4CA; 報表管理</h2>
     <span class="admin-count" id="adminCount">共 0 筆</span>
+    <button onclick="_reportCache=null;_reportCacheTime=0;loadAllReports();showToast('已刷新')" style="font-size:13px;padding:5px 14px;border:none;border-radius:8px;background:#6b7280;color:#fff;cursor:pointer;font-weight:600">↻ 刷新</button>
   </div>
-  <div style="display:flex;justify-content:flex-end;margin-bottom:6px"><button onclick="_reportCache=null;loadAllReports();showToast('已刷新')" style="font-size:12px;padding:4px 12px;border:1px solid var(--br);border-radius:6px;background:#fff;cursor:pointer;color:var(--mu)">↻ 手動刷新</button></div>
   <div class="card" id="notifyCard" style="margin-bottom:12px;border-color:#ffc107">
     <div class="sh" style="background:#fff3cd;color:#856404;border-color:#ffc107">&#x1F514; 填報者更新通知</div>
     <div id="notifyList" style="padding:8px 14px;font-size:14px;color:var(--mu)">載入中…</div>
@@ -1372,6 +1372,10 @@ function openViewModal(rpt) {
   document.getElementById('saveEditBtn').style.display = 'none';
   var delBtn = document.getElementById('delEditBtn');
   if (delBtn) delBtn.style.display = 'none';
+  // 存全域變數供 updateEditTotal/saveEdit 使用
+  window._editPrevRemaining = rpt.prevRemaining || 0;
+  window._editOrigTotalCash = parseFloat(rpt.totalCash) || 0;
+  window._editOrigTotalCard = parseFloat(rpt.totalCard) || 0;
   document.getElementById('editModal').classList.add('show');
 
   // 非同步載入照片
@@ -1506,8 +1510,7 @@ function doOpenEditModal(rpt) {
         '<span id="editRemaining" style="font-weight:900;color:var(--grn);font-size:17px">$' + (parseFloat(rpt.remaining)||0).toLocaleString() + '</span>' +
       '</div>' +
     '</div>' +
-    '<input id="editRcPrev" type="hidden" value="' + (rpt.prevRemaining || 0) + '">' +
-    '<input id="editTotalCash" type="hidden" value="' + (parseFloat(rpt.totalCash)||0) + '">' +
+
     '<div class="mrow"><span class="mlbl">備考：</span><input id="editRn" class="mi" value="' + esc(rpt.receiptNote) + '"></div>' +
     '</div>';
 
@@ -1690,9 +1693,9 @@ function getEditedNote(orig, newData) {
   if (parseFloat(newData.receiptCash||0) !== parseFloat(orig.receiptCash||0)) changes.push('接收公款');
   if (String(newData.receiptNote||'') !== String(orig.receiptNote||'')) changes.push('備考');
 
-  var origTCash = parseFloat(orig.totalCash)||0;
+  var origTCash = window._editOrigTotalCash !== undefined ? window._editOrigTotalCash : (parseFloat(orig.totalCash)||0);
   var newTCash = parseFloat(newData.totalCash)||0;
-  var origTCard = parseFloat(orig.totalCard)||0;
+  var origTCard = window._editOrigTotalCard !== undefined ? window._editOrigTotalCard : (parseFloat(orig.totalCard)||0);
   var newTCard = parseFloat(newData.totalCard)||0;
   if (origTCash !== newTCash || origTCard !== newTCard) changes.push('支出金額');
 

@@ -764,10 +764,41 @@ function loadHistory() {
         }
         if (!data.length) { listEl.innerHTML = '<div class="empty"><div class="ei">📭</div><p>尚無填報紀錄</p></div>'; return; }
         listEl.innerHTML = '';
+
+        // 依日期分組
+        var groups = {}, groupOrder = [];
         data.forEach(function(rpt) {
-          try { listEl.appendChild(buildCard(rpt, false)); }
-          catch(cardErr) { }
+          var d = String(rpt.date || '未知日期');
+          if (!groups[d]) { groups[d] = []; groupOrder.push(d); }
+          groups[d].push(rpt);
         });
+        groupOrder.forEach(function(date) {
+          var dateHeader = document.createElement('div');
+          dateHeader.style.cssText = 'font-size:13px;font-weight:700;color:var(--mu);padding:8px 4px 4px;border-bottom:1px solid var(--br);margin-bottom:4px';
+          dateHeader.textContent = date;
+          listEl.appendChild(dateHeader);
+          groups[date].forEach(function(rpt) {
+            try { listEl.appendChild(buildCard(rpt, false)); } catch(e) {}
+          });
+        });
+
+        // 選取刪除列
+        var histSelBar = document.getElementById('histSelBar');
+        if (!histSelBar) {
+          histSelBar = document.createElement('div');
+          histSelBar.id = 'histSelBar';
+          histSelBar.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:6px 2px;margin-bottom:6px';
+          histSelBar.innerHTML =
+            '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;color:var(--mu)">' +
+              '<input type="checkbox" id="selectAllHistCheck" onchange="toggleSelectAllHist(this.checked)" style="width:16px;height:16px;accent-color:var(--bd);cursor:pointer"> 全選' +
+            '</label>' +
+            '<button id="batchDeleteHistBtn" onclick="confirmBatchDelete()" style="display:none;background:#9b2226;color:#fff;border:none;border-radius:7px;padding:5px 14px;font-size:13px;font-weight:600;cursor:pointer">刪除選取</button>';
+          listEl.parentNode.insertBefore(histSelBar, listEl);
+        }
+        var allChkH = document.getElementById('selectAllHistCheck');
+        if (allChkH) allChkH.checked = false;
+        var delBtnH = document.getElementById('batchDeleteHistBtn');
+        if (delBtnH) delBtnH.style.display = 'none';
       } catch(e) {
         listEl.innerHTML = '<div class="empty"><div class="ei">❌</div><p>載入失敗，請重新整理頁面</p></div>';
       }
@@ -847,7 +878,7 @@ function renderSummaryTable(data) {
     var remainText = lastRemain !== null ? '$' + lastRemain.toLocaleString() : '—';
     var remainColor = isNeg ? 'var(--red)' : 'var(--grn)';
     html += '<div class="summary-row">' +
-      '<button onclick="showReporterDetail(\'' + r + '\')" style="width:100%;text-align:left;padding:8px 14px;margin-bottom:8px;background:var(--ac);color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;display:flex;justify-content:space-between;align-items:center">' + esc(r) + '<span>›</span></button>' +
+      '<button onclick="showReporterDetail(\'' + r + '\')" style="width:100%;text-align:left;padding:8px 14px;margin-bottom:8px;background:var(--ac);color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;display:flex;justify-content:space-between;align-items:center">' + esc(r) + ' 日報表<span>›</span></button>' +
       '<div style="display:flex;flex-direction:column;gap:4px;font-size:13px">' +
         '<div style="display:flex;justify-content:space-between"><span style="color:var(--mu)">上筆結餘公款</span><span style="font-weight:700;color:var(--grn)">$' + prevRemaining.toLocaleString() + '</span></div>' +
         '<div style="display:flex;justify-content:space-between"><span style="color:var(--mu)">本日接收公款</span><span style="font-weight:700;color:var(--ac)">$' + todayReceived.toLocaleString() + '</span></div>' +
@@ -1025,7 +1056,7 @@ var _batchMode = false;
 
 function showReporterDetail(reporter) {
   var data = allReports.filter(function(r){ return r.reporter === reporter; });
-  document.getElementById('reporterDetailTitle').textContent = reporter + ' 的日報表';
+  document.getElementById('reporterDetailTitle').textContent = reporter + ' 日報表';
   var lastRemain = data.length ? (parseFloat(data[0].remaining)||0) : 0;
   var lastReceipt = data.length ? (parseFloat(data[0].receiptCash)||0) : 0;
   var lastCash = data.length ? (parseFloat(data[0].totalCash)||0) : 0;
@@ -1040,11 +1071,46 @@ function showReporterDetail(reporter) {
     '<div style="height:1px;background:var(--br)"></div>' +
     '<div style="display:flex;justify-content:space-between;font-size:15px"><span style="font-weight:700">現金剩餘公款</span><span style="font-weight:900;color:' + col + '">$' + lastRemain.toLocaleString() + '</span></div>' +
     '</div>';
+
+  // 依日期分組
   var listEl = document.getElementById('reporterDetailList');
   listEl.innerHTML = '';
+  var groups = {}, groupOrder = [];
   data.forEach(function(rpt) {
-    try { listEl.appendChild(buildCard(rpt, true)); } catch(e) {}
+    var d = String(rpt.date || '未知日期');
+    if (!groups[d]) { groups[d] = []; groupOrder.push(d); }
+    groups[d].push(rpt);
   });
+  groupOrder.forEach(function(date) {
+    // 日期標題
+    var dateHeader = document.createElement('div');
+    dateHeader.style.cssText = 'font-size:13px;font-weight:700;color:var(--mu);padding:8px 4px 4px;border-bottom:1px solid var(--br);margin-bottom:4px';
+    dateHeader.textContent = date;
+    listEl.appendChild(dateHeader);
+    groups[date].forEach(function(rpt) {
+      try { listEl.appendChild(buildCard(rpt, true)); } catch(e) {}
+    });
+  });
+
+  // 選取刪除列
+  var selBar = document.getElementById('reporterDetailSelBar');
+  if (!selBar) {
+    selBar = document.createElement('div');
+    selBar.id = 'reporterDetailSelBar';
+    selBar.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:6px 2px;margin-bottom:6px';
+    selBar.innerHTML =
+      '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;color:var(--mu)">' +
+        '<input type="checkbox" id="selectAllDetailCheck" onchange="toggleSelectAllDetail(this.checked)" style="width:16px;height:16px;accent-color:var(--bd);cursor:pointer"> 全選' +
+      '</label>' +
+      '<button id="batchDeleteDetailBtn" onclick="confirmBatchDelete()" style="display:none;background:#9b2226;color:#fff;border:none;border-radius:7px;padding:5px 14px;font-size:13px;font-weight:600;cursor:pointer">刪除選取</button>';
+    listEl.parentNode.insertBefore(selBar, listEl);
+  }
+  // 重置全選狀態
+  var allChk = document.getElementById('selectAllDetailCheck');
+  if (allChk) allChk.checked = false;
+  var delBtnD = document.getElementById('batchDeleteDetailBtn');
+  if (delBtnD) delBtnD.style.display = 'none';
+
   showRawPage('pageReporterDetail');
   setNavMode('admin');
 }

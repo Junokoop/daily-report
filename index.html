@@ -1815,7 +1815,6 @@ function saveEdit() {
     if (String(cacheArr[pi3].id) === String(editingId)) { patchOrig = cacheArr[pi3]; break; }
   }
 
-  showToast('att:' + att.length + ' exp:' + exp.length + ' rc:' + rc + ' cash:' + totalCash);
   var patchData = {
     id: editingId,
     date: Y+'年'+M+'月'+D+'日',
@@ -1845,7 +1844,7 @@ function saveEdit() {
 
   function finish() {
     btn.textContent = '儲存'; btn.disabled = false;
-    showToast('✅ 已更新！');
+    showToast('已更新！');
     closeEditModal();
     _reportCache = null;
     delete _photoCache[editingId];
@@ -1881,9 +1880,10 @@ function saveEdit() {
       setTimeout(finish, 2000);
     }
   } else {
-    var url = API + '?payload=' + encodeURIComponent(JSON.stringify({action:'edit', data:patchData}));
-    showToast('送出 exp:' + exp.length + ' url:' + Math.round(url.length/1024) + 'KB');
-    fetch(url, {mode:'no-cors'}).catch(function(){});
+    // 用 POST 送出避免 URL 長度限制
+    var form = new FormData();
+    form.append('payload', JSON.stringify({action:'edit', data:patchData}));
+    fetch(API, {method:'POST', body:form, mode:'no-cors'}).catch(function(){});
     setTimeout(finish, 2000);
   }
 }

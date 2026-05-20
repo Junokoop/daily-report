@@ -1501,8 +1501,8 @@ function doOpenEditModal(rpt) {
         '<input id="editRcToday" type="number" inputmode="numeric" value="' + (rpt.todayReceived||0) + '" oninput="updateEditTotal()" style="width:120px;text-align:right;border:1px solid var(--br);border-radius:6px;padding:4px 8px;font-size:13px;font-weight:700;color:var(--ac)">' +
       '</div>' +
       '<div style="display:flex;gap:12px;font-size:13px;margin-bottom:6px">' +
-        '<span style="color:var(--mu)">現金支出：<strong style="color:var(--red)">$' + (parseFloat(rpt.totalCash)||0).toLocaleString() + '</strong></span>' +
-        '<span style="color:var(--mu)">刷卡：<strong>$' + (parseFloat(rpt.totalCard)||0).toLocaleString() + '</strong></span>' +
+        '<span style="color:var(--mu)">現金支出：<strong id="editShowCash" style="color:var(--red)">$' + (parseFloat(rpt.totalCash)||0).toLocaleString() + '</strong></span>' +
+        '<span style="color:var(--mu)">刷卡：<strong id="editShowCard">$' + (parseFloat(rpt.totalCard)||0).toLocaleString() + '</strong></span>' +
       '</div>' +
       '<div style="height:1px;background:var(--br);margin:6px 0"></div>' +
       '<div style="display:flex;justify-content:space-between;font-size:15px">' +
@@ -1673,14 +1673,19 @@ function addEditExp() {
 function updateEditTotal() {
   var prev = window._editPrevRemaining || 0;
   var today = parseFloat(document.getElementById('editRcToday') ? document.getElementById('editRcToday').value : 0) || 0;
-  var totalCash = 0;
+  var totalCash = 0, totalCard = 0;
   document.querySelectorAll('.edit-exp-cash').forEach(function(el) { totalCash += parseFloat(el.value) || 0; });
+  document.querySelectorAll('.edit-exp-card').forEach(function(el) { totalCard += parseFloat(el.value) || 0; });
   var remaining = prev + today - totalCash;
-  var el = document.getElementById('editRemaining');
-  if (el) {
-    el.textContent = '$' + remaining.toLocaleString();
-    el.style.color = remaining < 0 ? 'var(--red)' : 'var(--grn)';
+  var remEl = document.getElementById('editRemaining');
+  if (remEl) {
+    remEl.textContent = '$' + remaining.toLocaleString();
+    remEl.style.color = remaining < 0 ? 'var(--red)' : 'var(--grn)';
   }
+  var cashEl = document.getElementById('editShowCash');
+  if (cashEl) cashEl.textContent = '$' + totalCash.toLocaleString();
+  var cardEl = document.getElementById('editShowCard');
+  if (cardEl) cardEl.textContent = '$' + totalCard.toLocaleString();
 }
 
 function getEditedNote(orig, newData) {

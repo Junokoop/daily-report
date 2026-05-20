@@ -827,23 +827,9 @@ function loadAllReports() {
       try { updateFilterDropdown(); } catch(e) {}
       try { renderSummaryTable(allReports); } catch(e) {}
       try { renderNotifyList(allReports); } catch(e) {}
-      // renderAllReports 最後執行，確保前面錯誤不影響它
-      listEl.innerHTML = '';
-      var successCount = 0;
-      allReports.forEach(function(rpt, ri) {
-        try {
-          listEl.appendChild(buildCard(rpt, true));
-          successCount++;
-        } catch(e) {
-          // 顯示簡化卡片
-          var errDiv = document.createElement('div');
-          errDiv.className = 'report-card';
-          errDiv.style.padding = '12px 14px';
-          errDiv.innerHTML = '<div style="color:var(--mu);font-size:13px">&#x26A0;&#xFE0F; 報表 ' + (ri+1) + ' 顯示失敗<br>' +
-            esc(String(rpt.date||'')) + ' ' + esc(String(rpt.reporter||'')) + ' ' + esc(String(rpt.project||'')) + '</div>';
-          listEl.appendChild(errDiv);
-        }
-      });
+      // 用 renderAllReports 依日期分組顯示
+      renderAllReports(allReports);
+      var successCount = allReports.length;
       if (!successCount && !allReports.length) {
         listEl.innerHTML = '<div class="empty"><div class="ei">&#x1F4EB;</div><p>尚無報表</p></div>';
       }

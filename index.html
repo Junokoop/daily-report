@@ -1861,35 +1861,33 @@ function saveEdit() {
     }, 800);
   }
 
-  var hasAnyPhoto = exp.some(function(e){ return e.photos && e.photos.length; });
+  // 統一用 FormData POST 送出
+  function doSend() {
+    patchData.expenses = exp;
+    var form = new FormData();
+    form.append('payload', JSON.stringify({action:'edit', data:patchData}));
+    fetch(API, {method:'POST', body:form, mode:'no-cors'}).catch(function(){});
+    setTimeout(finish, 2000);
+  }
 
-  if (hasAnyPhoto) {
-    var tasks = [];
-    exp.forEach(function(e, ei) {
-      (e.photos||[]).forEach(function(src, pi) { if (src) tasks.push({ei:ei, pi:pi}); });
-    });
+  // 有照片先壓縮
+  var tasks = [];
+  exp.forEach(function(e, ei) {
+    (e.photos||[]).forEach(function(src, pi) { if (src) tasks.push({ei:ei, pi:pi}); });
+  });
+  if (tasks.length === 0) {
+    doSend();
+  } else {
     var done = 0;
     tasks.forEach(function(task) {
-      var src = exp[task.ei].photos[task.pi];
-      compressPhoto(src, 1000, 0.75).then(function(out) {
+      compressPhoto(exp[task.ei].photos[task.pi], 1000, 0.75).then(function(out) {
         exp[task.ei].photos[task.pi] = out;
-        done++; if (done >= tasks.length) sendWithPhotos();
+        done++; if (done >= tasks.length) doSend();
       }).catch(function() {
-        done++; if (done >= tasks.length) sendWithPhotos();
+        done++; if (done >= tasks.length) doSend();
       });
     });
-    setTimeout(function() { if (done < tasks.length) sendWithPhotos(); }, 10000);
-    function sendWithPhotos() {
-      patchData.expenses = exp;
-      var body = 'payload=' + encodeURIComponent(JSON.stringify({action:'edit', data:patchData}));
-      fetch(API, {method:'POST', body:body, mode:'no-cors', headers:{'Content-Type':'application/x-www-form-urlencoded'}}).catch(function(){});
-      setTimeout(finish, 2000);
-    }
-  } else {
-    // 用 POST 送出避免 URL 長度限制
-    var body = 'payload=' + encodeURIComponent(JSON.stringify({action:'edit', data:patchData}));
-    fetch(API, {method:'POST', body:body, mode:'no-cors', headers:{'Content-Type':'application/x-www-form-urlencoded'}}).catch(function(){});
-    setTimeout(finish, 2000);
+    setTimeout(function() { if (done < tasks.length) doSend(); }, 10000);
   }
 }
 

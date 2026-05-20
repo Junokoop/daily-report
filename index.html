@@ -765,22 +765,30 @@ function loadHistory() {
         if (!data.length) { listEl.innerHTML = '<div class="empty"><div class="ei">📭</div><p>尚無填報紀錄</p></div>'; return; }
         listEl.innerHTML = '';
 
-        // 依日期分組
-        var groups = {}, groupOrder = [];
+        // 依日期分組 + 下拉選單
+        var allHistData = data;
+        var histDateSel = document.getElementById('histDateSel');
+        if (!histDateSel) {
+          histDateSel = document.createElement('select');
+          histDateSel.id = 'histDateSel';
+          histDateSel.style.cssText = 'width:100%;padding:8px 12px;border:1px solid var(--br);border-radius:8px;font-size:14px;margin-bottom:10px;background:#fff;cursor:pointer';
+          listEl.parentNode.insertBefore(histDateSel, listEl);
+        }
+        var histDates = [];
         data.forEach(function(rpt) {
-          var d = String(rpt.date || '未知日期');
-          if (!groups[d]) { groups[d] = []; groupOrder.push(d); }
-          groups[d].push(rpt);
+          var d = String(rpt.date||'未知日期');
+          if (histDates.indexOf(d) < 0) histDates.push(d);
         });
-        groupOrder.forEach(function(date) {
-          var dateHeader = document.createElement('div');
-          dateHeader.style.cssText = 'font-size:13px;font-weight:700;color:var(--mu);padding:8px 4px 4px;border-bottom:1px solid var(--br);margin-bottom:4px';
-          dateHeader.textContent = date;
-          listEl.appendChild(dateHeader);
-          groups[date].forEach(function(rpt) {
-            try { listEl.appendChild(buildCard(rpt, false)); } catch(e) {}
-          });
+        histDateSel.innerHTML = '<option value="">全部日期（' + data.length + ' 筆）</option>';
+        histDates.forEach(function(d) {
+          var count = data.filter(function(r){ return String(r.date||'') === d; }).length;
+          var opt = document.createElement('option');
+          opt.value = d; opt.textContent = d + '（' + count + ' 筆）';
+          histDateSel.appendChild(opt);
         });
+        histDateSel.onchange = function() { renderHistList(allHistData, this.value); };
+
+        renderSimpleView(allHistData, listEl, false);
 
         // 選取刪除列
         var histSelBar = document.getElementById('histSelBar');
@@ -1013,6 +1021,139 @@ function filterReports() {
   }
 }
 
+
+function renderSimpleView(data, containerEl, isAdmin) {
+  containerEl.innerHTML = '';
+
+  if (!data.length) {
+    containerEl.innerHTML = '<div class="empty"><div class="ei">📭</div><p>尚無填報紀錄</p></div>';
+    return;
+  }
+
+  // 依日期分組
+  var groups = {}, groupOrder = [];
+  data.forEach(function(rpt) {
+    var d = String(rpt.date||'未知日期');
+    if (!groups[d]) { groups[d] = []; groupOrder.push(d); }
+    groups[d].push(rpt);
+  });
+
+  // 日期下拉
+  var dateSel = document.createElement('select');
+  dateSel.style.cssText = 'width:100%;padding:10px 14px;border:1px solid var(--br);border-radius:10px;font-size:15px;font-weight:700;margin-bottom:10px;background:#fff;cursor:pointer;color:var(--tx)';
+  dateSel.innerHTML = '<option value="">── 選擇日期 ──</option>';
+  groupOrder.forEach(function(d) {
+    var opt = document.createElement('option');
+    opt.value = d;
+    opt.textContent = d + '（' + groups[d].length + ' 筆）';
+    dateSel.appendChild(opt);
+  });
+  containerEl.appendChild(dateSel);
+
+  // 報表下拉（依日期更新）
+  var rptSel = document.createElement('select');
+  rptSel.style.cssText = 'width:100%;padding:10px 14px;border:1px solid var(--br);border-radius:10px;font-size:14px;margin-bottom:12px;background:#fff;cursor:pointer;color:var(--tx);display:none';
+  containerEl.appendChild(rptSel);
+
+  // 報表內容區
+  var contentArea = document.createElement('div');
+  containerEl.appendChild(contentArea);
+
+  // 選取刪除列
+  var selBar = document.createElement('div');
+  selBar.style.cssText = 'display:none;justify-content:space-between;align-items:center;padding:6px 2px;margin-bottom:6px';
+  selBar.innerHTML =
+    '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;color:var(--mu)">' +
+      '<input type="checkbox" class="sv-select-all" style="width:16px;height:16px;accent-color:var(--bd);cursor:pointer"> 全選' +
+    '</label>' +
+    '<button class="sv-del-btn" style="display:none;background:#9b2226;color:#fff;border:none;border-radius:7px;padding:5px 14px;font-size:13px;font-weight:600;cursor:pointer">刪除選取</button>';
+  containerEl.insertBefore(selBar, contentArea);
+
+  var selAllChk = selBar.querySelector('.sv-select-all');
+  var delBtn = selBar.querySelector('.sv-del-btn');
+
+  selAllChk.onchange = function() {
+    contentArea.querySelectorAll('.batch-check').forEach(function(c){ c.checked = selAllChk.checked; });
+    updateDelBtn();
+  };
+  delBtn.onclick = function() {
+    var checked = Array.from(contentArea.querySelectorAll('.batch-check:checked'));
+    if (!checked.length) return;
+    if (!confirm('確定刪除選取的 ' + checked.length + ' 筆報表？')) return;
+    var ids = checked.map(function(c){ return c.dataset.rptId; });
+    ids.forEach(function(id) {
+      fetch(API + '?action=delete&id=' + id, {mode:'no-cors'}).catch(function(){});
+    });
+    setTimeout(function() {
+      showToast('已刪除 ' + ids.length + ' 筆');
+      _reportCache = null;
+      if (isAdmin) loadAllReports();
+      else loadHistory();
+    }, 1500);
+  };
+
+  function updateDelBtn() {
+    var cnt = contentArea.querySelectorAll('.batch-check:checked').length;
+    delBtn.style.display = cnt > 0 ? '' : 'none';
+  }
+
+  function showRpt(rpt) {
+    contentArea.innerHTML = '';
+    selBar.style.display = 'none';
+    if (!rpt) return;
+    // 顯示單筆報表（展開版）
+    var card = buildCard(rpt, isAdmin);
+    // 強制展開
+    var body = card.querySelector('.report-body');
+    var head = card.querySelector('.report-head');
+    var arrow = head ? head.querySelector('.report-arrow') : null;
+    if (body) body.classList.add('open');
+    if (arrow) arrow.classList.add('open');
+    // checkbox 改成勾選刪除用
+    var chk = card.querySelector('.batch-check');
+    if (chk) {
+      chk.onchange = updateDelBtn;
+      selBar.style.display = 'flex';
+    }
+    contentArea.appendChild(card);
+  }
+
+  function showDateGroup(dateVal) {
+    contentArea.innerHTML = '';
+    selBar.style.display = 'none';
+    if (!dateVal) { rptSel.style.display = 'none'; return; }
+    var rpts = groups[dateVal] || [];
+    if (rpts.length === 1) {
+      // 只有一筆，直接顯示
+      rptSel.style.display = 'none';
+      showRpt(rpts[0]);
+    } else {
+      // 多筆，顯示報表下拉
+      rptSel.style.display = '';
+      rptSel.innerHTML = '<option value="">── 選擇報表 ──</option>';
+      rpts.forEach(function(rpt, i) {
+        var opt = document.createElement('option');
+        opt.value = i;
+        opt.textContent = (rpt.project||'（無工程名稱）') + (rpt.reporter ? ' - ' + rpt.reporter : '');
+        rptSel.appendChild(opt);
+      });
+      rptSel.onchange = function() {
+        var idx = parseInt(rptSel.value);
+        showRpt(isNaN(idx) ? null : rpts[idx]);
+      };
+      contentArea.innerHTML = '';
+    }
+  }
+
+  dateSel.onchange = function() { showDateGroup(dateSel.value); };
+
+  // 預設選最新日期
+  if (groupOrder.length > 0) {
+    dateSel.value = groupOrder[0];
+    showDateGroup(groupOrder[0]);
+  }
+}
+
 function renderAllReports(data) {
   var listEl = document.getElementById('reportList');
   if (!data.length) { listEl.innerHTML = '<div class="empty"><div class="ei">📭</div><p>尚無報表</p></div>'; return; }
@@ -1074,23 +1215,9 @@ function showReporterDetail(reporter) {
 
   // 依日期分組
   var listEl = document.getElementById('reporterDetailList');
-  listEl.innerHTML = '';
-  var groups = {}, groupOrder = [];
-  data.forEach(function(rpt) {
-    var d = String(rpt.date || '未知日期');
-    if (!groups[d]) { groups[d] = []; groupOrder.push(d); }
-    groups[d].push(rpt);
-  });
-  groupOrder.forEach(function(date) {
-    // 日期標題
-    var dateHeader = document.createElement('div');
-    dateHeader.style.cssText = 'font-size:13px;font-weight:700;color:var(--mu);padding:8px 4px 4px;border-bottom:1px solid var(--br);margin-bottom:4px';
-    dateHeader.textContent = date;
-    listEl.appendChild(dateHeader);
-    groups[date].forEach(function(rpt) {
-      try { listEl.appendChild(buildCard(rpt, true)); } catch(e) {}
-    });
-  });
+  var allDetailData = data;
+  renderSimpleView(allDetailData, listEl, true);
+
 
   // 選取刪除列
   var selBar = document.getElementById('reporterDetailSelBar');

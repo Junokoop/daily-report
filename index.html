@@ -1874,16 +1874,14 @@ function saveEdit() {
     setTimeout(function() { if (done < tasks.length) sendWithPhotos(); }, 10000);
     function sendWithPhotos() {
       patchData.expenses = exp;
-      var form = new FormData();
-      form.append('payload', JSON.stringify({action:'edit', data:patchData}));
-      fetch(API, {method:'POST', body:form, mode:'no-cors'}).catch(function(){});
+      var body = 'payload=' + encodeURIComponent(JSON.stringify({action:'edit', data:patchData}));
+      fetch(API, {method:'POST', body:body, mode:'no-cors', headers:{'Content-Type':'application/x-www-form-urlencoded'}}).catch(function(){});
       setTimeout(finish, 2000);
     }
   } else {
     // 用 POST 送出避免 URL 長度限制
-    var form = new FormData();
-    form.append('payload', JSON.stringify({action:'edit', data:patchData}));
-    fetch(API, {method:'POST', body:form, mode:'no-cors'}).catch(function(){});
+    var body = 'payload=' + encodeURIComponent(JSON.stringify({action:'edit', data:patchData}));
+    fetch(API, {method:'POST', body:body, mode:'no-cors', headers:{'Content-Type':'application/x-www-form-urlencoded'}}).catch(function(){});
     setTimeout(finish, 2000);
   }
 }

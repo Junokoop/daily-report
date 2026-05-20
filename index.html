@@ -429,7 +429,7 @@ function setNavMode(mode) {
 function showRawPage(pid) {
   // 離開 admin 頁時停止 auto refresh
   if (pid !== 'pageAdmin') stopAdminRefresh();
-  var pages = ['pageSelect','pageForm','pageHistory','pageAdminLogin','pageAdmin'];
+  var pages = ['pageSelect','pageForm','pageHistory','pageAdminLogin','pageAdmin','pageReporterDetail'];
   for (var i = 0; i < pages.length; i++) {
     document.getElementById(pages[i]).classList.remove('show');
   }
@@ -854,7 +854,7 @@ function renderSummaryTable(data) {
     var remainText = lastRemain !== null ? '$' + lastRemain.toLocaleString() : '—';
     var remainColor = isNeg ? 'var(--red)' : 'var(--grn)';
     html += '<div class="summary-row">' +
-      '<div style="font-weight:700;font-size:15px;margin-bottom:6px">' + esc(r) + '</div>' +
+      '<div style="font-weight:700;font-size:15px;margin-bottom:6px;cursor:pointer;color:var(--ac);text-decoration:underline" onclick="showReporterDetail(\'' + r + '\')">' + esc(r) + ' ›</div>' +
       '<div style="display:flex;flex-direction:column;gap:4px;font-size:13px">' +
         '<div style="display:flex;justify-content:space-between"><span style="color:var(--mu)">上筆結餘公款</span><span style="font-weight:700;color:var(--grn)">$' + prevRemaining.toLocaleString() + '</span></div>' +
         '<div style="display:flex;justify-content:space-between"><span style="color:var(--mu)">本日接收公款</span><span style="font-weight:700;color:var(--ac)">$' + todayReceived.toLocaleString() + '</span></div>' +
@@ -1080,6 +1080,46 @@ function addReporter() {
 
 var _batchMode = false;
 
+function showReporterDetail(reporter) {
+  var data = allReports.filter(function(r){ return r.reporter === reporter; });
+  document.getElementById('reporterDetailTitle').textContent = reporter + ' 的日報表';
+
+  // 公款統計
+  var lastRemain = data.length ? (parseFloat(data[0].remaining)||0) : 0;
+  var lastReceipt = data.length ? (parseFloat(data[0].receiptCash)||0) : 0;
+  var lastCash = data.length ? (parseFloat(data[0].totalCash)||0) : 0;
+  var prevRemain = data.length > 1 ? (parseFloat(data[1].remaining)||0) : 0;
+  var todayRcv = lastReceipt - prevRemain;
+  var isNeg = lastRemain < 0;
+  var col = isNeg ? 'var(--red)' : 'var(--grn)';
+  var sumEl = document.getElementById('reporterDetailSummary');
+  sumEl.innerHTML =
+    '<div style="display:flex;flex-direction:column;gap:4px;font-size:13px">' +
+    '<div style="display:flex;justify-content:space-between"><span style="color:var(--mu)">上筆結餘公款</span><span style="font-weight:700;color:var(--grn)">$' + prevRemain.toLocaleString() + '</span></div>' +
+    '<div style="display:flex;justify-content:space-between"><span style="color:var(--mu)">本日接收公款</span><span style="font-weight:700;color:var(--ac)">$' + todayRcv.toLocaleString() + '</span></div>' +
+    '<div style="display:flex;justify-content:space-between"><span style="color:var(--mu)">本日支出金額</span><span style="font-weight:700;color:var(--red)">$' + lastCash.toLocaleString() + '</span></div>' +
+    '<div style="height:1px;background:var(--br)"></div>' +
+    '<div style="display:flex;justify-content:space-between;font-size:15px"><span style="font-weight:700">現金剩餘公款</span><span style="font-weight:900;color:' + col + '">$' + lastRemain.toLocaleString() + '</span></div>' +
+    '</div>';
+
+  // 報表列表
+  var listEl = document.getElementById('reporterDetailList');
+  listEl.innerHTML = '';
+  data.forEach(function(rpt) {
+    try { listEl.appendChild(buildCard(rpt, true)); } catch(e) {}
+  });
+
+  showRawPage('pageReporterDetail');
+  setNavMode('admin');
+}
+
+function toggleSelectAllDetail(checked) {
+  document.querySelectorAll('.batch-check').forEach(function(c){ c.checked = checked; });
+  updateBatchCount();
+  var btn = document.getElementById('batchDeleteDetailBtn');
+  if (btn) btn.style.display = checked ? '' : 'none';
+}
+
 function toggleSelectAllHist(checked) {
   document.querySelectorAll('.batch-check').forEach(function(c) { c.checked = checked; });
   updateBatchCount();
@@ -1122,6 +1162,9 @@ function updateBatchCount() {
   // 填報者頁刪除按鈕
   var delBtnH = document.getElementById('batchDeleteHistBtn');
   if (delBtnH) delBtnH.style.display = count > 0 ? '' : 'none';
+  // 詳情頁刪除按鈕
+  var delBtnD = document.getElementById('batchDeleteDetailBtn');
+  if (delBtnD) delBtnD.style.display = count > 0 ? '' : 'none';
   // 全選 checkbox 狀態（管理頁）
   var allCheck = document.getElementById('selectAllCheck');
   if (allCheck) {

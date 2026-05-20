@@ -229,13 +229,6 @@ table.st{width:100%;border-collapse:collapse;border-top:1.5px solid var(--bd)}
       </div>
     </div>
   </div>
-  <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 2px;margin-bottom:4px">
-    <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;color:var(--mu)">
-      <input type="checkbox" id="selectAllHistCheck" onchange="toggleSelectAllHist(this.checked)" style="width:16px;height:16px;accent-color:var(--bd);cursor:pointer">
-      全選
-    </label>
-    <button id="batchDeleteHistBtn" onclick="confirmBatchDelete()" style="display:none;background:#9b2226;color:#fff;border:none;border-radius:7px;padding:5px 14px;font-size:13px;font-weight:600;cursor:pointer">刪除選取</button>
-  </div>
   <div id="historyList"></div>
 </div>
 
@@ -302,13 +295,6 @@ table.st{width:100%;border-collapse:collapse;border-top:1.5px solid var(--bd)}
     <h2 id="reporterDetailTitle">填報者報表</h2>
   </div>
   <div class="card" style="padding:12px 14px;margin-bottom:12px;background:#eaf4ec;border-color:var(--grn)" id="reporterDetailSummary"></div>
-  <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 2px;margin-bottom:4px">
-    <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;color:var(--mu)">
-      <input type="checkbox" id="selectAllDetailCheck" onchange="toggleSelectAllDetail(this.checked)" style="width:16px;height:16px;accent-color:var(--bd);cursor:pointer">
-      全選
-    </label>
-    <button id="batchDeleteDetailBtn" onclick="confirmBatchDelete()" style="display:none;background:#9b2226;color:#fff;border:none;border-radius:7px;padding:5px 14px;font-size:13px;font-weight:600;cursor:pointer">刪除選取</button>
-  </div>
   <div id="reporterDetailList"></div>
 </div>
 

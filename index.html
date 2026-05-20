@@ -1880,7 +1880,9 @@ function saveEdit() {
     }
   } else {
     // 用 POST 送出避免 URL 長度限制
-    var body = 'payload=' + encodeURIComponent(JSON.stringify({action:'edit', data:patchData}));
+    var _payload = JSON.stringify({action:'edit', data:patchData});
+    showToast('id:' + editingId + ' size:' + Math.round(_payload.length/1024) + 'KB by:' + (currentReporter||'admin'));
+    var body = 'payload=' + encodeURIComponent(_payload);
     fetch(API, {method:'POST', body:body, mode:'no-cors', headers:{'Content-Type':'application/x-www-form-urlencoded'}}).catch(function(){});
     setTimeout(finish, 2000);
   }

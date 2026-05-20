@@ -287,8 +287,6 @@ table.st{width:100%;border-collapse:collapse;border-top:1.5px solid var(--bd)}
   </div>
 </div>
 
-<div id="printArea"></div>
-
 <div class="page" id="pageReporterDetail">
   <div class="admin-header">
     <button onclick="showRawPage('pageAdmin');setNavMode('admin')" style="background:#6b7280;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;color:#fff;padding:5px 14px">← 返回</button>
@@ -297,6 +295,8 @@ table.st{width:100%;border-collapse:collapse;border-top:1.5px solid var(--bd)}
   <div class="card" style="padding:12px 14px;margin-bottom:12px;background:#eaf4ec;border-color:var(--grn)" id="reporterDetailSummary"></div>
   <div id="reporterDetailList"></div>
 </div>
+
+<div id="printArea"></div>
 
 <div class="batch-bar"  id="batchBar"><span id="batchCount">已選 0 筆</span><button onclick="confirmBatchDelete()" style="background:#fff;color:#9b2226;border:none;border-radius:6px;padding:8px 20px;font-size:15px;font-weight:700;cursor:pointer">刪除選取</button><button onclick="cancelBatchMode()" style="background:rgba(255,255,255,0.2);color:#fff;border:none;border-radius:6px;padding:8px 16px;font-size:14px;cursor:pointer">取消</button></div>
 <div class="photo-overlay" id="photoOverlay" onclick="closePhotoOverlay()">
@@ -1030,17 +1030,13 @@ var _batchMode = false;
 function showReporterDetail(reporter) {
   var data = allReports.filter(function(r){ return r.reporter === reporter; });
   document.getElementById('reporterDetailTitle').textContent = reporter + ' 的日報表';
-
-  // 公款統計
   var lastRemain = data.length ? (parseFloat(data[0].remaining)||0) : 0;
   var lastReceipt = data.length ? (parseFloat(data[0].receiptCash)||0) : 0;
   var lastCash = data.length ? (parseFloat(data[0].totalCash)||0) : 0;
   var prevRemain = data.length > 1 ? (parseFloat(data[1].remaining)||0) : 0;
   var todayRcv = lastReceipt - prevRemain;
-  var isNeg = lastRemain < 0;
-  var col = isNeg ? 'var(--red)' : 'var(--grn)';
-  var sumEl = document.getElementById('reporterDetailSummary');
-  sumEl.innerHTML =
+  var col = lastRemain < 0 ? 'var(--red)' : 'var(--grn)';
+  document.getElementById('reporterDetailSummary').innerHTML =
     '<div style="display:flex;flex-direction:column;gap:4px;font-size:13px">' +
     '<div style="display:flex;justify-content:space-between"><span style="color:var(--mu)">上筆結餘公款</span><span style="font-weight:700;color:var(--grn)">$' + prevRemain.toLocaleString() + '</span></div>' +
     '<div style="display:flex;justify-content:space-between"><span style="color:var(--mu)">本日接收公款</span><span style="font-weight:700;color:var(--ac)">$' + todayRcv.toLocaleString() + '</span></div>' +
@@ -1048,14 +1044,11 @@ function showReporterDetail(reporter) {
     '<div style="height:1px;background:var(--br)"></div>' +
     '<div style="display:flex;justify-content:space-between;font-size:15px"><span style="font-weight:700">現金剩餘公款</span><span style="font-weight:900;color:' + col + '">$' + lastRemain.toLocaleString() + '</span></div>' +
     '</div>';
-
-  // 報表列表
   var listEl = document.getElementById('reporterDetailList');
   listEl.innerHTML = '';
   data.forEach(function(rpt) {
     try { listEl.appendChild(buildCard(rpt, true)); } catch(e) {}
   });
-
   showRawPage('pageReporterDetail');
   setNavMode('admin');
 }

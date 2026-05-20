@@ -264,10 +264,7 @@ table.st{width:100%;border-collapse:collapse;border-top:1.5px solid var(--bd)}
     <div id="summaryTable" style="padding:4px 0"></div>
   </div>
   <div class="filter-bar">
-    <span style="font-size:14px;font-weight:600;white-space:nowrap">篩選：</span>
-    <select id="filterReporter" onchange="filterReports()">
-      <option value="">全部填報者</option>
-    </select>
+    <div id="filterReporter" style="display:flex;gap:6px;flex-wrap:wrap"></div>
   </div>
   <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 2px;margin-bottom:4px">
     <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;color:var(--mu)">
@@ -941,22 +938,55 @@ function renderNotifyList(data) {
 }
 
 function updateFilterDropdown() {
-  var sel = document.getElementById('filterReporter');
-  var cur = sel.value;
-  sel.innerHTML = '<option value="">全部填報者</option>';
+  var el = document.getElementById('filterReporter');
+  if (!el) return;
   var reporters = getReporters();
-  for (var i = 0; i < reporters.length; i++) {
-    var opt = document.createElement('option');
-    opt.value = reporters[i]; opt.textContent = reporters[i];
-    if (reporters[i] === cur) opt.selected = true;
-    sel.appendChild(opt);
-  }
+  el.innerHTML = '';
+  // 全部按鈕
+  var allBtn = document.createElement('button');
+  allBtn.textContent = '全部';
+  allBtn.dataset.val = '';
+  allBtn.onclick = function() { setFilterBtn(this); filterReports(); };
+  allBtn.style.cssText = 'padding:5px 14px;border-radius:20px;border:1px solid var(--br);background:var(--ac);color:#fff;font-size:13px;cursor:pointer;font-weight:600';
+  el.appendChild(allBtn);
+  reporters.forEach(function(r) {
+    var btn = document.createElement('button');
+    btn.textContent = r;
+    btn.dataset.val = r;
+    btn.onclick = function() { setFilterBtn(this); filterReports(); };
+    btn.style.cssText = 'padding:5px 14px;border-radius:20px;border:1px solid var(--br);background:#fff;color:var(--tx);font-size:13px;cursor:pointer';
+    el.appendChild(btn);
+  });
+}
+
+function setFilterBtn(btn) {
+  var el = document.getElementById('filterReporter');
+  el.querySelectorAll('button').forEach(function(b) {
+    b.style.background = '#fff';
+    b.style.color = 'var(--tx)';
+    b.style.fontWeight = '';
+  });
+  btn.style.background = 'var(--ac)';
+  btn.style.color = '#fff';
+  btn.style.fontWeight = '600';
+}
+
+function getFilterVal() {
+  var el = document.getElementById('filterReporter');
+  if (!el) return '';
+  var active = el.querySelector('button[style*="var(--ac)"]');
+  return active ? active.dataset.val : '';
 }
 
 function filterReports() {
-  var val = document.getElementById('filterReporter').value;
+  var val = getFilterVal ? getFilterVal() : '';
   var filtered = val ? allReports.filter(function(r) { return r.reporter === val; }) : allReports;
   renderAllReports(filtered);
+  // scroll 到報表列表
+  if (val) {
+    var listEl = document.getElementById('reportList');
+    if (listEl) setTimeout(function(){ listEl.scrollIntoView({behavior:'smooth', block:'start'}); }, 100);
+  }
 }
 
 function renderAllReports(data) {

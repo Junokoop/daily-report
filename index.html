@@ -788,12 +788,19 @@ var _adminRefreshTimer = null;
 function startAdminRefresh() {
   stopAdminRefresh();
   _adminRefreshTimer = setInterval(function() {
-    if (document.getElementById('pageAdmin').classList.contains('show')) {
-      _reportCache = null;
-      _reportCacheTime = 0;
-      loadAllReports();
-    }
-  }, 15000); // 每 15 秒自動刷新
+    if (!document.getElementById('pageAdmin').classList.contains('show')) return;
+    // 只刷新通知欄，不重新載入整個報表列表
+    var url = API + '?action=list&noPhotos=1&t=' + Date.now();
+    fetch(url, {redirect:'follow', cache:'no-store'})
+      .then(function(r) { return r.json(); })
+      .then(function(res) {
+        if (!res.ok || !res.data) return;
+        // 只更新通知列
+        try { renderNotifyList(res.data); } catch(e) {}
+        // 更新公款總覽
+        try { renderSummaryTable(res.data); } catch(e) {}
+      }).catch(function() {});
+  }, 15000); // 每 15 秒自動刷新通知
 }
 
 function stopAdminRefresh() {
@@ -1880,9 +1887,7 @@ function saveEdit() {
     }
   } else {
     // 用 POST 送出避免 URL 長度限制
-    var _payload = JSON.stringify({action:'edit', data:patchData});
-    showToast('id:' + editingId + ' size:' + Math.round(_payload.length/1024) + 'KB by:' + (currentReporter||'admin'));
-    var body = 'payload=' + encodeURIComponent(_payload);
+    var body = 'payload=' + encodeURIComponent(JSON.stringify({action:'edit', data:patchData}));
     fetch(API, {method:'POST', body:body, mode:'no-cors', headers:{'Content-Type':'application/x-www-form-urlencoded'}}).catch(function(){});
     setTimeout(finish, 2000);
   }

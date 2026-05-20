@@ -260,7 +260,7 @@ table.st{width:100%;border-collapse:collapse;border-top:1.5px solid var(--bd)}
     <div id="summaryTable" style="padding:4px 0"></div>
   </div>
   <div id="filterReporter" style="display:none"></div>
-  <div id="reportList"></div>
+  <div id="reportList" style="display:none"></div>
   <div class="card" style="margin-top:16px">
     <div class="sh">&#x1F477; 填報者管理</div>
     <div class="reporter-mgmt" id="reporterMgmt"></div>
@@ -821,12 +821,8 @@ function loadAllReports() {
       try { updateFilterDropdown(); } catch(e) {}
       try { renderSummaryTable(allReports); } catch(e) {}
       try { renderNotifyList(allReports); } catch(e) {}
-      // 用 renderAllReports 依日期分組顯示
-      renderAllReports(allReports);
-      var successCount = allReports.length;
-      if (!successCount && !allReports.length) {
-        listEl.innerHTML = '<div class="empty"><div class="ei">&#x1F4EB;</div><p>尚無報表</p></div>';
-      }
+      // 不在管理者主頁顯示報表列表（透過公款總覽點填報者名字進入）
+      listEl.innerHTML = '';
     })
     .catch(function(err) {
       listEl.innerHTML = '<div class="empty"><div class="ei">❌</div><p>載入失敗，請重新整理頁面</p></div>';

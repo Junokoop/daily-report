@@ -1189,7 +1189,7 @@ function deleteReport(id, onSuccess, onFail) {
 function buildCard(rpt, isAdminView) {
   var wrap = document.createElement('div'); wrap.className = 'report-card';
   var head = document.createElement('div'); head.className = 'report-head';
-  head.innerHTML = '<input type="checkbox" class="batch-check" data-rpt-id="' + rpt.id + '" onclick="event.stopPropagation();updateBatchCount()" style="margin-right:8px;width:18px;height:18px;accent-color:var(--red);cursor:pointer;flex-shrink:0"><div class="report-meta"><div class="r-project">' + esc(rpt.project) + '</div><div class="r-sub">' + esc(rpt.date) + ' | ' + esc(rpt.reporter) + '</div></div><span class="report-arrow">›</span>';
+  head.innerHTML = '<div class="report-meta"><div class="r-project">' + esc(rpt.project) + '</div><div class="r-sub">' + esc(rpt.date) + ' | ' + esc(rpt.reporter) + '</div></div><span class="report-arrow">›</span>';
   var body = document.createElement('div'); body.className = 'report-body';
   var totalPhotoCount = 0; // 初始化，避免 if 外 ReferenceError
   if (rpt.workItems) body.innerHTML += '<div class="rbs"><div class="rbl">施工項目</div><div class="rbc">' + esc(rpt.workItems) + '</div></div>';

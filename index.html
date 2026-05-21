@@ -156,7 +156,14 @@ table.st{width:100%;border-collapse:collapse;border-top:1.5px solid var(--bd)}
 <div class="page show" id="pageSelect">
   <div class="select-page">
     <h2>&#x1F477; 請選擇身份</h2>
-    <div id="selectBtnArea" style="width:100%;max-width:320px;display:flex;flex-direction:column;gap:12px">
+    <div style="width:100%;max-width:320px;display:flex;flex-direction:column;gap:14px">
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <label style="font-size:13px;color:var(--mu);font-weight:600;text-align:center;display:block">填報者</label>
+        <select id="reporterSelect" onchange="onReporterSelectChange(this.value)"
+          style="width:100%;padding:14px 16px;border:1.5px solid var(--br);border-radius:12px;font-size:17px;font-weight:700;background:#fff;cursor:pointer;color:var(--tx);appearance:auto;text-align:center">
+          <option value="">── 請選擇填報者 ──</option>
+        </select>
+      </div>
       <button class="select-btn admin-select" onclick="goAdminLogin()">🔐 管理者</button>
     </div>
   </div>
@@ -358,27 +365,19 @@ function saveReporters(arr) {
 
 function renderSelectPage(){
   var reporters = getReporters();
-  var el = document.getElementById('selectBtnArea');
-  if (!el) return;
-  // 移除所有填報者按鈕（不動 admin-select）
-  Array.from(el.children).forEach(function(btn) {
-    if (!btn.classList.contains('admin-select')) btn.remove();
-  });
-  // 找管理者按鈕
-  var adminBtn = el.querySelector('.admin-select');
-  // 重新建立所有填報者按鈕（插到管理者前面）
+  var sel = document.getElementById('reporterSelect');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">── 請選擇填報者 ──</option>';
   reporters.forEach(function(r) {
-    var btn = document.createElement('button');
-    btn.className = 'select-btn';
-    btn.textContent = r;
-    btn.style.background = '#6b7280';
-    btn.onclick = (function(name) { return function() { selectReporter(name); }; })(r);
-    if (adminBtn) {
-      el.insertBefore(btn, adminBtn);
-    } else {
-      el.appendChild(btn);
-    }
+    var opt = document.createElement('option');
+    opt.value = r;
+    opt.textContent = r;
+    sel.appendChild(opt);
   });
+}
+
+function onReporterSelectChange(val) {
+  if (val) selectReporter(val);
 }
 
 function selectReporter(name) {

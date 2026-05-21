@@ -360,28 +360,25 @@ function renderSelectPage(){
   var reporters = getReporters();
   var el = document.getElementById('selectBtnArea');
   if (!el) return;
-  // 清空所有按鈕（保留 admin-select）
+  // 移除所有填報者按鈕（不動 admin-select）
+  Array.from(el.children).forEach(function(btn) {
+    if (!btn.classList.contains('admin-select')) btn.remove();
+  });
+  // 找管理者按鈕
   var adminBtn = el.querySelector('.admin-select');
-  el.innerHTML = '';
-  // 重新建立所有填報者按鈕
+  // 重新建立所有填報者按鈕（插到管理者前面）
   reporters.forEach(function(r) {
     var btn = document.createElement('button');
     btn.className = 'select-btn';
     btn.textContent = r;
     btn.style.background = '#6b7280';
     btn.onclick = (function(name) { return function() { selectReporter(name); }; })(r);
-    el.appendChild(btn);
+    if (adminBtn) {
+      el.insertBefore(btn, adminBtn);
+    } else {
+      el.appendChild(btn);
+    }
   });
-  // 重新加回管理者按鈕
-  if (adminBtn) {
-    el.appendChild(adminBtn);
-  } else {
-    var ab = document.createElement('button');
-    ab.className = 'select-btn admin-select';
-    ab.innerHTML = '&#x1F510; 管理者';
-    ab.onclick = goAdminLogin;
-    el.appendChild(ab);
-  }
 }
 
 function selectReporter(name) {
@@ -2098,11 +2095,12 @@ function saveEdit() {
   function doSend() {
     patchData.expenses = exp;
     var payloadStr = JSON.stringify({action:'edit', data:patchData});
+    var sz = Math.round(payloadStr.length/1024);
+    var method = payloadStr.length < 7000 ? 'GET' : 'POST';
+    showToast('送出:' + method + ' ' + sz + 'KB id:' + patchData.id);
     if (payloadStr.length < 7000) {
-      // 夠小用 GET（最可靠）
       fetch(API + '?payload=' + encodeURIComponent(payloadStr), {mode:'no-cors'}).catch(function(){});
     } else {
-      // 太大用 FormData POST（GAS e.parameter.payload 可接收）
       var form = new FormData();
       form.append('payload', payloadStr);
       fetch(API, {method:'POST', body:form, mode:'no-cors'}).catch(function(){});

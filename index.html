@@ -10,7 +10,7 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{--bd:#6b7280;--hbg:#f3f4f6;--ac:#374151;--tx:#111827;--mu:#9ca3af;--ib:#ffffff;--st:#f9fafb;--br:#e5e7eb;--grn:#2d6a4f;--red:#9b2226}
-body{background:#f3f4f6;font-family:sans-serif;color:var(--tx);font-size:15px;padding:0 0 40px}
+body{background:#f3f4f6;font-family:sans-serif;color:var(--tx);font-size:15px;padding:0 0 40px;-webkit-text-size-adjust:100%}
 .nav{display:flex;background:var(--bd);padding:10px 12px;gap:6px;align-items:center;position:sticky;top:0;z-index:100}
 .nav-title{color:#fff;font-weight:700;font-size:20px;flex:1;text-align:center}
 .nav-btn{padding:7px 12px;border:1.5px solid rgba(255,255,255,.5);border-radius:6px;background:transparent;color:#fff;font-size:13px;font-weight:600;cursor:pointer}
@@ -123,6 +123,19 @@ table.st{width:100%;border-collapse:collapse;border-top:1.5px solid var(--bd)}
 .modal-overlay.show{display:flex}
 .modal-box{background:#fff;border-radius:16px 16px 0 0;width:100%;max-width:640px;max-height:90vh;overflow-y:auto;padding:20px 16px 40px}
 .modal-box h3{font-size:17px;font-weight:700;margin-bottom:16px;text-align:center}
+@media(max-width:480px){
+  .page{padding:8px 6px}
+  .card{border-radius:8px}
+  .rbt{font-size:11px}
+  .rbt th,.rbt td{padding:4px 4px}
+  .report-head{padding:10px 10px}
+  .di{font-size:14px}
+  .select-btn{font-size:18px;height:60px}
+  .edit-modal-content{padding:12px}
+  .dgrp{flex-wrap:wrap;gap:4px}
+  select{font-size:16px}
+  .ab{font-size:14px}
+}
 @media print{
   @page{margin:10mm;size:A4 portrait}
   body{background:#fff!important;padding:0!important}
@@ -1119,16 +1132,15 @@ function renderSimpleView(data, containerEl, isAdmin) {
           chk.onchange = syncSelAll;
         }
         listArea.appendChild(card);
-        // 強制展開後觸發照片載入
-        if (head) head.onclick && head.onclick({});
-        // 或直接觸發照片載入
+        // 展開後觸發照片載入
         if (body && body.dataset.rptId && body.dataset.photosLoaded === '0') {
-          body.dataset.photosLoaded = '1';
-          var wrap = body.querySelector('[data-rpt-id]');
-          if (wrap) {
-            var rid = body.dataset.rptId;
-            if (_photoCache[rid]) {
-              _photoCache[rid].forEach(function(src) {
+          (function(b) {
+            b.dataset.photosLoaded = '1';
+            var wrap = b.querySelector('[data-rpt-id]');
+            if (!wrap) return;
+            var rid = b.dataset.rptId;
+            function renderPhotos(photos) {
+              photos.forEach(function(src) {
                 if (!src) return;
                 var img = document.createElement('img');
                 img.style.cssText = 'width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--br);cursor:pointer';
@@ -1136,23 +1148,19 @@ function renderSimpleView(data, containerEl, isAdmin) {
                 img.onclick = (function(s){ return function(e){ e.stopPropagation(); openPhotoOverlay(s); }; })(src);
                 wrap.appendChild(img);
               });
+            }
+            if (_photoCache[rid] && _photoCache[rid].length) {
+              renderPhotos(_photoCache[rid]);
             } else {
               fetch(API + '?action=getphotos&id=' + rid + '&t=' + Date.now())
-                .then(function(r) { return r.json(); })
-                .then(function(res) {
+                .then(function(r){ return r.json(); })
+                .then(function(res){
                   if (!res.ok || !res.photos || !res.photos.length) return;
                   _photoCache[rid] = res.photos;
-                  res.photos.forEach(function(src) {
-                    if (!src) return;
-                    var img = document.createElement('img');
-                    img.style.cssText = 'width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--br);cursor:pointer';
-                    img.src = src;
-                    img.onclick = (function(s){ return function(e){ e.stopPropagation(); openPhotoOverlay(s); }; })(src);
-                    wrap.appendChild(img);
-                  });
-                }).catch(function() {});
+                  renderPhotos(res.photos);
+                }).catch(function(){});
             }
-          }
+          })(body);
         }
       } catch(e) {}
     });
@@ -1540,7 +1548,8 @@ function buildCard(rpt, isAdminView) {
   }
   body.appendChild(aw);
   // 儲存 rptId 在 body dataset 供 onclick 使用
-  if (totalPhotoCount > 0 && isAdminView) {
+  // 只要有照片（管理者或填報者），都設定 rptId 供展開時載入
+  if (totalPhotoCount > 0) {
     body.dataset.rptId = rpt.id;
     body.dataset.photosLoaded = '0';
   }

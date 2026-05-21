@@ -1024,40 +1024,53 @@ function filterReports() {
 
 function renderSimpleView(data, containerEl, isAdmin) {
   containerEl.innerHTML = '';
-
   if (!data.length) {
     containerEl.innerHTML = '<div class="empty"><div class="ei">📭</div><p>尚無填報紀錄</p></div>';
     return;
   }
 
-  // 依日期分組
-  var groups = {}, groupOrder = [];
+  // 解析年份/月份/日期分組
+  // date 格式：115年5月20日
+  function parseDate(d) {
+    var m = String(d||'').match(/(\d+)年(\d+)月(\d+)日/);
+    return m ? {y:m[1]+'年', mo:m[2]+'月', full:d} : {y:'未知', mo:'未知', full:d};
+  }
+  var yearGroups = {}, yearOrder = [];
   data.forEach(function(rpt) {
-    var d = String(rpt.date||'未知日期');
-    if (!groups[d]) { groups[d] = []; groupOrder.push(d); }
-    groups[d].push(rpt);
+    var p = parseDate(rpt.date);
+    if (!yearGroups[p.y]) { yearGroups[p.y] = {}; yearOrder.push(p.y); }
+    if (!yearGroups[p.y][p.mo]) yearGroups[p.y][p.mo] = {};
+    if (!yearGroups[p.y][p.mo][p.full]) yearGroups[p.y][p.mo][p.full] = [];
+    yearGroups[p.y][p.mo][p.full].push(rpt);
   });
+
+  var selStyle = 'width:100%;padding:10px 14px;border:1px solid var(--br);border-radius:10px;font-size:15px;font-weight:600;margin-bottom:10px;background:#fff;cursor:pointer;color:var(--tx)';
+
+  // 年份下拉
+  var yearSel = document.createElement('select');
+  yearSel.style.cssText = selStyle;
+  yearSel.innerHTML = '<option value="">── 選擇年份 ──</option>';
+  yearOrder.forEach(function(y) {
+    var opt = document.createElement('option');
+    opt.value = y; opt.textContent = y;
+    yearSel.appendChild(opt);
+  });
+  containerEl.appendChild(yearSel);
+
+  // 月份下拉
+  var moSel = document.createElement('select');
+  moSel.style.cssText = selStyle + ';display:none';
+  containerEl.appendChild(moSel);
 
   // 日期下拉
-  var dateSel = document.createElement('select');
-  dateSel.style.cssText = 'width:100%;padding:10px 14px;border:1px solid var(--br);border-radius:10px;font-size:15px;font-weight:700;margin-bottom:10px;background:#fff;cursor:pointer;color:var(--tx)';
-  dateSel.innerHTML = '<option value="">── 選擇日期 ──</option>';
-  groupOrder.forEach(function(d) {
-    var opt = document.createElement('option');
-    opt.value = d;
-    opt.textContent = d + '（' + groups[d].length + ' 筆）';
-    dateSel.appendChild(opt);
-  });
-  containerEl.appendChild(dateSel);
+  var daySel = document.createElement('select');
+  daySel.style.cssText = selStyle + ';display:none';
+  containerEl.appendChild(daySel);
 
-  // 報表下拉（依日期更新）
+  // 報表下拉
   var rptSel = document.createElement('select');
-  rptSel.style.cssText = 'width:100%;padding:10px 14px;border:1px solid var(--br);border-radius:10px;font-size:14px;margin-bottom:12px;background:#fff;cursor:pointer;color:var(--tx);display:none';
+  rptSel.style.cssText = 'width:100%;padding:10px 14px;border:1px solid var(--br);border-radius:10px;font-size:14px;margin-bottom:10px;background:#fff;cursor:pointer;color:var(--tx);display:none';
   containerEl.appendChild(rptSel);
-
-  // 報表內容區
-  var contentArea = document.createElement('div');
-  containerEl.appendChild(contentArea);
 
   // 選取刪除列
   var selBar = document.createElement('div');
@@ -1067,11 +1080,19 @@ function renderSimpleView(data, containerEl, isAdmin) {
       '<input type="checkbox" class="sv-select-all" style="width:16px;height:16px;accent-color:var(--bd);cursor:pointer"> 全選' +
     '</label>' +
     '<button class="sv-del-btn" style="display:none;background:#9b2226;color:#fff;border:none;border-radius:7px;padding:5px 14px;font-size:13px;font-weight:600;cursor:pointer">刪除選取</button>';
-  containerEl.insertBefore(selBar, contentArea);
+  containerEl.appendChild(selBar);
+
+  // 報表內容區
+  var contentArea = document.createElement('div');
+  containerEl.appendChild(contentArea);
 
   var selAllChk = selBar.querySelector('.sv-select-all');
   var delBtn = selBar.querySelector('.sv-del-btn');
 
+  function updateDelBtn() {
+    var cnt = contentArea.querySelectorAll('.batch-check:checked').length;
+    delBtn.style.display = cnt > 0 ? '' : 'none';
+  }
   selAllChk.onchange = function() {
     contentArea.querySelectorAll('.batch-check').forEach(function(c){ c.checked = selAllChk.checked; });
     updateDelBtn();
@@ -1080,57 +1101,40 @@ function renderSimpleView(data, containerEl, isAdmin) {
     var checked = Array.from(contentArea.querySelectorAll('.batch-check:checked'));
     if (!checked.length) return;
     if (!confirm('確定刪除選取的 ' + checked.length + ' 筆報表？')) return;
-    var ids = checked.map(function(c){ return c.dataset.rptId; });
-    ids.forEach(function(id) {
+    checked.map(function(c){ return c.dataset.rptId; }).forEach(function(id) {
       fetch(API + '?action=delete&id=' + id, {mode:'no-cors'}).catch(function(){});
     });
     setTimeout(function() {
-      showToast('已刪除 ' + ids.length + ' 筆');
+      showToast('已刪除 ' + checked.length + ' 筆');
       _reportCache = null;
-      if (isAdmin) loadAllReports();
-      else loadHistory();
+      if (isAdmin) loadAllReports(); else loadHistory();
     }, 1500);
   };
-
-  function updateDelBtn() {
-    var cnt = contentArea.querySelectorAll('.batch-check:checked').length;
-    delBtn.style.display = cnt > 0 ? '' : 'none';
-  }
 
   function showRpt(rpt) {
     contentArea.innerHTML = '';
     selBar.style.display = 'none';
     if (!rpt) return;
-    // 顯示單筆報表（展開版）
     var card = buildCard(rpt, isAdmin);
-    // 強制展開
     var body = card.querySelector('.report-body');
-    var head = card.querySelector('.report-head');
-    var arrow = head ? head.querySelector('.report-arrow') : null;
     if (body) body.classList.add('open');
+    var arrow = card.querySelector('.report-arrow');
     if (arrow) arrow.classList.add('open');
-    // checkbox 改成勾選刪除用
     var chk = card.querySelector('.batch-check');
-    if (chk) {
-      chk.onchange = updateDelBtn;
-      selBar.style.display = 'flex';
-    }
+    if (chk) { chk.onchange = updateDelBtn; selBar.style.display = 'flex'; }
     contentArea.appendChild(card);
   }
 
-  function showDateGroup(dateVal) {
-    contentArea.innerHTML = '';
-    selBar.style.display = 'none';
-    if (!dateVal) { rptSel.style.display = 'none'; return; }
-    var rpts = groups[dateVal] || [];
+  function showDayGroup(dateVal) {
+    contentArea.innerHTML = ''; selBar.style.display = 'none'; rptSel.style.display = 'none';
+    if (!dateVal) return;
+    var y = yearSel.value, mo = moSel.value;
+    var rpts = (yearGroups[y] && yearGroups[y][mo] && yearGroups[y][mo][dateVal]) || [];
     if (rpts.length === 1) {
-      // 只有一筆，直接顯示
-      rptSel.style.display = 'none';
       showRpt(rpts[0]);
     } else {
-      // 多筆，顯示報表下拉
       rptSel.style.display = '';
-      rptSel.innerHTML = '<option value="">── 選擇報表 ──</option>';
+      rptSel.innerHTML = '<option value="">── 選擇報表（' + rpts.length + ' 筆）──</option>';
       rpts.forEach(function(rpt, i) {
         var opt = document.createElement('option');
         opt.value = i;
@@ -1141,17 +1145,46 @@ function renderSimpleView(data, containerEl, isAdmin) {
         var idx = parseInt(rptSel.value);
         showRpt(isNaN(idx) ? null : rpts[idx]);
       };
-      contentArea.innerHTML = '';
     }
   }
 
-  dateSel.onchange = function() { showDateGroup(dateSel.value); };
-
-  // 預設選最新日期
-  if (groupOrder.length > 0) {
-    dateSel.value = groupOrder[0];
-    showDateGroup(groupOrder[0]);
+  function showMonthGroup(moVal) {
+    daySel.style.display = 'none'; rptSel.style.display = 'none';
+    contentArea.innerHTML = ''; selBar.style.display = 'none';
+    if (!moVal) return;
+    var y = yearSel.value;
+    var days = Object.keys((yearGroups[y] && yearGroups[y][moVal]) || {});
+    daySel.innerHTML = '<option value="">── 選擇日期（' + days.length + ' 天）──</option>';
+    days.forEach(function(d) {
+      var cnt = yearGroups[y][moVal][d].length;
+      var opt = document.createElement('option');
+      opt.value = d; opt.textContent = d + '（' + cnt + ' 筆）';
+      daySel.appendChild(opt);
+    });
+    daySel.style.display = '';
+    if (days.length === 1) { daySel.value = days[0]; showDayGroup(days[0]); }
   }
+
+  yearSel.onchange = function() {
+    moSel.style.display = 'none'; daySel.style.display = 'none';
+    rptSel.style.display = 'none'; contentArea.innerHTML = ''; selBar.style.display = 'none';
+    if (!yearSel.value) return;
+    var months = Object.keys(yearGroups[yearSel.value] || {});
+    moSel.innerHTML = '<option value="">── 選擇月份（' + months.length + ' 個月）──</option>';
+    months.forEach(function(mo) {
+      var cnt = Object.values(yearGroups[yearSel.value][mo]).reduce(function(s,a){ return s+a.length; },0);
+      var opt = document.createElement('option');
+      opt.value = mo; opt.textContent = mo + '（' + cnt + ' 筆）';
+      moSel.appendChild(opt);
+    });
+    moSel.style.display = '';
+    if (months.length === 1) { moSel.value = months[0]; showMonthGroup(months[0]); }
+  };
+  moSel.onchange = function() { showMonthGroup(moSel.value); };
+  daySel.onchange = function() { showDayGroup(daySel.value); };
+
+  // 預設選最新年份
+  if (yearOrder.length > 0) { yearSel.value = yearOrder[0]; yearSel.onchange(); }
 }
 
 function renderAllReports(data) {

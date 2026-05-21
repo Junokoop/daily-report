@@ -1009,6 +1009,19 @@ function renderSimpleView(data, containerEl, isAdmin) {
 
   var selStyle = 'flex:1;padding:10px 8px;border:1px solid var(--br);border-radius:10px;font-size:14px;font-weight:700;background:#fff;cursor:pointer;color:var(--tx)';
 
+  // 全選列
+  var selAllRow = document.createElement('div');
+  selAllRow.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:4px 2px;margin-bottom:8px';
+  var selAllLabel = document.createElement('label');
+  selAllLabel.style.cssText = 'display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;color:var(--mu)';
+  var selAllChkEl = document.createElement('input');
+  selAllChkEl.type = 'checkbox';
+  selAllChkEl.style.cssText = 'width:16px;height:16px;accent-color:var(--bd);cursor:pointer';
+  selAllLabel.appendChild(selAllChkEl);
+  selAllLabel.appendChild(document.createTextNode(' 全選'));
+  selAllRow.appendChild(selAllLabel);
+  containerEl.appendChild(selAllRow);
+
   // 年月日三個下拉同一列
   var ymRow = document.createElement('div');
   ymRow.style.cssText = 'display:flex;gap:6px;margin-bottom:12px';
@@ -1050,6 +1063,7 @@ function renderSimpleView(data, containerEl, isAdmin) {
   function updateDelBtn() {
     var cnt = listArea.querySelectorAll('.batch-check:checked').length;
     delBtn.style.display = cnt > 0 ? '' : 'none';
+    updateSelAll();
   }
   delBtn.onclick = function() {
     var checked = Array.from(listArea.querySelectorAll('.batch-check:checked'));

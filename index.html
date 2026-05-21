@@ -2016,8 +2016,6 @@ function saveEdit() {
   var Y = document.getElementById('editY').value;
   var M = document.getElementById('editM').value;
   var D = document.getElementById('editD').value;
-  var _ecCount = document.getElementById('editExpList') ? document.getElementById('editExpList').querySelectorAll('.ec').length : -1;
-  showToast('saveEdit: ec=' + _ecCount + ' Y=' + Y + ' M=' + M);
 
   var att = [];
   document.getElementById('editAttList').querySelectorAll('.ec').forEach(function(c) {
@@ -2090,11 +2088,26 @@ function saveEdit() {
   // 統一用 FormData POST 送出
   function doSend() {
     patchData.expenses = exp;
-    var _sz = JSON.stringify({action:'edit', data:patchData}).length;
-    showToast('doSend: exp=' + exp.length + ' sz=' + Math.round(_sz/1024) + 'KB');
-    var form = new FormData();
-    form.append('payload', JSON.stringify({action:'edit', data:patchData}));
-    fetch(API, {method:'POST', body:form, mode:'no-cors'}).catch(function(){});
+    // 檢查有沒有照片
+    var hasPhoto = exp.some(function(e){ return e.photos && e.photos.length; });
+    if (hasPhoto) {
+      // 有照片用 FormData POST
+      var form = new FormData();
+      form.append('payload', JSON.stringify({action:'edit', data:patchData}));
+      fetch(API, {method:'POST', body:form, mode:'no-cors'}).catch(function(){});
+    } else {
+      // 無照片用 GET（GAS 最可靠）
+      var payloadStr = JSON.stringify({action:'edit', data:patchData});
+      if (payloadStr.length < 7000) {
+        // payload 夠小用 GET
+        var url = API + '?payload=' + encodeURIComponent(payloadStr);
+        fetch(url, {mode:'no-cors'}).catch(function(){});
+      } else {
+        // payload 太大用 urlencoded POST
+        var body = 'payload=' + encodeURIComponent(payloadStr);
+        fetch(API, {method:'POST', body:body, mode:'no-cors', headers:{'Content-Type':'application/x-www-form-urlencoded'}}).catch(function(){});
+      }
+    }
     setTimeout(finish, 2000);
   }
 

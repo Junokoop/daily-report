@@ -242,6 +242,7 @@ table.st{width:100%;border-collapse:collapse;border-top:1.5px solid var(--bd)}
     <div class="sh" style="display:flex;align-items:center;gap:10px">
       <button onclick="showRawPage('pageSelect');setNavMode('none')" style="background:#6b7280;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;color:#fff;padding:5px 14px;line-height:1.5">← 返回</button>
       &#x1F512; 管理者登入
+      <button onclick="_reportCache=null;_reportCacheTime=0;loadAllReports();showToast('已刷新')" style="margin-left:auto;background:#6b7280;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;color:#fff;padding:5px 14px;line-height:1.5">↻ 刷新</button>
     </div>
     <div class="pw-wrap">
       <input type="password" id="pwInput" placeholder="請輸入管理密碼" onkeydown="if(event.key==='Enter')checkPw()">
@@ -1103,6 +1104,7 @@ function renderSimpleView(data, containerEl, isAdmin) {
       try {
         var card = buildCard(rpt, isAdmin);
         var body = card.querySelector('.report-body');
+        var head = card.querySelector('.report-head');
         if (body) body.classList.add('open');
         var arrow = card.querySelector('.report-arrow');
         if (arrow) arrow.classList.add('open');
@@ -1112,6 +1114,41 @@ function renderSimpleView(data, containerEl, isAdmin) {
           chk.onchange = syncSelAll;
         }
         listArea.appendChild(card);
+        // 強制展開後觸發照片載入
+        if (head) head.onclick && head.onclick({});
+        // 或直接觸發照片載入
+        if (body && body.dataset.rptId && body.dataset.photosLoaded === '0') {
+          body.dataset.photosLoaded = '1';
+          var wrap = body.querySelector('[data-rpt-id]');
+          if (wrap) {
+            var rid = body.dataset.rptId;
+            if (_photoCache[rid]) {
+              _photoCache[rid].forEach(function(src) {
+                if (!src) return;
+                var img = document.createElement('img');
+                img.style.cssText = 'width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--br);cursor:pointer';
+                img.src = src;
+                img.onclick = (function(s){ return function(e){ e.stopPropagation(); openPhotoOverlay(s); }; })(src);
+                wrap.appendChild(img);
+              });
+            } else {
+              fetch(API + '?action=getphotos&id=' + rid + '&t=' + Date.now())
+                .then(function(r) { return r.json(); })
+                .then(function(res) {
+                  if (!res.ok || !res.photos || !res.photos.length) return;
+                  _photoCache[rid] = res.photos;
+                  res.photos.forEach(function(src) {
+                    if (!src) return;
+                    var img = document.createElement('img');
+                    img.style.cssText = 'width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--br);cursor:pointer';
+                    img.src = src;
+                    img.onclick = (function(s){ return function(e){ e.stopPropagation(); openPhotoOverlay(s); }; })(src);
+                    wrap.appendChild(img);
+                  });
+                }).catch(function() {});
+            }
+          }
+        }
       } catch(e) {}
     });
   }

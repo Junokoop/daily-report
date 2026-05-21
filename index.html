@@ -157,8 +157,6 @@ table.st{width:100%;border-collapse:collapse;border-top:1.5px solid var(--bd)}
   <div class="select-page">
     <h2>&#x1F477; 請選擇身份</h2>
     <div id="selectBtnArea" style="width:100%;max-width:320px;display:flex;flex-direction:column;gap:12px">
-      <button class="select-btn" style="background:#6b7280" onclick="selectReporter('&#x7D00;&#x67CF;&#x5B8F;')">紀柏宏</button>
-      <button class="select-btn" style="background:#6b7280" onclick="selectReporter('&#x675C;&#x5FD7;&#x5091;')">杜志傑</button>
       <button class="select-btn admin-select" onclick="goAdminLogin()">🔐 管理者</button>
     </div>
   </div>
@@ -343,7 +341,7 @@ var attList = null;
 var expList = null;
 var _reportCache = null;
 var _reportCacheTime = 0;
-var CACHE_TTL = 60000; // 60秒快取
+var CACHE_TTL = 10000; // 60秒快取
 var _photoCache = {}; // 照片快取 {id: [src,...]}
 
 function getReporters() {
@@ -362,23 +360,28 @@ function renderSelectPage(){
   var reporters = getReporters();
   var el = document.getElementById('selectBtnArea');
   if (!el) return;
-  var btnColors = ['#2d6a4f','#1a6ea8','#7b2d8b','#b5451b','#b5861b','#1b6b8b'];
-  var defaultReporters = ['紀柏宏','杜志傑'];
-  // 找出非預設的填報者
-  var extraReporters = reporters.filter(function(r) { return defaultReporters.indexOf(r) < 0; });
-  // 移除舊的動態按鈕
-  var dynBtns = el.querySelectorAll('.dynamic-reporter-btn');
-  dynBtns.forEach(function(b) { b.remove(); });
-  // 在管理者按鈕前插入動態填報者
+  // 清空所有按鈕（保留 admin-select）
   var adminBtn = el.querySelector('.admin-select');
-  extraReporters.forEach(function(r, i) {
+  el.innerHTML = '';
+  // 重新建立所有填報者按鈕
+  reporters.forEach(function(r) {
     var btn = document.createElement('button');
-    btn.className = 'select-btn dynamic-reporter-btn';
+    btn.className = 'select-btn';
     btn.textContent = r;
     btn.style.background = '#6b7280';
     btn.onclick = (function(name) { return function() { selectReporter(name); }; })(r);
-    el.insertBefore(btn, adminBtn);
+    el.appendChild(btn);
   });
+  // 重新加回管理者按鈕
+  if (adminBtn) {
+    el.appendChild(adminBtn);
+  } else {
+    var ab = document.createElement('button');
+    ab.className = 'select-btn admin-select';
+    ab.innerHTML = '&#x1F510; 管理者';
+    ab.onclick = goAdminLogin;
+    el.appendChild(ab);
+  }
 }
 
 function selectReporter(name) {
@@ -520,7 +523,7 @@ function fetchReports(forceRefresh) {
 }
 
 function loadAccum() {
-  fetchReports(false)
+  fetchReports(true)
     .then(function(data) {
       var myReports = data.filter(function(r) { return r.reporter === currentReporter; });
       var lastRemaining = myReports.length > 0 ? (parseFloat(myReports[0].remaining) || 0) : 0;
@@ -701,8 +704,13 @@ function submitReport() {
   function onDone() {
     if (btn) { btn.textContent = '上傳報表'; btn.disabled = false; }
     showToast('報表已成功上傳！');
-    doReset(); _reportCache = null;
-    setTimeout(function(){ loadAccum(); }, 1200);
+    doReset();
+    _reportCache = null;
+    _reportCacheTime = 0;
+    setTimeout(function(){
+      loadAccum();
+      loadHistory();
+    }, 500);
   }
 
   var flat = [];
@@ -740,7 +748,7 @@ function submitReport() {
 function loadHistory() {
   var listEl = document.getElementById('historyList');
   listEl.innerHTML = '<div class="loading">載入中…</div>';
-  fetchReports(false)
+  fetchReports(true)
     .then(function(data) {
       try {
         data = data.filter(function(r) { return r.reporter === currentReporter; });
@@ -923,7 +931,7 @@ function renderNotifyList(data) {
           _reportCacheTime = 0;
           loadAllReports();
           showToast('通知已清除');
-        }, 1500);
+        }, 800);
       };
     })(r);
     row.appendChild(delBtn);
@@ -1085,8 +1093,9 @@ function renderSimpleView(data, containerEl, isAdmin) {
     setTimeout(function() {
       showToast('已刪除 ' + checked.length + ' 筆');
       _reportCache = null;
+      _reportCacheTime = 0;
       if (isAdmin) loadAllReports(); else loadHistory();
-    }, 1500);
+    }, 800);
   };
 
   function showRpts(rpts) {
@@ -1320,7 +1329,7 @@ function confirmBatchDelete() {
     showToast('已刪除 ' + ids.length + ' 筆');
     if (document.getElementById('pageAdmin').classList.contains('show')) loadAllReports();
     else loadHistory();
-  }, 1800);
+  }, 800);
 }
 
 function deleteReport(id, onSuccess, onFail) {
@@ -1975,13 +1984,13 @@ function deleteFromEdit() {
     .then(function() {
       _reportCache = null; _reportCacheTime = 0;
       showToast('已刪除'); closeEditModal();
-      setTimeout(function() { loadHistory(); }, 1000);
+      setTimeout(function() { loadHistory(); }, 500);
     })
     .catch(function() {
       // no-cors 不會真的 catch，但以防萬一也當成成功
       _reportCache = null; _reportCacheTime = 0;
       showToast('已刪除'); closeEditModal();
-      setTimeout(function() { loadHistory(); }, 1000);
+      setTimeout(function() { loadHistory(); }, 500);
     });
 }
 
@@ -2078,11 +2087,12 @@ function saveEdit() {
     showToast('已更新！');
     closeEditModal();
     _reportCache = null;
+    _reportCacheTime = 0;
     delete _photoCache[editingId];
     setTimeout(function() {
       if (document.getElementById('pageAdmin').classList.contains('show')) loadAllReports();
-      else loadHistory();
-    }, 800);
+      else { loadHistory(); }
+    }, 300);
   }
 
   function doSend() {
@@ -2097,7 +2107,7 @@ function saveEdit() {
       form.append('payload', payloadStr);
       fetch(API, {method:'POST', body:form, mode:'no-cors'}).catch(function(){});
     }
-    setTimeout(finish, 2000);
+    setTimeout(finish, 1500);
   }
 
   // 有照片先壓縮
@@ -2120,6 +2130,13 @@ function saveEdit() {
     setTimeout(function() { if (done < tasks.length) doSend(); }, 10000);
   }
 }
+
+// 頁面初始化
+(function init() {
+  renderSelectPage();
+  showRawPage('pageSelect');
+  setNavMode('none');
+})();
 
 </script>
 </body>

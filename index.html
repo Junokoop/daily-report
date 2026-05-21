@@ -767,46 +767,8 @@ function loadHistory() {
 
         // 依日期分組 + 下拉選單
         var allHistData = data;
-        var histDateSel = document.getElementById('histDateSel');
-        if (!histDateSel) {
-          histDateSel = document.createElement('select');
-          histDateSel.id = 'histDateSel';
-          histDateSel.style.cssText = 'width:100%;padding:8px 12px;border:1px solid var(--br);border-radius:8px;font-size:14px;margin-bottom:10px;background:#fff;cursor:pointer';
-          listEl.parentNode.insertBefore(histDateSel, listEl);
-        }
-        var histDates = [];
-        data.forEach(function(rpt) {
-          var d = String(rpt.date||'未知日期');
-          if (histDates.indexOf(d) < 0) histDates.push(d);
-        });
-        histDateSel.innerHTML = '<option value="">全部日期（' + data.length + ' 筆）</option>';
-        histDates.forEach(function(d) {
-          var count = data.filter(function(r){ return String(r.date||'') === d; }).length;
-          var opt = document.createElement('option');
-          opt.value = d; opt.textContent = d + '（' + count + ' 筆）';
-          histDateSel.appendChild(opt);
-        });
-        histDateSel.onchange = function() { renderHistList(allHistData, this.value); };
-
         renderSimpleView(allHistData, listEl, false);
 
-        // 選取刪除列
-        var histSelBar = document.getElementById('histSelBar');
-        if (!histSelBar) {
-          histSelBar = document.createElement('div');
-          histSelBar.id = 'histSelBar';
-          histSelBar.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:6px 2px;margin-bottom:6px';
-          histSelBar.innerHTML =
-            '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;color:var(--mu)">' +
-              '<input type="checkbox" id="selectAllHistCheck" onchange="toggleSelectAllHist(this.checked)" style="width:16px;height:16px;accent-color:var(--bd);cursor:pointer"> 全選' +
-            '</label>' +
-            '<button id="batchDeleteHistBtn" onclick="confirmBatchDelete()" style="display:none;background:#9b2226;color:#fff;border:none;border-radius:7px;padding:5px 14px;font-size:13px;font-weight:600;cursor:pointer">刪除選取</button>';
-          listEl.parentNode.insertBefore(histSelBar, listEl);
-        }
-        var allChkH = document.getElementById('selectAllHistCheck');
-        if (allChkH) allChkH.checked = false;
-        var delBtnH = document.getElementById('batchDeleteHistBtn');
-        if (delBtnH) delBtnH.style.display = 'none';
       } catch(e) {
         listEl.innerHTML = '<div class="empty"><div class="ei">❌</div><p>載入失敗，請重新整理頁面</p></div>';
       }
@@ -1222,6 +1184,7 @@ var _batchMode = false;
 function showReporterDetail(reporter) {
   var data = allReports.filter(function(r){ return r.reporter === reporter; });
   document.getElementById('reporterDetailTitle').textContent = reporter + ' 日報表';
+
   var lastRemain = data.length ? (parseFloat(data[0].remaining)||0) : 0;
   var lastReceipt = data.length ? (parseFloat(data[0].receiptCash)||0) : 0;
   var lastCash = data.length ? (parseFloat(data[0].totalCash)||0) : 0;
@@ -1237,30 +1200,10 @@ function showReporterDetail(reporter) {
     '<div style="display:flex;justify-content:space-between;font-size:15px"><span style="font-weight:700">現金剩餘公款</span><span style="font-weight:900;color:' + col + '">$' + lastRemain.toLocaleString() + '</span></div>' +
     '</div>';
 
-  // 依日期分組
+  // 用 renderSimpleView 統一渲染（含年月日下拉 + 刪除功能）
   var listEl = document.getElementById('reporterDetailList');
-  var allDetailData = data;
-  renderSimpleView(allDetailData, listEl, true);
-
-
-  // 選取刪除列
-  var selBar = document.getElementById('reporterDetailSelBar');
-  if (!selBar) {
-    selBar = document.createElement('div');
-    selBar.id = 'reporterDetailSelBar';
-    selBar.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:6px 2px;margin-bottom:6px';
-    selBar.innerHTML =
-      '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;color:var(--mu)">' +
-        '<input type="checkbox" id="selectAllDetailCheck" onchange="toggleSelectAllDetail(this.checked)" style="width:16px;height:16px;accent-color:var(--bd);cursor:pointer"> 全選' +
-      '</label>' +
-      '<button id="batchDeleteDetailBtn" onclick="confirmBatchDelete()" style="display:none;background:#9b2226;color:#fff;border:none;border-radius:7px;padding:5px 14px;font-size:13px;font-weight:600;cursor:pointer">刪除選取</button>';
-    listEl.parentNode.insertBefore(selBar, listEl);
-  }
-  // 重置全選狀態
-  var allChk = document.getElementById('selectAllDetailCheck');
-  if (allChk) allChk.checked = false;
-  var delBtnD = document.getElementById('batchDeleteDetailBtn');
-  if (delBtnD) delBtnD.style.display = 'none';
+  listEl.innerHTML = '';
+  renderSimpleView(data, listEl, true);
 
   showRawPage('pageReporterDetail');
   setNavMode('admin');

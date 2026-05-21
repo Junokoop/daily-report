@@ -1091,7 +1091,12 @@ function renderSimpleView(data, containerEl, isAdmin) {
       showToast('已刪除 ' + checked.length + ' 筆');
       _reportCache = null;
       _reportCacheTime = 0;
-      if (isAdmin) loadAllReports(); else loadHistory();
+      if (isAdmin) {
+        loadAllReports();
+      } else {
+        loadHistory();
+        loadAccum(); // 同步更新填報頁結餘公款
+      }
     }, 800);
   };
 
@@ -1359,9 +1364,14 @@ function confirmBatchDelete() {
     document.querySelectorAll('.batch-check').forEach(function(c){ c.checked=false; });
     var bar = document.getElementById('batchBar'); if (bar) bar.classList.remove('show');
     _reportCache = null;
+    _reportCacheTime = 0;
     showToast('已刪除 ' + ids.length + ' 筆');
-    if (document.getElementById('pageAdmin').classList.contains('show')) loadAllReports();
-    else loadHistory();
+    if (document.getElementById('pageAdmin').classList.contains('show')) {
+      loadAllReports();
+    } else {
+      loadHistory();
+      loadAccum();
+    }
   }, 800);
 }
 
@@ -2029,13 +2039,12 @@ function deleteFromEdit() {
     .then(function() {
       _reportCache = null; _reportCacheTime = 0;
       showToast('已刪除'); closeEditModal();
-      setTimeout(function() { loadHistory(); }, 500);
+      setTimeout(function() { loadHistory(); loadAccum(); }, 500);
     })
     .catch(function() {
-      // no-cors 不會真的 catch，但以防萬一也當成成功
       _reportCache = null; _reportCacheTime = 0;
       showToast('已刪除'); closeEditModal();
-      setTimeout(function() { loadHistory(); }, 500);
+      setTimeout(function() { loadHistory(); loadAccum(); }, 500);
     });
 }
 

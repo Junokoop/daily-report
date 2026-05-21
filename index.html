@@ -2093,17 +2093,30 @@ function saveEdit() {
   }
 
   function doSend() {
-    patchData.expenses = exp;
-    var payloadStr = JSON.stringify({action:'edit', data:patchData});
-    var sz = Math.round(payloadStr.length/1024);
-    var method = payloadStr.length < 7000 ? 'GET' : 'POST';
-    showToast('送出:' + method + ' ' + sz + 'KB id:' + patchData.id);
-    if (payloadStr.length < 7000) {
-      fetch(API + '?payload=' + encodeURIComponent(payloadStr), {mode:'no-cors'}).catch(function(){});
+    // 先送無照片版確保 metadata 存入（GET，最可靠）
+    var expNoPhoto = exp.map(function(e) {
+      return {item:e.item, inv:e.inv, cash:e.cash, card:e.card,
+              photoCount: e.photos ? e.photos.length : 0};
+    });
+    var patchNoPhoto = JSON.parse(JSON.stringify(patchData));
+    patchNoPhoto.expenses = expNoPhoto;
+    var metaStr = JSON.stringify({action:'edit', data:patchNoPhoto});
+    if (metaStr.length < 7000) {
+      fetch(API + '?payload=' + encodeURIComponent(metaStr), {mode:'no-cors'}).catch(function(){});
     } else {
-      var form = new FormData();
-      form.append('payload', payloadStr);
-      fetch(API, {method:'POST', body:form, mode:'no-cors'}).catch(function(){});
+      var f1 = new FormData();
+      f1.append('payload', metaStr);
+      fetch(API, {method:'POST', body:f1, mode:'no-cors'}).catch(function(){});
+    }
+    // 若有照片，2秒後再送含照片版
+    var hasPhotos = exp.some(function(e){ return e.photos && e.photos.length; });
+    if (hasPhotos) {
+      setTimeout(function() {
+        patchData.expenses = exp;
+        var f2 = new FormData();
+        f2.append('payload', JSON.stringify({action:'edit', data:patchData}));
+        fetch(API, {method:'POST', body:f2, mode:'no-cors'}).catch(function(){});
+      }, 2000);
     }
     setTimeout(finish, 1500);
   }

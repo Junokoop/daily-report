@@ -2016,6 +2016,8 @@ function saveEdit() {
   var Y = document.getElementById('editY').value;
   var M = document.getElementById('editM').value;
   var D = document.getElementById('editD').value;
+  var _ecCount = document.getElementById('editExpList') ? document.getElementById('editExpList').querySelectorAll('.ec').length : -1;
+  showToast('saveEdit: ec=' + _ecCount + ' Y=' + Y + ' M=' + M);
 
   var att = [];
   document.getElementById('editAttList').querySelectorAll('.ec').forEach(function(c) {
@@ -2088,6 +2090,8 @@ function saveEdit() {
   // 統一用 FormData POST 送出
   function doSend() {
     patchData.expenses = exp;
+    var _sz = JSON.stringify({action:'edit', data:patchData}).length;
+    showToast('doSend: exp=' + exp.length + ' sz=' + Math.round(_sz/1024) + 'KB');
     var form = new FormData();
     form.append('payload', JSON.stringify({action:'edit', data:patchData}));
     fetch(API, {method:'POST', body:form, mode:'no-cors'}).catch(function(){});

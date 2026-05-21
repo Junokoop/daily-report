@@ -1596,9 +1596,9 @@ function openViewModal(rpt) {
           '</div>' +
           (rpt.editedNote ?
             '<div style="font-size:13px;margin-top:4px">' +
-              '<span style="color:var(--mu)">修正位置</span>' +
+              '<span style="color:var(--mu)">修正項目</span>' +
               '<div style="margin-top:4px">' +
-                rpt.editedNote.split('\n').map(function(line){ return '<div style="font-weight:700;color:#b45309;background:#fef3c7;border:1px solid #fcd34d;border-radius:4px;padding:3px 10px;margin-bottom:4px">' + esc(line) + '</div>'; }).join('') +
+                rpt.editedNote.split(' | ').map(function(line){ return '<div style="font-weight:700;color:#b45309;background:#fef3c7;border:1px solid #fcd34d;border-radius:4px;padding:3px 10px;margin-bottom:4px">' + esc(line) + '</div>'; }).join('') +
               '</div>' +
             '</div>' : '') +
         '</div>' +
@@ -1928,43 +1928,55 @@ function getEditedNote(orig, newData) {
   if (!orig || !newData) return '';
   var changes = [];
 
-  if (String(newData.date||'') !== String(orig.date||'')) changes.push('日期');
-  if (String(newData.project||'') !== String(orig.project||'')) changes.push('工程名稱');
-  if (String(newData.workItems||'') !== String(orig.workItems||'')) changes.push('施工項目');
-  if (parseFloat(newData.receiptCash||0) !== parseFloat(orig.receiptCash||0)) changes.push('接收公款');
-  if (String(newData.receiptNote||'') !== String(orig.receiptNote||'')) changes.push('備考');
+  if (String(newData.date||'') !== String(orig.date||''))
+    changes.push('日期：' + (orig.date||'—') + ' → ' + (newData.date||'—'));
+
+  if (String(newData.project||'') !== String(orig.project||''))
+    changes.push('工程名稱：' + (orig.project||'—') + ' → ' + (newData.project||'—'));
+
+  if (String(newData.workItems||'') !== String(orig.workItems||''))
+    changes.push('施工項目已修改');
+
+  if (parseFloat(newData.receiptCash||0) !== parseFloat(orig.receiptCash||0))
+    changes.push('接收公款：$' + Number(orig.receiptCash||0).toLocaleString() + ' → $' + Number(newData.receiptCash||0).toLocaleString());
+
+  if (String(newData.receiptNote||'') !== String(orig.receiptNote||''))
+    changes.push('備考：' + (orig.receiptNote||'—') + ' → ' + (newData.receiptNote||'—'));
 
   var origTCash = window._editOrigTotalCash !== undefined ? window._editOrigTotalCash : (parseFloat(orig.totalCash)||0);
   var newTCash = parseFloat(newData.totalCash)||0;
   var origTCard = window._editOrigTotalCard !== undefined ? window._editOrigTotalCard : (parseFloat(orig.totalCard)||0);
   var newTCard = parseFloat(newData.totalCard)||0;
-  if (origTCash !== newTCash || origTCard !== newTCard) changes.push('支出金額');
+  if (origTCash !== newTCash)
+    changes.push('現金支出：$' + origTCash.toLocaleString() + ' → $' + newTCash.toLocaleString());
+  if (origTCard !== newTCard)
+    changes.push('刷卡支出：$' + origTCard.toLocaleString() + ' → $' + newTCard.toLocaleString());
 
-  var origNames = (orig.attendance||[]).map(function(a){return a.name;}).sort().join(',');
-  var newNames = (newData.attendance||[]).map(function(a){return a.name;}).sort().join(',');
+  var origNames = (orig.attendance||[]).map(function(a){return a.name;}).sort().join('、');
+  var newNames = (newData.attendance||[]).map(function(a){return a.name;}).sort().join('、');
   if (origNames !== newNames) {
-    changes.push('出工人員');
+    changes.push('出工人員：' + (origNames||'—') + ' → ' + (newNames||'—'));
   } else {
     var origHrs = (orig.attendance||[]).map(function(a){return (a.am?'1':'0')+(a.pm?'1':'0')+(a.ot||0);}).join(',');
     var newHrs = (newData.attendance||[]).map(function(a){return (a.am?'1':'0')+(a.pm?'1':'0')+(a.ot||0);}).join(',');
-    if (origHrs !== newHrs) changes.push('出工時段');
+    if (origHrs !== newHrs) changes.push('出工時段已修改');
   }
 
-  var origItems = (orig.expenses||[]).map(function(e){return String(e.item||'');}).join(',');
-  var newItems = (newData.expenses||[]).map(function(e){return String(e.item||'');}).join(',');
-  if (origItems !== newItems) changes.push('支出項目');
+  var origItems = (orig.expenses||[]).map(function(e){return String(e.item||'');}).join('、');
+  var newItems = (newData.expenses||[]).map(function(e){return String(e.item||'');}).join('、');
+  if (origItems !== newItems)
+    changes.push('支出項目：' + (origItems||'—') + ' → ' + (newItems||'—'));
 
-  // 照片（orig 可能是 noPhotos 模式只有 photoCount，newData 有 photos 陣列）
   var origPhotoCnt = (orig.expenses||[]).reduce(function(s,e){
     return s + (e.photoCount||0) + (e.photos&&e.photos.length ? e.photos.length : 0);
   }, 0);
   var newPhotoCnt = (newData.expenses||[]).reduce(function(s,e){
     return s + (e.photos&&e.photos.length ? e.photos.length : 0);
   }, 0);
-  // 若新照片數 > 原照片數，代表有新增照片
-  if (newPhotoCnt > origPhotoCnt) changes.push('發票照片');
+  if (newPhotoCnt > origPhotoCnt)
+    changes.push('新增發票照片 ' + (newPhotoCnt - origPhotoCnt) + ' 張');
 
-  return changes.length ? changes.join('、') : '內容已修正';
+  return changes.length ? changes.join(' | ') : '內容已修正';
 }
 
 function closeEditModal() { document.getElementById('editModal').classList.remove('show'); editingId = null; }

@@ -11,11 +11,11 @@
 *{box-sizing:border-box;margin:0;padding:0}
 :root{--bd:#6b7280;--hbg:#f3f4f6;--ac:#374151;--tx:#111827;--mu:#9ca3af;--ib:#ffffff;--st:#f9fafb;--br:#e5e7eb;--grn:#2d6a4f;--red:#9b2226}
 body{background:#f3f4f6;font-family:sans-serif;color:var(--tx);font-size:15px;padding:0 0 40px;-webkit-text-size-adjust:100%}
-.nav{display:flex;background:var(--bd);padding:10px 12px;gap:6px;align-items:center;position:sticky;top:0;z-index:100}
+.nav{display:flex;background:var(--bd);padding:10px 12px;gap:6px;align-items:center;position:sticky;top:0;z-index:100;justify-content:center}
 .nav-title{color:#fff;font-weight:700;font-size:20px;flex:1;text-align:center}
 .nav-btn{padding:7px 12px;border:1.5px solid rgba(255,255,255,.5);border-radius:6px;background:transparent;color:#fff;font-size:13px;font-weight:600;cursor:pointer}
 .nav-btn.active{background:#fff;color:var(--bd)}
-.page{display:none;padding:12px 10px}
+.page{display:none;padding:12px 10px;max-width:600px;margin:0 auto}
 .page.show{display:block}
 .bottom-bar{display:flex;gap:10px;margin-top:12px;padding:0 0 20px}
 .bottom-bar button{flex:1;height:60px;border:2px solid var(--bd);border-radius:10px;font-size:18px;font-weight:700;cursor:pointer}
@@ -101,7 +101,7 @@ table.st{width:100%;border-collapse:collapse;border-top:1.5px solid var(--bd)}
 .pw-wrap{padding:24px 16px}
 .pw-wrap input{width:100%;height:48px;border:1.5px solid var(--br);border-radius:8px;background:var(--ib);font-size:16px;padding:0 14px;color:var(--tx);outline:none;margin-bottom:12px;display:block}
 .pw-wrap button{width:100%;height:48px;background:var(--ac);color:#fff;border:none;border-radius:8px;font-size:16px;font-weight:700;cursor:pointer}
-.select-page{min-height:80vh;background:#f9fafb;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;gap:14px}
+.select-page{min-height:80vh;background:#f9fafb;padding:20px;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;gap:14px}
 .select-page h2{font-size:24px;font-weight:900;margin-bottom:16px;text-align:center;color:var(--ac);letter-spacing:.05em}
 .select-btn{width:100%;max-width:320px;height:72px;border:none;border-radius:14px;font-size:22px;font-weight:900;cursor:pointer;color:#fff;background:#6b7280var(--ac);display:block;margin:0 auto;letter-spacing:.05em;box-shadow:0 4px 16px rgba(0,0,0,.18)}
 .select-btn.admin-select{background:#374151;font-size:18px;height:60px}
@@ -1108,9 +1108,9 @@ function renderSimpleView(data, containerEl, isAdmin) {
         loadAllReports();
       } else {
         loadHistory();
-        loadAccum(); // 同步更新填報頁結餘公款
+        loadAccum();
       }
-    }, 800);
+    }, 500);
   };
 
   function showRpts(rpts) {
@@ -1132,35 +1132,10 @@ function renderSimpleView(data, containerEl, isAdmin) {
           chk.onchange = syncSelAll;
         }
         listArea.appendChild(card);
-        // 展開後觸發照片載入
+        // 展開後觸發照片載入（只有 noPhotos 模式才需要）
         if (body && body.dataset.rptId && body.dataset.photosLoaded === '0') {
-          (function(b) {
-            b.dataset.photosLoaded = '1';
-            var wrap = b.querySelector('[data-rpt-id]');
-            if (!wrap) return;
-            var rid = b.dataset.rptId;
-            function renderPhotos(photos) {
-              photos.forEach(function(src) {
-                if (!src) return;
-                var img = document.createElement('img');
-                img.style.cssText = 'width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--br);cursor:pointer';
-                img.src = src;
-                img.onclick = (function(s){ return function(e){ e.stopPropagation(); openPhotoOverlay(s); }; })(src);
-                wrap.appendChild(img);
-              });
-            }
-            if (_photoCache[rid] && _photoCache[rid].length) {
-              renderPhotos(_photoCache[rid]);
-            } else {
-              fetch(API + '?action=getphotos&id=' + rid + '&t=' + Date.now())
-                .then(function(r){ return r.json(); })
-                .then(function(res){
-                  if (!res.ok || !res.photos || !res.photos.length) return;
-                  _photoCache[rid] = res.photos;
-                  renderPhotos(res.photos);
-                }).catch(function(){});
-            }
-          })(body);
+          // 觸發 head.onclick 讓 buildCard 內部邏輯處理照片載入
+          if (head && head.onclick) head.onclick();
         }
       } catch(e) {}
     });
@@ -1442,7 +1417,7 @@ function buildCard(rpt, isAdminView) {
       });
       photoContainer.appendChild(photoWrap);
       body.appendChild(photoContainer);
-    } else if (totalPhotoCount > 0) {
+    } else if (totalPhotoCount > 0 && allPhotos.length === 0) {
       var photoContainer2 = document.createElement('div');
       photoContainer2.className = 'rbs';
       var photoLabel = document.createElement('div');

@@ -724,10 +724,11 @@ function submitReport() {
     doReset();
     _reportCache = null;
     _reportCacheTime = 0;
+    _photoCache = {}; // 清除照片快取，讓重新載入時從 GAS 抓最新
     setTimeout(function(){
       loadAccum();
       loadHistory();
-    }, 500);
+    }, 800);
   }
 
   var flat = [];
@@ -1530,8 +1531,8 @@ function buildCard(rpt, isAdminView) {
   }
   body.appendChild(aw);
   // 儲存 rptId 在 body dataset 供 onclick 使用
-  // 有照片（不論 inline 或 noPhotos）都設定 rptId 供 showRpts 統一載入
-  if (totalPhotoCount > 0) {
+  // 只有 noPhotos 模式才設定 rptId（inline 照片已直接顯示）
+  if (totalPhotoCount > 0 && allPhotos.length === 0) {
     body.dataset.rptId = rpt.id;
     body.dataset.photosLoaded = '0';
   }

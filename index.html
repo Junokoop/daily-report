@@ -1139,39 +1139,7 @@ function renderSimpleView(data, containerEl, isAdmin) {
           chk.onchange = syncSelAll;
         }
         listArea.appendChild(card);
-        // noPhotos 模式才需要從 GAS 載入照片
-        if (body && body.dataset.rptId && body.dataset.photosLoaded === '0') {
-          body.dataset.photosLoaded = '1';
-          var _wrap = body.querySelector('[data-rpt-id]');
-          var _rid = body.dataset.rptId;
-          if (_wrap && _rid) {
-            if (_photoCache[_rid] && _photoCache[_rid].length) {
-              _photoCache[_rid].forEach(function(src) {
-                if (!src) return;
-                var _img = document.createElement('img');
-                _img.style.cssText = 'width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--br);cursor:pointer';
-                _img.src = src;
-                _img.onclick = (function(s){ return function(e){ e.stopPropagation(); openPhotoOverlay(s); }; })(src);
-                _wrap.appendChild(_img);
-              });
-            } else {
-              fetch(API + '?action=getphotos&id=' + _rid + '&t=' + Date.now())
-                .then(function(r){ return r.json(); })
-                .then(function(res){
-                  if (!res.ok || !res.photos || !res.photos.length) return;
-                  _photoCache[_rid] = res.photos;
-                  res.photos.forEach(function(src) {
-                    if (!src) return;
-                    var _img = document.createElement('img');
-                    _img.style.cssText = 'width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--br);cursor:pointer';
-                    _img.src = src;
-                    _img.onclick = (function(s){ return function(e){ e.stopPropagation(); openPhotoOverlay(s); }; })(src);
-                    _wrap.appendChild(_img);
-                  });
-                }).catch(function(){});
-            }
-          }
-        }
+        // 照片由 buildCard 內部處理，showRpts 不另外觸發
       } catch(e) {}
     });
   }
@@ -1508,7 +1476,11 @@ function buildCard(rpt, isAdminView) {
   for (var mi2 = 0; mi2 < myRpts2.length; mi2++) { if (myRpts2[mi2].id === rpt.id) { myIdx2 = mi2; break; } }
   var prevRpt2 = (myIdx2 >= 0 && myIdx2 + 1 < myRpts2.length) ? myRpts2[myIdx2 + 1] : null;
   var settlPrev = prevRpt2 ? (parseFloat(prevRpt2.remaining) || 0) : 0;
-  var settlToday = (parseFloat(rpt.receiptCash) || 0) - settlPrev;
+  // receiptCash = 上筆結餘 + 本日接收，若不符則直接用 remaining + totalCash 反推
+  var rcTotal = parseFloat(rpt.receiptCash) || 0;
+  var settlToday = rcTotal - settlPrev;
+  // 若反推出負數，可能 receiptCash 只存了本日接收，直接用它
+  if (settlToday < 0) { settlToday = rcTotal; }
 
   settlDiv.innerHTML = '<div class="rbl">公款結算</div>' +
     '<div style="font-size:13px;line-height:2.2">' +

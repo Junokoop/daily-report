@@ -532,7 +532,11 @@ function fetchReports(forceRefresh) {
     });
 }
 
-function loadAccum() {
+function loadAccum(retries) {
+  retries = retries || 0;
+  // 強制清除快取，確保拿到最新資料
+  _reportCache = null;
+  _reportCacheTime = 0;
   fetchReports(true)
     .then(function(data) {
       var myReports = data.filter(function(r) { return r.reporter === currentReporter; });
@@ -541,7 +545,10 @@ function loadAccum() {
       document.getElementById('rc2').value = '';
       calc();
     })
-    .catch(function() {});
+    .catch(function() {
+      // 失敗時重試（最多3次）
+      if (retries < 3) setTimeout(function(){ loadAccum(retries + 1); }, 1000);
+    });
 }
 
 function addAtt() {
@@ -1108,7 +1115,7 @@ function renderSimpleView(data, containerEl, isAdmin) {
         loadAllReports();
       } else {
         loadHistory();
-        setTimeout(loadAccum, 1000); // 等 GAS 刪除完成再更新金額
+        setTimeout(loadAccum, 2000); // 等 GAS 刪除完成再更新金額
       }
     }, 800);
   };
@@ -2051,12 +2058,12 @@ function deleteFromEdit() {
     .then(function() {
       _reportCache = null; _reportCacheTime = 0;
       showToast('已刪除'); closeEditModal();
-      setTimeout(function() { loadHistory(); loadAccum(); }, 500);
+      setTimeout(function() { loadHistory(); setTimeout(loadAccum, 1500); }, 500);
     })
     .catch(function() {
       _reportCache = null; _reportCacheTime = 0;
       showToast('已刪除'); closeEditModal();
-      setTimeout(function() { loadHistory(); loadAccum(); }, 500);
+      setTimeout(function() { loadHistory(); setTimeout(loadAccum, 1500); }, 500);
     });
 }
 

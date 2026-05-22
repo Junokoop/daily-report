@@ -101,10 +101,19 @@ table.st{width:100%;border-collapse:collapse;border-top:1.5px solid var(--bd)}
 .pw-wrap{padding:24px 16px}
 .pw-wrap input{width:100%;height:48px;border:1.5px solid var(--br);border-radius:8px;background:var(--ib);font-size:16px;padding:0 14px;color:var(--tx);outline:none;margin-bottom:12px;display:block}
 .pw-wrap button{width:100%;height:48px;background:var(--ac);color:#fff;border:none;border-radius:8px;font-size:16px;font-weight:700;cursor:pointer}
-.select-page{min-height:80vh;background:#f9fafb;padding:20px;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;gap:14px}
+.select-page{min-height:100vh;background:linear-gradient(160deg,#f3f4f6 0%,#e5e7eb 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px 16px;gap:0}
 .select-page h2{font-size:24px;font-weight:900;margin-bottom:16px;text-align:center;color:var(--ac);letter-spacing:.05em}
-.select-btn{width:100%;max-width:320px;height:72px;border:none;border-radius:14px;font-size:22px;font-weight:900;cursor:pointer;color:#fff;background:#6b7280var(--ac);display:block;margin:0 auto;letter-spacing:.05em;box-shadow:0 4px 16px rgba(0,0,0,.18)}
-.select-btn.admin-select{background:#374151;font-size:18px;height:60px}
+.select-btn{width:100%;height:52px;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;color:#fff;background:#6b7280;display:block;letter-spacing:.05em}
+.select-btn.admin-select{background:#374151;font-size:16px;height:52px}
+.home-logo{font-size:56px;margin-bottom:8px;line-height:1}
+.home-title{font-size:26px;font-weight:900;color:var(--ac);margin:0 0 6px;letter-spacing:.05em}
+.home-sub{font-size:14px;color:var(--mu);margin:0 0 28px}
+.home-card{width:100%;max-width:360px;background:#fff;border-radius:20px;padding:24px 20px;box-shadow:0 8px 32px rgba(0,0,0,.10);display:flex;flex-direction:column;gap:16px}
+.home-field{display:flex;flex-direction:column;gap:8px}
+.home-label{font-size:13px;font-weight:700;color:var(--mu);letter-spacing:.05em}
+.home-select{width:100%;padding:14px 16px;border:1.5px solid var(--br);border-radius:12px;font-size:16px;font-weight:700;background:#f9fafb;cursor:pointer;color:var(--tx);-webkit-appearance:auto;appearance:auto;text-align:center}
+.home-divider{display:flex;align-items:center;gap:12px;color:var(--mu);font-size:13px}
+.home-divider::before,.home-divider::after{content:'';flex:1;height:1px;background:var(--br)}
 .reporter-mgmt{padding:12px 14px;display:flex;flex-direction:column;gap:8px}
 .reporter-item{display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--st);border:1px solid var(--br);border-radius:8px}
 .reporter-item span{flex:1;font-weight:600}
@@ -168,16 +177,18 @@ table.st{width:100%;border-collapse:collapse;border-top:1.5px solid var(--bd)}
 
 <div class="page show" id="pageSelect">
   <div class="select-page">
-    <h2>&#x1F477; 請選擇身份</h2>
-    <div style="width:100%;max-width:320px;display:flex;flex-direction:column;gap:14px">
-      <div style="display:flex;flex-direction:column;gap:8px">
-        <label style="font-size:13px;color:var(--mu);font-weight:600;text-align:center;display:block">填報者</label>
-        <select id="reporterSelect" onchange="onReporterSelectChange(this.value)"
-          style="width:100%;padding:14px 16px;border:1.5px solid var(--br);border-radius:12px;font-size:17px;font-weight:700;background:#fff;cursor:pointer;color:var(--tx);appearance:auto;text-align:center">
+    <div class="home-logo">&#x1F4CB;</div>
+    <h1 class="home-title">施工日報表</h1>
+    <p class="home-sub">請選擇身份登入</p>
+    <div class="home-card">
+      <div class="home-field">
+        <label class="home-label">&#x1F464; 填報者</label>
+        <select id="reporterSelect" onchange="onReporterSelectChange(this.value)" class="home-select">
           <option value="">── 請選擇填報者 ──</option>
         </select>
       </div>
-      <button class="select-btn admin-select" onclick="goAdminLogin()">🔐 管理者</button>
+      <div class="home-divider"><span>或</span></div>
+      <button class="select-btn admin-select" onclick="goAdminLogin()">&#x1F510; 管理者登入</button>
     </div>
   </div>
 </div>

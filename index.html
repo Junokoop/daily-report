@@ -1154,13 +1154,17 @@ function renderSimpleView(data, containerEl, isAdmin) {
       showToast('已刪除 ' + checked.length + ' 筆');
       _reportCache = null;
       _reportCacheTime = 0;
-      if (isAdmin) {
-        loadAllReports();
-      } else {
-        loadHistory();
-        setTimeout(loadAccum, 2000); // 等 GAS 刪除完成再更新金額
-      }
-    }, 800);
+      // 先從 UI 移除已刪除的卡片
+      checked.forEach(function(c) {
+        var card = c.closest('.report-card');
+        if (card) card.remove();
+      });
+      // 再重新載入確保同步
+      setTimeout(function() {
+        if (isAdmin) loadAllReports();
+        else { loadHistory(); setTimeout(loadAccum, 1000); }
+      }, 1200);
+    }, 500);
   };
 
   function showRpts(rpts) {
@@ -1510,20 +1514,18 @@ function buildCard(rpt, isAdminView) {
       e.stopPropagation();
       if (!confirm('確定要刪除這份報表嗎？')) return;
       delBtn.textContent = '刪除中…'; delBtn.disabled = true;
-      showToast('刪除id:' + r.id + ' rpt:' + (r.reporter||'?') + ' ' + (r.project||'?').slice(0,6));
-      fetch(API + '?action=delete&id=' + r.id, { mode: 'no-cors' })
-        .then(function() {
-          _reportCache = null;
-          _reportCacheTime = 0;
-          showToast('已刪除');
-          w.remove();
-          var cur = parseInt(document.getElementById('adminCount').textContent.replace(/\D/g, '')) || 0;
-          document.getElementById('adminCount').textContent = '共 ' + Math.max(0, cur - 1) + ' 筆';
-        })
-        .catch(function() {
-          showToast('網路錯誤');
-          delBtn.textContent = '🗑 刪除'; delBtn.disabled = false;
-        });
+      fetch(API + '?action=delete&id=' + r.id, { mode: 'no-cors' }).catch(function(){});
+      // no-cors 無法確認結果，直接樂觀刪除
+      showToast('已刪除');
+      _reportCache = null;
+      _reportCacheTime = 0;
+      w.remove();
+      // 1秒後重新載入確保同步
+      setTimeout(function() {
+        if (document.getElementById('pageReporterDetail').classList.contains('show')) {
+          loadAllReports();
+        }
+      }, 1000);
     }; })(rpt, wrap);
     aw.appendChild(delBtn);
   }
@@ -2094,32 +2096,44 @@ function saveEdit() {
   }
 
   function doSend() {
-    // 先送無照片版確保 metadata 存入（GET，最可靠）
-    var expNoPhoto = exp.map(function(e) {
-      return {item:e.item, inv:e.inv, cash:e.cash, card:e.card,
-              photoCount: e.photos ? e.photos.length : 0};
-    });
-    var patchNoPhoto = JSON.parse(JSON.stringify(patchData));
-    patchNoPhoto.expenses = expNoPhoto;
-    var metaStr = JSON.stringify({action:'edit', data:patchNoPhoto});
-    if (metaStr.length < 7000) {
-      fetch(API + '?payload=' + encodeURIComponent(metaStr), {mode:'no-cors'}).catch(function(){});
-    } else {
-      var f1 = new FormData();
-      f1.append('payload', metaStr);
-      fetch(API, {method:'POST', body:f1, mode:'no-cors'}).catch(function(){});
-    }
-    // 若有照片，2秒後再送含照片版
     var hasPhotos = exp.some(function(e){ return e.photos && e.photos.length; });
-    if (hasPhotos) {
+    if (!hasPhotos) {
+      // 無照片：直接送，1秒後 finish
+      var metaStr = JSON.stringify({action:'edit', data:patchData});
+      if (metaStr.length < 7000) {
+        fetch(API + '?payload=' + encodeURIComponent(metaStr), {mode:'no-cors'}).catch(function(){});
+      } else {
+        var f1 = new FormData();
+        f1.append('payload', metaStr);
+        fetch(API, {method:'POST', body:f1, mode:'no-cors'}).catch(function(){});
+      }
+      setTimeout(finish, 1000);
+    } else {
+      // 有照片：先送無照片版，3秒後送含照片版，4秒後 finish
+      var expNoPhoto = exp.map(function(e) {
+        return {item:e.item, inv:e.inv, cash:e.cash, card:e.card,
+                photoCount: e.photos ? e.photos.length : 0};
+      });
+      var patchNoPhoto = JSON.parse(JSON.stringify(patchData));
+      patchNoPhoto.expenses = expNoPhoto;
+      var metaStr2 = JSON.stringify({action:'edit', data:patchNoPhoto});
+      if (metaStr2.length < 7000) {
+        fetch(API + '?payload=' + encodeURIComponent(metaStr2), {mode:'no-cors'}).catch(function(){});
+      } else {
+        var f3 = new FormData();
+        f3.append('payload', metaStr2);
+        fetch(API, {method:'POST', body:f3, mode:'no-cors'}).catch(function(){});
+      }
+      // 3秒後送含照片版
       setTimeout(function() {
         patchData.expenses = exp;
         var f2 = new FormData();
         f2.append('payload', JSON.stringify({action:'edit', data:patchData}));
         fetch(API, {method:'POST', body:f2, mode:'no-cors'}).catch(function(){});
-      }, 2000);
+      }, 3000);
+      // 4秒後 finish（確保照片版已送出）
+      setTimeout(finish, 4000);
     }
-    setTimeout(finish, 1500);
   }
 
   // 有照片先壓縮

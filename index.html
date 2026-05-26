@@ -352,8 +352,10 @@ function loadPhotos(rptId, wrap) {
       img.onclick = (function(s){ return function(e){ e.stopPropagation(); openPhotoOverlay(s); }; })(src);
       wrap.appendChild(img);
     });
+    // 有照片才顯示容器
+    var container = wrap.parentNode;
+    if (container) container.style.display = '';
   }
-  // 直接從 GAS 抓（不用快取，確保穩定）
   fetch(API + '?action=getphotos&id=' + rptId + '&t=' + Date.now())
     .then(function(r){ return r.json(); })
     .then(function(res){
@@ -388,7 +390,7 @@ function showToast(msg) {
   t._timer = setTimeout(function() { t.classList.remove('show'); }, 2500);
 }
 
-var API = 'https://script.google.com/macros/s/AKfycbzK2QLztdqee4GF9fnDJX0l8AdPOWRqQhvJU_RW2xWD0qeo5jlBd5sEVBHfRFByLdQA/exec';
+var API = 'https://script.google.com/macros/s/AKfycbzgzexM9c-8oKwwGcyxqnvV3Mdlsv3pb5XZRkMewmbR2M0ScPmwHFW9mW0pu0cnHMT6/exec';
 var ADMIN_PW = '86617383';
 var REPORTERS_KEY = 'gas_reporters';
 var currentReporter = '';
@@ -1195,10 +1197,9 @@ function renderSimpleView(data, containerEl, isAdmin) {
           chk.onchange = syncSelAll;
         }
         listArea.appendChild(card);
-        // 統一用 loadPhotos 載入照片（每次都重新載入）
+        // 所有報表都嘗試載入照片
         var _pw = body ? body.querySelector('[data-rpt-id]') : null;
-        if (_pw) {
-          _pw.dataset.loaded = '0'; // 強制重新載入
+        if (_pw && _pw.dataset.loaded !== '1') {
           loadPhotos(_pw.dataset.rptId, _pw);
         }
       } catch(e) {}
@@ -1465,23 +1466,32 @@ function buildCard(rpt, isAdminView) {
       if (e.photos && e.photos.length) totalPhotoCount += e.photos.length;
       else if (e.photoCount) totalPhotoCount += e.photoCount;
     });
-    if (totalPhotoCount === 0 && rpt.expenses && rpt.expenses.length) {
-      // 除錯：顯示第一筆 expense 的 photoCount
-      var _dbg = rpt.expenses[0];
-      showToast('id:' + rpt.id + ' photoCount:' + (_dbg.photoCount||'N/A') + ' photos:' + ((_dbg.photos||[]).length));
-    }
-    if (totalPhotoCount > 0) {
-      var photoContainer = document.createElement('div');
-      photoContainer.className = 'rbs';
-      photoContainer.innerHTML = '<div class="rbl">發票照片</div>';
-      var photoWrap = document.createElement('div');
-      photoWrap.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;margin-top:4px';
-      photoWrap.dataset.rptId = rpt.id;
-      photoWrap.dataset.loaded = '0';
-      // inline 照片存入快取（供 loadPhotos 使用）
-      if (allPhotos.length > 0) {
-        _photoCache[String(rpt.id)] = allPhotos.slice();
-      }
+    // 不靠 photoCount（GAS noPhotos 模式不回傳）
+    // 改成：有 inline 照片就顯示，或嘗試從 GAS 載入
+    var photoContainer = document.createElement('div');
+    photoContainer.className = 'rbs';
+    photoContainer.innerHTML = '<div class="rbl">發票照片</div>';
+    var photoWrap = document.createElement('div');
+    photoWrap.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;margin-top:4px';
+    photoWrap.dataset.rptId = rpt.id;
+    photoWrap.dataset.loaded = '0';
+    if (allPhotos.length > 0) {
+      // inline 照片直接顯示
+      _photoCache[String(rpt.id)] = allPhotos.slice();
+      photoWrap.dataset.loaded = '1';
+      allPhotos.forEach(function(src) {
+        if (!src) return;
+        var img = document.createElement('img');
+        img.src = src;
+        img.style.cssText = 'width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--br);cursor:pointer;flex-shrink:0';
+        img.onclick = (function(s){ return function(){ openPhotoOverlay(s); }; })(src);
+        photoWrap.appendChild(img);
+      });
+      photoContainer.appendChild(photoWrap);
+      body.appendChild(photoContainer);
+    } else {
+      // 先隱藏容器，載入後若有照片才顯示
+      photoContainer.style.display = 'none';
       photoContainer.appendChild(photoWrap);
       body.appendChild(photoContainer);
     }

@@ -338,6 +338,7 @@ table.st{width:100%;border-collapse:collapse;border-top:1.5px solid var(--bd)}
 <script>
 // ===== 統一照片載入函數（唯一入口）=====
 function loadPhotos(rptId, wrap) {
+  rptId = String(rptId); // 統一字串
   if (!rptId || !wrap) return;
   if (wrap.dataset.loaded === '1') return; // 防重複
   wrap.dataset.loaded = '1';
@@ -352,8 +353,10 @@ function loadPhotos(rptId, wrap) {
       wrap.appendChild(img);
     });
   }
-  if (_photoCache[rptId] && _photoCache[rptId].length) {
-    renderPhotos(_photoCache[rptId]);
+  // 查快取（同時試字串和數字 key）
+  var cached = _photoCache[rptId] || _photoCache[Number(rptId)];
+  if (cached && cached.length) {
+    renderPhotos(cached);
   } else {
     fetch(API + '?action=getphotos&id=' + rptId + '&t=' + Date.now())
       .then(function(r){ return r.json(); })
@@ -1463,7 +1466,7 @@ function buildCard(rpt, isAdminView) {
       photoWrap.dataset.loaded = '0';
       // inline 照片存入快取（供 loadPhotos 使用）
       if (allPhotos.length > 0) {
-        _photoCache[rpt.id] = allPhotos.slice();
+        _photoCache[String(rpt.id)] = allPhotos.slice();
       }
       photoContainer.appendChild(photoWrap);
       body.appendChild(photoContainer);
@@ -1515,16 +1518,16 @@ function buildCard(rpt, isAdminView) {
       if (!confirm('確定要刪除這份報表嗎？')) return;
       delBtn.textContent = '刪除中…'; delBtn.disabled = true;
       fetch(API + '?action=delete&id=' + r.id, { mode: 'no-cors' }).catch(function(){});
-      // no-cors 無法確認結果，直接樂觀刪除
       showToast('已刪除');
       _reportCache = null;
       _reportCacheTime = 0;
-      w.remove();
+      w.remove(); // 立即移除卡片
       // 1秒後重新載入確保同步
       setTimeout(function() {
-        if (document.getElementById('pageReporterDetail').classList.contains('show')) {
-          loadAllReports();
-        }
+        if (document.getElementById('pageAdmin').classList.contains('show')) loadAllReports();
+        else if (document.getElementById('pageReporterDetail').classList.contains('show')) loadAllReports();
+        else loadHistory();
+        setTimeout(loadAccum, 500);
       }, 1000);
     }; })(rpt, wrap);
     aw.appendChild(delBtn);
@@ -2084,8 +2087,8 @@ function saveEdit() {
     // 儲存新照片到快取（讓重新載入後能顯示）
     var newPhotos = [];
     exp.forEach(function(e){ (e.photos||[]).forEach(function(src){ if(src) newPhotos.push(src); }); });
-    if (newPhotos.length) _photoCache[editingId] = newPhotos;
-    else delete _photoCache[editingId];
+    if (newPhotos.length) _photoCache[String(editingId)] = newPhotos;
+    else { delete _photoCache[editingId]; delete _photoCache[String(editingId)]; }
     closeEditModal();
     _reportCache = null;
     _reportCacheTime = 0;

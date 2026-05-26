@@ -1510,6 +1510,7 @@ function buildCard(rpt, isAdminView) {
       e.stopPropagation();
       if (!confirm('確定要刪除這份報表嗎？')) return;
       delBtn.textContent = '刪除中…'; delBtn.disabled = true;
+      showToast('刪除id:' + r.id + ' rpt:' + (r.reporter||'?') + ' ' + (r.project||'?').slice(0,6));
       fetch(API + '?action=delete&id=' + r.id, { mode: 'no-cors' })
         .then(function() {
           _reportCache = null;
@@ -1738,29 +1739,33 @@ function doOpenEditModal(rpt) {
   document.getElementById('editModal').classList.add('show');
 
   // 非同步載入照片
-  var needPhotos = exp.some(function(ex){ return ex.photoCount > 0; });
-  if (needPhotos) {
-    function applyPhotos(allP) {
-      var pi = 0;
-      exp.forEach(function(ex, ei) {
-        var epIdx = 'ep' + ei;
-        var count = ex.photoCount || 0;
-        if (!count) return;
-        var photos = [];
-        for (var i = 0; i < count && pi < allP.length; i++, pi++) {
-          photos.push(allP[pi]);
-        }
-        window._editExpPhotoMap[epIdx] = photos;
-        var ec = document.querySelector('[data-ep-idx="' + epIdx + '"]');
-        if (!ec) return;
-        var row = ec.querySelector('.inv-photos-row');
-        if (!row) return;
-        renderEditInvPhotos(row, epIdx);
-      });
-    }
-    // 先查快取
-    if (_photoCache[rpt.id] && _photoCache[rpt.id].length) {
-      applyPhotos(_photoCache[rpt.id]);
+  // 計算照片總數（含舊有和快取）
+  var totalEditPhotos = exp.reduce(function(s,e){ return s+(e.photoCount||0); }, 0);
+  // 若快取有照片，直接用
+  var cachedPhotos = _photoCache[rpt.id] && _photoCache[rpt.id].length ? _photoCache[rpt.id] : null;
+
+  function applyPhotos(allP) {
+    var pi = 0;
+    exp.forEach(function(ex, ei) {
+      var epIdx = 'ep' + ei;
+      var count = ex.photoCount || 0;
+      if (!count) return;
+      var photos = [];
+      for (var i = 0; i < count && pi < allP.length; i++, pi++) {
+        photos.push(allP[pi]);
+      }
+      window._editExpPhotoMap[epIdx] = photos;
+      var ec = document.querySelector('[data-ep-idx="' + epIdx + '"]');
+      if (!ec) return;
+      var row = ec.querySelector('.inv-photos-row');
+      if (!row) return;
+      renderEditInvPhotos(row, epIdx);
+    });
+  }
+
+  if (totalEditPhotos > 0) {
+    if (cachedPhotos) {
+      applyPhotos(cachedPhotos);
     } else {
       fetch(API + '?action=getphotos&id=' + rpt.id + '&t=' + Date.now())
         .then(function(r) { return r.json(); })
@@ -2074,10 +2079,14 @@ function saveEdit() {
   function finish() {
     btn.textContent = '儲存'; btn.disabled = false;
     showToast('已更新！');
+    // 儲存新照片到快取（讓重新載入後能顯示）
+    var newPhotos = [];
+    exp.forEach(function(e){ (e.photos||[]).forEach(function(src){ if(src) newPhotos.push(src); }); });
+    if (newPhotos.length) _photoCache[editingId] = newPhotos;
+    else delete _photoCache[editingId];
     closeEditModal();
     _reportCache = null;
     _reportCacheTime = 0;
-    delete _photoCache[editingId];
     setTimeout(function() {
       if (document.getElementById('pageAdmin').classList.contains('show')) loadAllReports();
       else { loadHistory(); }

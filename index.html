@@ -390,7 +390,7 @@ function showToast(msg) {
   t._timer = setTimeout(function() { t.classList.remove('show'); }, 2500);
 }
 
-var API = 'https://script.google.com/macros/s/AKfycbzgzexM9c-8oKwwGcyxqnvV3Mdlsv3pb5XZRkMewmbR2M0ScPmwHFW9mW0pu0cnHMT6/exec';
+var API = 'https://script.google.com/macros/s/AKfycbyLyP1K1xO6ez_Axa9nVDGw5HuQzbKZSooKT_6K3nD6ymkbvUgmpgf2ea3Y81fHx34v/exec';
 var ADMIN_PW = '86617383';
 var REPORTERS_KEY = 'gas_reporters';
 var currentReporter = '';
@@ -2133,44 +2133,18 @@ function saveEdit() {
   }
 
   function doSend() {
-    var hasPhotos = exp.some(function(e){ return e.photos && e.photos.length; });
-    if (!hasPhotos) {
-      // 無照片：直接送，1秒後 finish
-      var metaStr = JSON.stringify({action:'edit', data:patchData});
-      if (metaStr.length < 7000) {
-        fetch(API + '?payload=' + encodeURIComponent(metaStr), {mode:'no-cors'}).catch(function(){});
-      } else {
-        var f1 = new FormData();
-        f1.append('payload', metaStr);
-        fetch(API, {method:'POST', body:f1, mode:'no-cors'}).catch(function(){});
-      }
-      setTimeout(finish, 1000);
+    patchData.expenses = exp;
+    var payloadStr = JSON.stringify({action:'edit', data:patchData});
+    if (payloadStr.length < 7000) {
+      // 小 payload 用 GET
+      fetch(API + '?payload=' + encodeURIComponent(payloadStr), {mode:'no-cors'}).catch(function(){});
     } else {
-      // 有照片：先送無照片版，3秒後送含照片版，4秒後 finish
-      var expNoPhoto = exp.map(function(e) {
-        return {item:e.item, inv:e.inv, cash:e.cash, card:e.card,
-                photoCount: e.photos ? e.photos.length : 0};
-      });
-      var patchNoPhoto = JSON.parse(JSON.stringify(patchData));
-      patchNoPhoto.expenses = expNoPhoto;
-      var metaStr2 = JSON.stringify({action:'edit', data:patchNoPhoto});
-      if (metaStr2.length < 7000) {
-        fetch(API + '?payload=' + encodeURIComponent(metaStr2), {mode:'no-cors'}).catch(function(){});
-      } else {
-        var f3 = new FormData();
-        f3.append('payload', metaStr2);
-        fetch(API, {method:'POST', body:f3, mode:'no-cors'}).catch(function(){});
-      }
-      // 3秒後送含照片版
-      setTimeout(function() {
-        patchData.expenses = exp;
-        var f2 = new FormData();
-        f2.append('payload', JSON.stringify({action:'edit', data:patchData}));
-        fetch(API, {method:'POST', body:f2, mode:'no-cors'}).catch(function(){});
-      }, 3000);
-      // 4秒後 finish（確保照片版已送出）
-      setTimeout(finish, 4000);
+      // 大 payload（含照片）用 FormData POST
+      var form = new FormData();
+      form.append('payload', payloadStr);
+      fetch(API, {method:'POST', body:form, mode:'no-cors'}).catch(function(){});
     }
+    setTimeout(finish, 2000);
   }
 
   // 有照片先壓縮

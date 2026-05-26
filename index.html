@@ -338,9 +338,9 @@ table.st{width:100%;border-collapse:collapse;border-top:1.5px solid var(--bd)}
 <script>
 // ===== 統一照片載入函數（唯一入口）=====
 function loadPhotos(rptId, wrap) {
-  rptId = String(rptId); // 統一字串
+  rptId = String(rptId);
   if (!rptId || !wrap) return;
-  if (wrap.dataset.loaded === '1') return; // 防重複
+  if (wrap.dataset.loaded === '1') return;
   wrap.dataset.loaded = '1';
   function renderPhotos(photos) {
     wrap.innerHTML = '';
@@ -353,19 +353,14 @@ function loadPhotos(rptId, wrap) {
       wrap.appendChild(img);
     });
   }
-  // 查快取（同時試字串和數字 key）
-  var cached = _photoCache[rptId] || _photoCache[Number(rptId)];
-  if (cached && cached.length) {
-    renderPhotos(cached);
-  } else {
-    fetch(API + '?action=getphotos&id=' + rptId + '&t=' + Date.now())
-      .then(function(r){ return r.json(); })
-      .then(function(res){
-        if (!res.ok || !res.photos || !res.photos.length) return;
-        _photoCache[rptId] = res.photos;
-        renderPhotos(res.photos);
-      }).catch(function(){});
-  }
+  // 直接從 GAS 抓（不用快取，確保穩定）
+  fetch(API + '?action=getphotos&id=' + rptId + '&t=' + Date.now())
+    .then(function(r){ return r.json(); })
+    .then(function(res){
+      if (!res.ok || !res.photos || !res.photos.length) return;
+      _photoCache[rptId] = res.photos;
+      renderPhotos(res.photos);
+    }).catch(function(){});
 }
 
 function esc(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
@@ -1164,8 +1159,19 @@ function renderSimpleView(data, containerEl, isAdmin) {
       });
       // 再重新載入確保同步
       setTimeout(function() {
-        if (isAdmin) loadAllReports();
-        else { loadHistory(); setTimeout(loadAccum, 1000); }
+        var curReporter = document.getElementById('reporterDetailTitle') ?
+          document.getElementById('reporterDetailTitle').textContent.replace(' 日報表','') : '';
+        if (isAdmin && document.getElementById('pageReporterDetail').classList.contains('show') && curReporter) {
+          fetchReports(true).then(function(data) {
+            allReports = data;
+            showReporterDetail(curReporter);
+          }).catch(function(){});
+        } else if (isAdmin) {
+          loadAllReports();
+        } else {
+          loadHistory();
+          setTimeout(loadAccum, 1000);
+        }
       }, 1200);
     }, 500);
   };
@@ -1189,9 +1195,12 @@ function renderSimpleView(data, containerEl, isAdmin) {
           chk.onchange = syncSelAll;
         }
         listArea.appendChild(card);
-        // 統一用 loadPhotos 載入照片
-        var _pw = body ? body.querySelector('[data-rpt-id][data-loaded="0"]') : null;
-        if (_pw) loadPhotos(_pw.dataset.rptId, _pw);
+        // 統一用 loadPhotos 載入照片（每次都重新載入）
+        var _pw = body ? body.querySelector('[data-rpt-id]') : null;
+        if (_pw) {
+          _pw.dataset.loaded = '0'; // 強制重新載入
+          loadPhotos(_pw.dataset.rptId, _pw);
+        }
       } catch(e) {}
     });
   }
@@ -1524,9 +1533,19 @@ function buildCard(rpt, isAdminView) {
       w.remove(); // 立即移除卡片
       // 1秒後重新載入確保同步
       setTimeout(function() {
-        if (document.getElementById('pageAdmin').classList.contains('show')) loadAllReports();
-        else if (document.getElementById('pageReporterDetail').classList.contains('show')) loadAllReports();
-        else loadHistory();
+        var curReporter = document.getElementById('reporterDetailTitle') ?
+          document.getElementById('reporterDetailTitle').textContent.replace(' 日報表','') : '';
+        if (document.getElementById('pageReporterDetail').classList.contains('show') && curReporter) {
+          // 重新載入並刷新詳情頁
+          fetchReports(true).then(function(data) {
+            allReports = data;
+            showReporterDetail(curReporter);
+          }).catch(function(){});
+        } else if (document.getElementById('pageAdmin').classList.contains('show')) {
+          loadAllReports();
+        } else {
+          loadHistory();
+        }
         setTimeout(loadAccum, 500);
       }, 1000);
     }; })(rpt, wrap);

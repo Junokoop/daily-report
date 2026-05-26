@@ -1060,8 +1060,18 @@ function renderSimpleView(data, containerEl, isAdmin) {
   }
 
   function parseDate(d) {
-    var m = String(d||'').match(/(\d+)年(\d+)月(\d+)日/);
-    return m ? {y:m[1], mo:String(parseInt(m[2])), full:d} : {y:'0', mo:'0', full:d};
+    var s = String(d||'');
+    // 標準格式：115年5月1日
+    var m = s.match(/(\d+)年(\d+)月(\d+)日/);
+    if (m) return {y:m[1]+'年', mo:String(parseInt(m[2]))+'月', full:s};
+    // 英文格式：Sun May 26 2026... 或其他
+    var m2 = s.match(/20(\d{2})/);
+    if (m2) {
+      // 西元年轉民國年
+      var yr = parseInt('20'+m2[1]) - 1911;
+      return {y:yr+'年', mo:'未知月', full:s};
+    }
+    return {y:'未知', mo:'未知', full:s};
   }
 
   var years = [], yearData = {};
@@ -1443,7 +1453,7 @@ function deleteReport(id, onSuccess, onFail) {
 function buildCard(rpt, isAdminView) {
   var wrap = document.createElement('div'); wrap.className = 'report-card';
   var head = document.createElement('div'); head.className = 'report-head';
-  head.innerHTML = '<input type="checkbox" class="batch-check" data-rpt-id="' + rpt.id + '" style="margin-right:8px;width:18px;height:18px;accent-color:var(--red);cursor:pointer;flex-shrink:0"><div class="report-meta"><div class="r-project">' + esc(rpt.project) + '</div><div class="r-sub">' + esc(rpt.date) + ' | ' + esc(rpt.reporter) + '</div></div><span class="report-arrow">›</span>';
+  head.innerHTML = '<input type="checkbox" class="batch-check" data-rpt-id="' + rpt.id + '" style="margin-right:8px;width:18px;height:18px;accent-color:var(--red);cursor:pointer;flex-shrink:0"><div class="report-meta"><div class="r-project">' + esc(rpt.project) + '</div><div class="r-sub">' + (String(rpt.date||'').match(/(\d+年\d+月\d+日)/) ? String(rpt.date).match(/(\d+年\d+月\d+日)/)[1] : esc(rpt.date)) + ' | ' + esc(rpt.reporter) + '</div></div><span class="report-arrow">›</span>';
   var body = document.createElement('div'); body.className = 'report-body';
   var totalPhotoCount = 0; // 初始化，避免 if 外 ReferenceError
   if (rpt.workItems) body.innerHTML += '<div class="rbs"><div class="rbl">施工項目</div><div class="rbc">' + esc(rpt.workItems) + '</div></div>';
@@ -1466,36 +1476,18 @@ function buildCard(rpt, isAdminView) {
       if (e.photos && e.photos.length) totalPhotoCount += e.photos.length;
       else if (e.photoCount) totalPhotoCount += e.photoCount;
     });
-    // 不靠 photoCount（GAS noPhotos 模式不回傳）
-    // 改成：有 inline 照片就顯示，或嘗試從 GAS 載入
-    var photoContainer = document.createElement('div');
-    photoContainer.className = 'rbs';
-    photoContainer.innerHTML = '<div class="rbl">發票照片</div>';
-    var photoWrap = document.createElement('div');
-    photoWrap.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;margin-top:4px';
-    photoWrap.dataset.rptId = rpt.id;
-    photoWrap.dataset.loaded = '0';
-    if (allPhotos.length > 0) {
-      // inline 照片直接顯示
-      _photoCache[String(rpt.id)] = allPhotos.slice();
-      photoWrap.dataset.loaded = '1';
-      allPhotos.forEach(function(src) {
-        if (!src) return;
-        var img = document.createElement('img');
-        img.src = src;
-        img.style.cssText = 'width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--br);cursor:pointer;flex-shrink:0';
-        img.onclick = (function(s){ return function(){ openPhotoOverlay(s); }; })(src);
-        photoWrap.appendChild(img);
-      });
-      photoContainer.appendChild(photoWrap);
-      body.appendChild(photoContainer);
-    } else {
-      // 先隱藏容器，載入後若有照片才顯示
-      photoContainer.style.display = 'none';
-      photoContainer.appendChild(photoWrap);
-      body.appendChild(photoContainer);
-    }
   }
+  // 照片容器（不靠 expenses，一定建立）
+  var photoContainer = document.createElement('div');
+  photoContainer.className = 'rbs';
+  photoContainer.innerHTML = '<div class="rbl">發票照片</div>';
+  var photoWrap = document.createElement('div');
+  photoWrap.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;margin-top:4px';
+  photoWrap.dataset.rptId = String(rpt.id);
+  photoWrap.dataset.loaded = '0';
+  photoContainer.style.display = 'none'; // 先隱藏，有照片才顯示
+  photoContainer.appendChild(photoWrap);
+  body.appendChild(photoContainer);
   var settlDiv = document.createElement('div');
   settlDiv.className = 'rbs';
   // 計算上筆結餘和本日接收

@@ -1465,6 +1465,11 @@ function buildCard(rpt, isAdminView) {
       if (e.photos && e.photos.length) totalPhotoCount += e.photos.length;
       else if (e.photoCount) totalPhotoCount += e.photoCount;
     });
+    if (totalPhotoCount === 0 && rpt.expenses && rpt.expenses.length) {
+      // 除錯：顯示第一筆 expense 的 photoCount
+      var _dbg = rpt.expenses[0];
+      showToast('id:' + rpt.id + ' photoCount:' + (_dbg.photoCount||'N/A') + ' photos:' + ((_dbg.photos||[]).length));
+    }
     if (totalPhotoCount > 0) {
       var photoContainer = document.createElement('div');
       photoContainer.className = 'rbs';

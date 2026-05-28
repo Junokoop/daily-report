@@ -788,20 +788,11 @@ function submitReport() {
 
   if (!flat.length) {
     var payloadStr = JSON.stringify({action:'add', data:report});
-    // 用 redirect 模式送出，可以收到 GAS 回應
-    fetch(API, {
-      method: 'POST',
-      body: new URLSearchParams({payload: payloadStr}),
-      redirect: 'follow'
-    }).then(function(r){ return r.json(); })
-    .then(function(res){
-      if (res.ok) { onDone('報表已成功上傳！'); }
-      else { onDone('上傳失敗：' + (res.error||'未知錯誤')); }
-    }).catch(function(err){
-      // 可能是 CORS 問題，但資料已送出
-      onDone('報表已送出（請確認）');
-    });
-    setTimeout(function(){ if (btn && btn.disabled) onDone('報表已送出'); }, 5000);
+    // 送出報表
+    var f0 = new FormData();
+    f0.append('payload', payloadStr);
+    fetch(API, {method:'POST', body:f0, mode:'no-cors'}).catch(function(){});
+    setTimeout(onDone, 2000);
     return;
   }
 

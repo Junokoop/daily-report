@@ -6,7 +6,7 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>施工日報表 v2.2</title>
+<title>施工日報表 v2.3</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{--bd:#6b7280;--hbg:#f3f4f6;--ac:#374151;--tx:#111827;--mu:#9ca3af;--ib:#ffffff;--st:#f9fafb;--br:#e5e7eb;--grn:#2d6a4f;--red:#9b2226}
@@ -112,6 +112,18 @@ table.st{width:100%;border-collapse:collapse;border-top:1.5px solid var(--bd)}
 .home-field{display:flex;flex-direction:column;gap:8px}
 .home-label{font-size:13px;font-weight:700;color:var(--mu);letter-spacing:.05em}
 .home-select{width:100%;padding:14px 12px;border:1.5px solid var(--br);border-radius:12px;font-size:16px;font-weight:700;background:#f9fafb;cursor:pointer;color:var(--tx);-webkit-appearance:none;appearance:none;text-align:center;text-align-last:center;-webkit-text-align-last:center;box-sizing:border-box}
+.custom-sel-wrap{position:relative;width:100%}
+.custom-sel-btn{width:100%;padding:14px 40px 14px 14px;border:1.5px solid var(--br);border-radius:12px;font-size:16px;font-weight:700;background:#f9fafb;cursor:pointer;color:var(--mu);text-align:center;box-sizing:border-box;display:flex;align-items:center;justify-content:center;gap:8px;transition:border-color .15s,background .15s;-webkit-tap-highlight-color:transparent;user-select:none;border:none;outline:none;position:relative}
+.custom-sel-btn.selected{color:var(--tx)}
+.custom-sel-btn .sel-arrow{font-size:12px;color:var(--mu);transition:transform .2s;position:absolute;right:14px}
+.custom-sel-btn.open .sel-arrow{transform:rotate(180deg)}
+.custom-sel-outer{border:1.5px solid var(--br);border-radius:12px;overflow:visible;position:relative}
+.custom-sel-outer.open{border-color:var(--ac)}
+.custom-sel-drop{position:absolute;top:calc(100% + 6px);left:0;right:0;background:#fff;border:1.5px solid var(--br);border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.15);z-index:300;overflow:hidden;display:none}
+.custom-sel-drop.open{display:block}
+.custom-sel-opt{padding:14px 16px;font-size:16px;font-weight:700;cursor:pointer;text-align:center;color:var(--tx);transition:background .1s;-webkit-tap-highlight-color:transparent}
+.custom-sel-opt:not(:last-child){border-bottom:1px solid var(--br)}
+.custom-sel-opt:active,.custom-sel-opt:hover{background:var(--hbg)}
 .home-divider{display:flex;align-items:center;gap:12px;color:var(--mu);font-size:13px}
 .home-divider::before,.home-divider::after{content:'';flex:1;height:1px;background:var(--br)}
 .reporter-mgmt{padding:12px 14px;display:flex;flex-direction:column;gap:8px}
@@ -190,10 +202,12 @@ table.st{width:100%;border-collapse:collapse;border-top:1.5px solid var(--bd)}
     <div class="home-card">
       <div class="home-field">
         <label class="home-label">&#x1F464; 填報者</label>
-        <div style="position:relative;width:100%">
-          <select id="reporterSelect" onchange="onReporterSelectChange(this.value)" class="home-select">
-            <option value="">── 請選擇填報者 ──</option>
-          </select>
+        <div class="custom-sel-outer" id="reporterSelOuter">
+          <button type="button" class="custom-sel-btn" id="reporterSelBtn" onclick="toggleReporterDrop()">
+            <span id="reporterSelLabel">── 請選擇填報者 ──</span>
+            <span class="sel-arrow">▼</span>
+          </button>
+          <div class="custom-sel-drop" id="reporterSelDrop"></div>
         </div>
       </div>
       <div class="home-divider"><span>或</span></div>
@@ -442,15 +456,51 @@ function saveReporters(arr) {
 
 function renderSelectPage(){
   var reporters = getReporters();
-  var sel = document.getElementById('reporterSelect');
-  if (!sel) return;
-  sel.innerHTML = '<option value="">── 請選擇填報者 ──</option>';
+  var drop = document.getElementById('reporterSelDrop');
+  if (!drop) return;
+  drop.innerHTML = '';
   reporters.forEach(function(r) {
-    var opt = document.createElement('option');
-    opt.value = r;
+    var opt = document.createElement('div');
+    opt.className = 'custom-sel-opt';
     opt.textContent = r;
-    sel.appendChild(opt);
+    opt.onclick = function() { selectReporterFromDrop(r); };
+    drop.appendChild(opt);
   });
+}
+
+function toggleReporterDrop() {
+  var btn = document.getElementById('reporterSelBtn');
+  var drop = document.getElementById('reporterSelDrop');
+  var outer = document.getElementById('reporterSelOuter');
+  if (!btn || !drop) return;
+  var isOpen = drop.classList.contains('open');
+  if (isOpen) {
+    drop.classList.remove('open');
+    btn.classList.remove('open');
+    outer.classList.remove('open');
+  } else {
+    drop.classList.add('open');
+    btn.classList.add('open');
+    outer.classList.add('open');
+  }
+}
+
+function closeReporterDrop() {
+  var btn = document.getElementById('reporterSelBtn');
+  var drop = document.getElementById('reporterSelDrop');
+  var outer = document.getElementById('reporterSelOuter');
+  if (drop) drop.classList.remove('open');
+  if (btn) btn.classList.remove('open');
+  if (outer) outer.classList.remove('open');
+}
+
+function selectReporterFromDrop(name) {
+  var label = document.getElementById('reporterSelLabel');
+  var btn = document.getElementById('reporterSelBtn');
+  if (label) label.textContent = name;
+  if (btn) btn.classList.add('selected');
+  closeReporterDrop();
+  selectReporter(name);
 }
 
 function onReporterSelectChange(val) {
@@ -479,6 +529,12 @@ function goHome() {
   document.getElementById('navTitle').textContent = '施工日報';
   setNavMode('none');
   renderSelectPage();
+  // 重置自製下拉
+  var label = document.getElementById('reporterSelLabel');
+  var btn = document.getElementById('reporterSelBtn');
+  if (label) label.textContent = '── 請選擇填報者 ──';
+  if (btn) btn.classList.remove('selected');
+  closeReporterDrop();
   showRawPage('pageSelect');
 }
 
@@ -1788,7 +1844,8 @@ function doOpenEditModal(rpt) {
 
   exp.forEach(function(ex, ei) {
     var epIdx = 'ep' + ei;
-    window._editExpPhotoMap[epIdx] = ex.photos ? ex.photos.slice() : [];
+    // 優先用 inline photos；若只有 photoCount 則先留空（等非同步載入後填入）
+    window._editExpPhotoMap[epIdx] = (ex.photos && ex.photos.length) ? ex.photos.slice() : [];
   });
 
   // 建立出工人員 HTML
@@ -1852,21 +1909,32 @@ function doOpenEditModal(rpt) {
   document.getElementById('editModal').classList.add('show');
 
   // 非同步載入照片
-  // 計算照片總數（含舊有和快取）
-  var totalEditPhotos = exp.reduce(function(s,e){ return s+(e.photoCount||0); }, 0);
-  // 若快取有照片，直接用
-  var cachedPhotos = _photoCache[rpt.id] && _photoCache[rpt.id].length ? _photoCache[rpt.id] : null;
+  // 計算照片總數：同時考慮 photoCount 欄位和 inline photos 陣列
+  var totalEditPhotos = exp.reduce(function(s,e){
+    return s + (e.photoCount||0) + (e.photos&&e.photos.length ? e.photos.length : 0);
+  }, 0);
+  // 若快取有照片，直接用；若 expenses 本身帶有 inline photos，也視為有照片
+  var inlinePhotosFlat = [];
+  exp.forEach(function(e){ if(e.photos&&e.photos.length) inlinePhotosFlat = inlinePhotosFlat.concat(e.photos); });
+  var cachedPhotos = _photoCache[rpt.id] && _photoCache[rpt.id].length ? _photoCache[rpt.id] :
+                     (inlinePhotosFlat.length ? inlinePhotosFlat : null);
 
   function applyPhotos(allP) {
     var pi = 0;
     exp.forEach(function(ex, ei) {
       var epIdx = 'ep' + ei;
-      var count = ex.photoCount || 0;
-      if (!count) return;
+      // 優先用該 expense 本身的 inline photos；否則從 allP 按 photoCount 分配
       var photos = [];
-      for (var i = 0; i < count && pi < allP.length; i++, pi++) {
-        photos.push(allP[pi]);
+      if (ex.photos && ex.photos.length) {
+        photos = ex.photos.slice();
+      } else {
+        var count = ex.photoCount || 0;
+        if (!count) return;
+        for (var i = 0; i < count && pi < allP.length; i++, pi++) {
+          photos.push(allP[pi]);
+        }
       }
+      if (!photos.length) return;
       window._editExpPhotoMap[epIdx] = photos;
       var ec = document.querySelector('[data-ep-idx="' + epIdx + '"]');
       if (!ec) return;
@@ -2266,6 +2334,11 @@ function saveEdit() {
   renderSelectPage();
   showRawPage('pageSelect');
   setNavMode('none');
+  // 點選其他地方關閉自製下拉
+  document.addEventListener('click', function(e) {
+    var outer = document.getElementById('reporterSelOuter');
+    if (outer && !outer.contains(e.target)) closeReporterDrop();
+  });
 })();
 
 </script>

@@ -783,8 +783,14 @@ function submitReport() {
   });
 
   if (!flat.length) {
-    var url = API + '?payload=' + encodeURIComponent(JSON.stringify(report));
-    fetch(url, {mode:'no-cors'}).catch(function(){});
+    var payloadStr = JSON.stringify({action:'add', data:report});
+    if (payloadStr.length < 6000) {
+      fetch(API + '?payload=' + encodeURIComponent(payloadStr), {mode:'no-cors'}).catch(function(){});
+    } else {
+      var f0 = new FormData();
+      f0.append('payload', payloadStr);
+      fetch(API, {method:'POST', body:f0, mode:'no-cors'}).catch(function(){});
+    }
     setTimeout(onDone, 1500);
     return;
   }
@@ -803,7 +809,7 @@ function submitReport() {
 
   function doPost() {
     var form = new FormData();
-    form.append('payload', JSON.stringify(report));
+    form.append('payload', JSON.stringify({action:'add', data:report}));
     fetch(API, {method:'POST', body:form, mode:'no-cors'}).catch(function(){});
     setTimeout(onDone, 1500);
   }

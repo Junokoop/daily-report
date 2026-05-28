@@ -761,9 +761,9 @@ function submitReport() {
     uploadedAt: new Date().toISOString()
   };
 
-  function onDone() {
+  function onDone(msg) {
     if (btn) { btn.textContent = '上傳報表'; btn.disabled = false; }
-    showToast('報表已成功上傳！');
+    showToast(msg || '報表已成功上傳！');
     doReset();
     _reportCache = null;
     _reportCacheTime = 0;
@@ -784,14 +784,20 @@ function submitReport() {
 
   if (!flat.length) {
     var payloadStr = JSON.stringify({action:'add', data:report});
-    if (payloadStr.length < 6000) {
-      fetch(API + '?payload=' + encodeURIComponent(payloadStr), {mode:'no-cors'}).catch(function(){});
-    } else {
-      var f0 = new FormData();
-      f0.append('payload', payloadStr);
-      fetch(API, {method:'POST', body:f0, mode:'no-cors'}).catch(function(){});
-    }
-    setTimeout(onDone, 1500);
+    // 用 redirect 模式送出，可以收到 GAS 回應
+    fetch(API, {
+      method: 'POST',
+      body: new URLSearchParams({payload: payloadStr}),
+      redirect: 'follow'
+    }).then(function(r){ return r.json(); })
+    .then(function(res){
+      if (res.ok) { onDone('報表已成功上傳！'); }
+      else { onDone('上傳失敗：' + (res.error||'未知錯誤')); }
+    }).catch(function(err){
+      // 可能是 CORS 問題，但資料已送出
+      onDone('報表已送出（請確認）');
+    });
+    setTimeout(function(){ if (btn && btn.disabled) onDone('報表已送出'); }, 5000);
     return;
   }
 

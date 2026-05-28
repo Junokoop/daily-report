@@ -2226,11 +2226,18 @@ function saveEdit() {
   var totalCash = exp.reduce(function(s,e){return s+(e.cash||0);},0);
   var totalCard = exp.reduce(function(s,e){return s+(e.card||0);},0);
 
-  // 找原始資料比對修正項目
+  // 找原始資料比對修正項目（在任何修改前先找，確保找得到）
   var patchOrig = null;
-  var cacheArr = (_reportCache || []).concat(allReports || []);
-  for (var pi3 = 0; pi3 < cacheArr.length; pi3++) {
-    if (String(cacheArr[pi3].id) === String(editingId)) { patchOrig = cacheArr[pi3]; break; }
+  var _searchArrs = [_reportCache, allReports];
+  for (var _si = 0; _si < _searchArrs.length && !patchOrig; _si++) {
+    var _arr = _searchArrs[_si] || [];
+    for (var pi3 = 0; pi3 < _arr.length; pi3++) {
+      if (String(_arr[pi3].id) === String(editingId)) { patchOrig = _arr[pi3]; break; }
+    }
+  }
+  // 若快取完全找不到，用 editingId 建立最小 orig（確保 editedNote 不會因 null 而爆掉）
+  if (!patchOrig) {
+    patchOrig = { id: editingId, editedNote: '' };
   }
 
   var patchData = {
@@ -2270,42 +2277,98 @@ function saveEdit() {
 
   function finish() {
     btn.textContent = '儲存'; btn.disabled = false;
-    showToast('已更新！');
+
+    // 先將修改結果直接寫入本地快取，讓 UI 立即反映，不等 GAS
+    if (_reportCache) {
+      for (var ci = 0; ci < _reportCache.length; ci++) {
+        if (String(_reportCache[ci].id) === String(patchData.id)) {
+          // 合併更新欄位（保留未修改的欄位如 reporter、uploadedAt）
+          var cached = _reportCache[ci];
+          cached.date        = patchData.date;
+          cached.project     = patchData.project;
+          cached.workItems   = patchData.workItems;
+          cached.attendance  = patchData.attendance;
+          cached.expenses    = patchData.expenses;
+          cached.receiptCash = patchData.receiptCash;
+          cached.totalCash   = patchData.totalCash;
+          cached.totalCard   = patchData.totalCard;
+          cached.remaining   = patchData.remaining;
+          cached.receiptNote = patchData.receiptNote;
+          cached.editedAt    = patchData.editedAt;
+          cached.editedBy    = patchData.editedBy;
+          cached.editedNote  = patchData.editedNote;
+          break;
+        }
+      }
+    }
+    if (allReports) {
+      for (var ai = 0; ai < allReports.length; ai++) {
+        if (String(allReports[ai].id) === String(patchData.id)) {
+          var ar = allReports[ai];
+          ar.date        = patchData.date;
+          ar.project     = patchData.project;
+          ar.workItems   = patchData.workItems;
+          ar.attendance  = patchData.attendance;
+          ar.expenses    = patchData.expenses;
+          ar.receiptCash = patchData.receiptCash;
+          ar.totalCash   = patchData.totalCash;
+          ar.totalCard   = patchData.totalCard;
+          ar.remaining   = patchData.remaining;
+          ar.receiptNote = patchData.receiptNote;
+          ar.editedAt    = patchData.editedAt;
+          ar.editedBy    = patchData.editedBy;
+          ar.editedNote  = patchData.editedNote;
+          break;
+        }
+      }
+    }
+
+    // 更新照片快取
     var newPhotos = [];
     exp.forEach(function(e){ (e.photos||[]).forEach(function(src){ if(src) newPhotos.push(src); }); });
     if (newPhotos.length) _photoCache[String(editingId)] = newPhotos;
     else { delete _photoCache[editingId]; delete _photoCache[String(editingId)]; }
+
+    showToast('已更新！');
     closeEditModal();
-    _reportCache = null;
-    _reportCacheTime = 0;
-    // 等 GAS 寫入完成後再刷新
-    setTimeout(function() {
-      var curReporter = document.getElementById('reporterDetailTitle') ?
-        document.getElementById('reporterDetailTitle').textContent.replace(' 日報表','') : '';
-      if (document.getElementById('pageReporterDetail').classList.contains('show') && curReporter) {
-        showReporterDetail(curReporter);
-      } else if (document.getElementById('pageAdmin').classList.contains('show')) {
-        loadAllReports();
-      } else {
-        loadHistory();
-        setTimeout(loadAccum, 1000);
+
+    // 用本地快取立即刷新 UI（不清快取，不等 GAS）
+    var curReporter = document.getElementById('reporterDetailTitle') ?
+      document.getElementById('reporterDetailTitle').textContent.replace(' 日報表','') : '';
+    if (document.getElementById('pageReporterDetail').classList.contains('show') && curReporter) {
+      _renderReporterDetail(curReporter, _reportCache || allReports || []);
+      try { renderSummaryTable(_reportCache || allReports || []); } catch(e) {}
+    } else if (document.getElementById('pageAdmin').classList.contains('show')) {
+      try { renderSummaryTable(_reportCache || allReports || []); } catch(e) {}
+      try { renderNotifyList(_reportCache || allReports || []); } catch(e) {}
+    } else {
+      // 填報者紀錄頁：用快取直接 render
+      var myData = (_reportCache || allReports || []).filter(function(r){ return r.reporter === currentReporter; });
+      var listEl = document.getElementById('historyList');
+      if (listEl) {
+        document.getElementById('historyCount').textContent = '共 ' + myData.length + ' 筆';
+        listEl.innerHTML = '';
+        renderSimpleView(myData, listEl, false);
       }
-    }, 1500);
+      setTimeout(loadAccum, 500);
+    }
+
+    // 背景靜默清快取，5 秒後讓下次操作拿到最新 GAS 資料
+    setTimeout(function() {
+      _reportCache = null;
+      _reportCacheTime = 0;
+    }, 5000);
   }
 
   function doSend() {
     patchData.expenses = exp;
     var payloadStr = JSON.stringify({action:'edit', data:patchData});
-    if (payloadStr.length < 7000) {
-      // 小 payload 用 GET
-      fetch(API + '?payload=' + encodeURIComponent(payloadStr), {mode:'no-cors'}).catch(function(){});
-    } else {
-      // 大 payload（含照片）用 FormData POST
-      var form = new FormData();
-      form.append('payload', payloadStr);
-      fetch(API, {method:'POST', body:form, mode:'no-cors'}).catch(function(){});
-    }
-    setTimeout(finish, 2000);
+    // 統一用 POST FormData，避免 GET URL 過長或編碼問題
+    var form = new FormData();
+    form.append('payload', payloadStr);
+    fetch(API, {method:'POST', body:form, mode:'no-cors'}).catch(function(){});
+    // finish() 立即執行，不等 GAS 回應（UI 已從本地快取更新）
+    finish();
   }
 
   // 有照片先壓縮

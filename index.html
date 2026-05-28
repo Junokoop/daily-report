@@ -342,30 +342,28 @@ function loadPhotos(rptId, wrap) {
   if (!rptId || !wrap) return;
   if (wrap.dataset.loaded === '1') return;
   wrap.dataset.loaded = '1';
-  function renderPhotos(photos) {
-    wrap.innerHTML = '';
-    photos.forEach(function(src) {
-      if (!src) return;
-      var img = document.createElement('img');
-      img.style.cssText = 'width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--br);cursor:pointer;flex-shrink:0';
-      img.src = src;
-      img.onclick = (function(s){ return function(e){ e.stopPropagation(); openPhotoOverlay(s); }; })(src);
-      wrap.appendChild(img);
-    });
-    // 有照片：顯示容器（移除 display:none）
-    var container = wrap.parentNode;
-    if (container) {
-      container.style.display = '';
-      container.style.removeProperty('display');
-    }
-  }
+  wrap.innerHTML = '<span style="font-size:11px;color:var(--mu)">載入中…</span>';
   fetch(API + '?action=getphotos&id=' + rptId + '&t=' + Date.now())
     .then(function(r){ return r.json(); })
     .then(function(res){
-      if (!res.ok || !res.photos || !res.photos.length) return;
+      wrap.innerHTML = '';
+      if (!res.ok || !res.photos || !res.photos.length) {
+        wrap.innerHTML = '<span style="font-size:11px;color:var(--mu)">無照片</span>';
+        return;
+      }
       _photoCache[rptId] = res.photos;
-      renderPhotos(res.photos);
-    }).catch(function(){});
+      res.photos.forEach(function(src) {
+        if (!src) return;
+        var img = document.createElement('img');
+        img.style.cssText = 'width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--br);cursor:pointer;flex-shrink:0';
+        img.src = src;
+        img.onclick = (function(s){ return function(e){ e.stopPropagation(); openPhotoOverlay(s); }; })(src);
+        wrap.appendChild(img);
+      });
+    }).catch(function(err){
+      wrap.innerHTML = '<span style="font-size:11px;color:var(--red)">載入失敗</span>';
+      wrap.dataset.loaded = '0'; // 允許重試
+    });
 }
 
 function esc(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
@@ -1268,7 +1266,8 @@ function renderSimpleView(data, containerEl, isAdmin) {
     months.forEach(function(mo) {
       var cnt = Object.values(yearData[y][mo]).reduce(function(s,a){return s+a.length;},0);
       var opt = document.createElement('option');
-      opt.value = mo; opt.textContent = mo + '月（' + cnt + ' 筆）';
+      var label = (mo === '其他' || mo === '未知') ? ('格式異常（' + cnt + ' 筆）') : (mo + '月（' + cnt + ' 筆）');
+      opt.value = mo; opt.textContent = label;
       moSel.appendChild(opt);
     });
     if (months.length > 0) { moSel.value = months[0]; updateDaySel(y, months[0]); }
@@ -1288,7 +1287,13 @@ function renderSimpleView(data, containerEl, isAdmin) {
     }
   };
 
-  if (years.length > 0) { ySel.value = years[0]; updateMoSel(years[0]); }
+  if (years.length > 0) {
+    // 優先選有效年份，其次選「其他」
+    var firstValid = years.find(function(y){ return y !== '其他' && y !== '未知'; });
+    var defaultY = firstValid || years[0];
+    ySel.value = defaultY;
+    updateMoSel(defaultY);
+  }
 }
 
 function renderAllReports(data) {
@@ -1521,12 +1526,26 @@ function buildCard(rpt, isAdminView) {
   // 照片容器（不靠 expenses，一定建立）
   var photoContainer = document.createElement('div');
   photoContainer.className = 'rbs';
-  photoContainer.innerHTML = '<div class="rbl">發票照片</div>';
+  var photoHeader = document.createElement('div');
+  photoHeader.style.cssText = 'display:flex;align-items:center;justify-content:space-between';
+  var photoLabel = document.createElement('div');
+  photoLabel.className = 'rbl';
+  photoLabel.textContent = '發票照片';
+  var reloadBtn = document.createElement('button');
+  reloadBtn.textContent = '↻ 載入';
+  reloadBtn.style.cssText = 'font-size:11px;padding:2px 8px;border:1px solid var(--br);border-radius:6px;background:#fff;cursor:pointer;color:var(--mu)';
+  reloadBtn.onclick = function(e) {
+    e.stopPropagation();
+    photoWrap.dataset.loaded = '0';
+    loadPhotos(String(rpt.id), photoWrap);
+  };
+  photoHeader.appendChild(photoLabel);
+  photoHeader.appendChild(reloadBtn);
+  photoContainer.appendChild(photoHeader);
   var photoWrap = document.createElement('div');
   photoWrap.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;margin-top:4px';
   photoWrap.dataset.rptId = String(rpt.id);
   photoWrap.dataset.loaded = '0';
-  photoContainer.style.display = 'none'; // 先隱藏，有照片才顯示
   photoContainer.appendChild(photoWrap);
   body.appendChild(photoContainer);
   var settlDiv = document.createElement('div');

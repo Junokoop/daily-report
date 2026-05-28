@@ -770,11 +770,8 @@ function submitReport() {
     _photoCache = {};
     // 切換到記錄頁並重新載入
     setTimeout(function(){
-      showRawPage('pageHistory');
       setNavMode('reporter');
-      document.getElementById('navHistory').classList.add('active');
-      document.getElementById('navForm').classList.remove('active');
-      loadHistory();
+      showPage('history');
     }, 1000);
     setTimeout(function(){
       loadAccum();

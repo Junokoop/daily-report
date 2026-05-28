@@ -352,9 +352,12 @@ function loadPhotos(rptId, wrap) {
       img.onclick = (function(s){ return function(e){ e.stopPropagation(); openPhotoOverlay(s); }; })(src);
       wrap.appendChild(img);
     });
-    // 有照片才顯示容器
+    // 有照片：顯示容器（移除 display:none）
     var container = wrap.parentNode;
-    if (container) container.style.display = '';
+    if (container) {
+      container.style.display = '';
+      container.style.removeProperty('display');
+    }
   }
   fetch(API + '?action=getphotos&id=' + rptId + '&t=' + Date.now())
     .then(function(r){ return r.json(); })
@@ -766,11 +769,14 @@ function submitReport() {
     doReset();
     _reportCache = null;
     _reportCacheTime = 0;
-    _photoCache = {}; // 清除照片快取，讓重新載入時從 GAS 抓最新
+    _photoCache = {};
+    // 先等 GAS 寫入完成再重新抓
+    setTimeout(function(){
+      loadHistory();
+    }, 1000);
     setTimeout(function(){
       loadAccum();
-      loadHistory();
-    }, 800);
+    }, 2000);
   }
 
   var flat = [];
@@ -1059,17 +1065,33 @@ function renderSimpleView(data, containerEl, isAdmin) {
     return;
   }
 
+  function formatDate(d) {
+    var s = String(d||'');
+    var m = s.match(/(\d+)年(\d+)月(\d+)日/);
+    if (m) return m[1]+'年'+m[2]+'月'+m[3]+'日';
+    var months = {Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12};
+    var m3 = s.match(/([A-Z][a-z]+)\s+(\d+)\s+(\d{4})/);
+    if (m3 && months[m3[1]]) {
+      return (parseInt(m3[3])-1911)+'年'+months[m3[1]]+'月'+parseInt(m3[2])+'日';
+    }
+    return s;
+  }
+
   function parseDate(d) {
     var s = String(d||'');
     // 標準格式：115年5月1日
     var m = s.match(/(\d+)年(\d+)月(\d+)日/);
-    if (m) return {y:m[1]+'年', mo:String(parseInt(m[2]))+'月', full:s};
-    // 英文格式：Sun May 26 2026... 或其他
-    var m2 = s.match(/20(\d{2})/);
-    if (m2) {
-      // 西元年轉民國年
-      var yr = parseInt('20'+m2[1]) - 1911;
-      return {y:yr+'年', mo:'未知月', full:s};
+    if (m) return {y:m[1]+'年', mo:m[2]+'月', full:m[1]+'年'+m[2]+'月'+m[3]+'日'};
+    // 英文日期格式如 Sun May 26 0115...
+    // 嘗試抓年月日
+    var months = {Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12};
+    var m3 = s.match(/([A-Z][a-z]+)\s+(\d+)\s+(\d{4})/);
+    if (m3 && months[m3[1]]) {
+      var yr = parseInt(m3[3]) - 1911;
+      var mo = months[m3[1]];
+      var day = parseInt(m3[2]);
+      var full = yr+'年'+mo+'月'+day+'日';
+      return {y:yr+'年', mo:mo+'月', full:full};
     }
     return {y:'未知', mo:'未知', full:s};
   }
@@ -1306,8 +1328,24 @@ function addReporter() {
 var _batchMode = false;
 
 function showReporterDetail(reporter) {
-  var data = allReports.filter(function(r){ return r.reporter === reporter; });
+  // 強制從 GAS 抓最新資料
+  _reportCache = null;
+  _reportCacheTime = 0;
   document.getElementById('reporterDetailTitle').textContent = reporter + ' 日報表';
+  document.getElementById('reporterDetailSummary').innerHTML = '<div style="color:var(--mu);font-size:13px;padding:8px 0">載入中…</div>';
+  document.getElementById('reporterDetailList').innerHTML = '';
+  showRawPage('pageReporterDetail');
+  setNavMode('admin');
+  fetchReports(true).then(function(freshData) {
+    allReports = freshData;
+    _renderReporterDetail(reporter, freshData);
+  }).catch(function() {
+    _renderReporterDetail(reporter, allReports);
+  });
+}
+
+function _renderReporterDetail(reporter, allData) {
+  var data = allData.filter(function(r){ return r.reporter === reporter; });
 
   var lastRemain = data.length ? (parseFloat(data[0].remaining)||0) : 0;
   var lastReceipt = data.length ? (parseFloat(data[0].receiptCash)||0) : 0;
@@ -1329,8 +1367,6 @@ function showReporterDetail(reporter) {
   listEl.innerHTML = '';
   renderSimpleView(data, listEl, true);
 
-  showRawPage('pageReporterDetail');
-  setNavMode('admin');
 }
 
 function toggleSelectAllDetail(checked) {
@@ -1453,7 +1489,7 @@ function deleteReport(id, onSuccess, onFail) {
 function buildCard(rpt, isAdminView) {
   var wrap = document.createElement('div'); wrap.className = 'report-card';
   var head = document.createElement('div'); head.className = 'report-head';
-  head.innerHTML = '<input type="checkbox" class="batch-check" data-rpt-id="' + rpt.id + '" style="margin-right:8px;width:18px;height:18px;accent-color:var(--red);cursor:pointer;flex-shrink:0"><div class="report-meta"><div class="r-project">' + esc(rpt.project) + '</div><div class="r-sub">' + (String(rpt.date||'').match(/(\d+年\d+月\d+日)/) ? String(rpt.date).match(/(\d+年\d+月\d+日)/)[1] : esc(rpt.date)) + ' | ' + esc(rpt.reporter) + '</div></div><span class="report-arrow">›</span>';
+  head.innerHTML = '<input type="checkbox" class="batch-check" data-rpt-id="' + rpt.id + '" style="margin-right:8px;width:18px;height:18px;accent-color:var(--red);cursor:pointer;flex-shrink:0"><div class="report-meta"><div class="r-project">' + esc(rpt.project) + '</div><div class="r-sub">' + formatDate(rpt.date) + ' | ' + esc(rpt.reporter) + '</div></div><span class="report-arrow">›</span>';
   var body = document.createElement('div'); body.className = 'report-body';
   var totalPhotoCount = 0; // 初始化，避免 if 外 ReferenceError
   if (rpt.workItems) body.innerHTML += '<div class="rbs"><div class="rbl">施工項目</div><div class="rbc">' + esc(rpt.workItems) + '</div></div>';
@@ -2110,7 +2146,6 @@ function saveEdit() {
   function finish() {
     btn.textContent = '儲存'; btn.disabled = false;
     showToast('已更新！');
-    // 儲存新照片到快取（讓重新載入後能顯示）
     var newPhotos = [];
     exp.forEach(function(e){ (e.photos||[]).forEach(function(src){ if(src) newPhotos.push(src); }); });
     if (newPhotos.length) _photoCache[String(editingId)] = newPhotos;
@@ -2118,10 +2153,19 @@ function saveEdit() {
     closeEditModal();
     _reportCache = null;
     _reportCacheTime = 0;
+    // 等 GAS 寫入完成後再刷新
     setTimeout(function() {
-      if (document.getElementById('pageAdmin').classList.contains('show')) loadAllReports();
-      else { loadHistory(); }
-    }, 300);
+      var curReporter = document.getElementById('reporterDetailTitle') ?
+        document.getElementById('reporterDetailTitle').textContent.replace(' 日報表','') : '';
+      if (document.getElementById('pageReporterDetail').classList.contains('show') && curReporter) {
+        showReporterDetail(curReporter);
+      } else if (document.getElementById('pageAdmin').classList.contains('show')) {
+        loadAllReports();
+      } else {
+        loadHistory();
+        setTimeout(loadAccum, 1000);
+      }
+    }, 1500);
   }
 
   function doSend() {

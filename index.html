@@ -1078,21 +1078,21 @@ function renderSimpleView(data, containerEl, isAdmin) {
   }
 
   function parseDate(d) {
-    var s = String(d||'');
-    // 優先：標準格式 115年5月1日（即使有其他文字也能抓到）
+    var s = String(d||'').trim();
+    // 標準格式：115年5月1日
     var m = s.match(/(\d+)年(\d+)月(\d+)日/);
-    if (m) return {y:m[1], mo:String(parseInt(m[2])), full:m[1]+'年'+m[2]+'月'+m[3]+'日'};
-    // 英文格式 Mon Jan 01 2026...（純西元年）
+    if (m && parseInt(m[1]) > 0) {
+      return {y:m[1], mo:String(parseInt(m[2])), full:m[1]+'年'+m[2]+'月'+m[3]+'日'};
+    }
+    // 英文格式 Mon Jan 01 2026
     var months = {Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12};
     var m3 = s.match(/([A-Z][a-z]{2})\s+(\d{1,2})\s+(\d{4})/);
     if (m3 && months[m3[1]] && parseInt(m3[3]) > 1911) {
       var yr = parseInt(m3[3]) - 1911;
-      var mo = months[m3[1]];
-      var day = parseInt(m3[2]);
-      var full = yr+'年'+mo+'月'+day+'日';
-      return {y:String(yr), mo:String(mo), full:full};
+      return {y:String(yr), mo:String(months[m3[1]]), full:yr+'年'+months[m3[1]]+'月'+parseInt(m3[2])+'日'};
     }
-    return {y:'未知', mo:'未知', full:s};
+    // 無法解析：歸到「其他」，用原始字串保留
+    return {y:'其他', mo:'其他', full:s || '未知日期'};
   }
 
   var years = [], yearData = {};
@@ -1103,7 +1103,13 @@ function renderSimpleView(data, containerEl, isAdmin) {
     if (!yearData[p.y][p.mo][p.full]) yearData[p.y][p.mo][p.full] = [];
     yearData[p.y][p.mo][p.full].push(rpt);
   });
-  years.sort(function(a,b){return b-a;});
+  years.sort(function(a,b){
+    var na = parseInt(a), nb = parseInt(b);
+    if (isNaN(na) && isNaN(nb)) return 0;
+    if (isNaN(na)) return 1;  // 非數字排後面
+    if (isNaN(nb)) return -1;
+    return nb - na;  // 數字從大到小
+  });
 
   var selStyle = 'flex:1;padding:10px 8px;border:1px solid var(--br);border-radius:10px;font-size:14px;font-weight:700;background:#fff;cursor:pointer;color:var(--tx)';
 

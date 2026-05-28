@@ -1204,9 +1204,12 @@ function renderSimpleView(data, containerEl, isAdmin) {
         var curReporter = document.getElementById('reporterDetailTitle') ?
           document.getElementById('reporterDetailTitle').textContent.replace(' 日報表','') : '';
         if (isAdmin && document.getElementById('pageReporterDetail').classList.contains('show') && curReporter) {
+          // 詳情頁：重新載入並刷新公款總覽
           fetchReports(true).then(function(data) {
             allReports = data;
             showReporterDetail(curReporter);
+            // 同時更新管理者主頁公款總覽
+            try { renderSummaryTable(allReports); } catch(e) {}
           }).catch(function(){});
         } else if (isAdmin) {
           loadAllReports();
@@ -1608,10 +1611,10 @@ function buildCard(rpt, isAdminView) {
         var curReporter = document.getElementById('reporterDetailTitle') ?
           document.getElementById('reporterDetailTitle').textContent.replace(' 日報表','') : '';
         if (document.getElementById('pageReporterDetail').classList.contains('show') && curReporter) {
-          // 重新載入並刷新詳情頁
           fetchReports(true).then(function(data) {
             allReports = data;
             showReporterDetail(curReporter);
+            try { renderSummaryTable(allReports); } catch(e) {}
           }).catch(function(){});
         } else if (document.getElementById('pageAdmin').classList.contains('show')) {
           loadAllReports();

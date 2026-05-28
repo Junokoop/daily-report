@@ -108,10 +108,10 @@ table.st{width:100%;border-collapse:collapse;border-top:1.5px solid var(--bd)}
 .home-logo{font-size:56px;margin-bottom:8px;line-height:1}
 .home-title{font-size:26px;font-weight:900;color:var(--ac);margin:0 0 6px;letter-spacing:.05em}
 .home-sub{font-size:14px;color:var(--mu);margin:0 0 28px}
-.home-card{width:100%;max-width:360px;background:#fff;border-radius:20px;padding:24px 20px;box-shadow:0 8px 32px rgba(0,0,0,.10);display:flex;flex-direction:column;gap:16px}
+.home-card{width:100%;max-width:360px;background:#fff;border-radius:20px;padding:24px 16px;box-shadow:0 8px 32px rgba(0,0,0,.10);display:flex;flex-direction:column;gap:16px;box-sizing:border-box}
 .home-field{display:flex;flex-direction:column;gap:8px}
 .home-label{font-size:13px;font-weight:700;color:var(--mu);letter-spacing:.05em}
-.home-select{width:100%;padding:14px 16px;border:1.5px solid var(--br);border-radius:12px;font-size:16px;font-weight:700;background:#f9fafb;cursor:pointer;color:var(--tx);-webkit-appearance:none;appearance:none;text-align:center;text-align-last:center;-webkit-text-align-last:center}
+.home-select{width:100%;padding:14px 12px;border:1.5px solid var(--br);border-radius:12px;font-size:16px;font-weight:700;background:#f9fafb;cursor:pointer;color:var(--tx);-webkit-appearance:none;appearance:none;text-align:center;text-align-last:center;-webkit-text-align-last:center;box-sizing:border-box}
 .home-divider{display:flex;align-items:center;gap:12px;color:var(--mu);font-size:13px}
 .home-divider::before,.home-divider::after{content:'';flex:1;height:1px;background:var(--br)}
 .reporter-mgmt{padding:12px 14px;display:flex;flex-direction:column;gap:8px}
@@ -135,15 +135,22 @@ table.st{width:100%;border-collapse:collapse;border-top:1.5px solid var(--bd)}
 @media(max-width:480px){
   .page{padding:8px 6px}
   .card{border-radius:8px}
-  .rbt{font-size:11px}
-  .rbt th,.rbt td{padding:4px 4px}
-  .report-head{padding:10px 10px}
+  .rbt{font-size:11px;table-layout:fixed;word-break:break-all}
+  .rbt th,.rbt td{padding:4px 2px;font-size:10px}
+  .report-head{padding:10px 8px}
   .di{font-size:14px}
   .select-btn{font-size:18px;height:60px}
-  .edit-modal-content{padding:12px}
+  .edit-modal-content{padding:10px}
   .dgrp{flex-wrap:wrap;gap:4px}
   select{font-size:16px}
-  .ab{font-size:14px}
+  .ab{font-size:13px;padding:6px 10px}
+  .home-card{padding:20px 12px}
+  .home-title{font-size:22px}
+  .home-select{font-size:15px;padding:12px 8px}
+  .nav{padding:8px}
+  .r-project{font-size:14px}
+  .r-sub{font-size:11px}
+  .inv-photos-row img{width:56px;height:56px}
 }
 @media print{
   @page{margin:10mm;size:A4 portrait}
@@ -1121,7 +1128,7 @@ function renderSimpleView(data, containerEl, isAdmin) {
     return nb - na;  // 數字從大到小
   });
 
-  var selStyle = 'flex:1;padding:10px 8px;border:1px solid var(--br);border-radius:10px;font-size:14px;font-weight:700;background:#fff;cursor:pointer;color:var(--tx)';
+  var selStyle = 'flex:1;min-width:0;padding:8px 4px;border:1px solid var(--br);border-radius:8px;font-size:12px;font-weight:700;background:#fff;cursor:pointer;color:var(--tx);text-align:center';
 
   // 全選列
   var selAllRow = document.createElement('div');
@@ -1138,7 +1145,7 @@ function renderSimpleView(data, containerEl, isAdmin) {
 
   // 年月日三個下拉同一列
   var ymRow = document.createElement('div');
-  ymRow.style.cssText = 'display:flex;gap:6px;margin-bottom:12px';
+  ymRow.style.cssText = 'display:flex;gap:4px;margin-bottom:12px;flex-wrap:nowrap';
 
   var ySel = document.createElement('select');
   ySel.style.cssText = selStyle;
@@ -1869,20 +1876,23 @@ function doOpenEditModal(rpt) {
     });
   }
 
-  if (totalEditPhotos > 0) {
-    if (cachedPhotos) {
-      applyPhotos(cachedPhotos);
-    } else {
-      fetch(API + '?action=getphotos&id=' + rpt.id + '&t=' + Date.now())
-        .then(function(r) { return r.json(); })
-        .then(function(res) {
-          if (!res.ok || !res.photos || !res.photos.length) return;
-          _photoCache[rpt.id] = res.photos;
-          applyPhotos(res.photos);
-        })
-        .catch(function() {});
+  // 等 DOM 完全渲染後再載入照片
+  setTimeout(function() {
+    if (totalEditPhotos > 0) {
+      if (cachedPhotos) {
+        applyPhotos(cachedPhotos);
+      } else {
+        fetch(API + '?action=getphotos&id=' + rpt.id + '&t=' + Date.now())
+          .then(function(r) { return r.json(); })
+          .then(function(res) {
+            if (!res.ok || !res.photos || !res.photos.length) return;
+            _photoCache[String(rpt.id)] = res.photos;
+            applyPhotos(res.photos);
+          })
+          .catch(function() {});
+      }
     }
-  }
+  }, 300);
 }
 
 function editExpPhotoCamera(btn, epIdx) {

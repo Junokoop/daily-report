@@ -838,9 +838,7 @@ function loadHistory() {
           var lastRemain = parseFloat(data[0].remaining) || 0;
           var lastReceiptCash = parseFloat(data[0].receiptCash) || 0;
           var lastTotalCash = parseFloat(data[0].totalCash) || 0;
-          // 上筆結餘 = 前一筆的 remaining（data[1]），若無則 0
           var prevRemaining = data.length > 1 ? (parseFloat(data[1].remaining) || 0) : 0;
-          // 本日接收 = 總接收 - 上筆結餘
           var todayReceived = lastReceiptCash - prevRemaining;
           var isNeg = lastRemain < 0;
           var color = isNeg ? 'var(--red)' : 'var(--grn)';
@@ -850,6 +848,14 @@ function loadHistory() {
           document.getElementById('historyLastTotalCash').textContent = '$' + lastTotalCash.toLocaleString();
           document.getElementById('historyAccum').textContent = '$' + lastRemain.toLocaleString();
           document.getElementById('historyAccum').style.color = color;
+        } else {
+          // 無報表時清零
+          document.getElementById('historyLastRemain').textContent = '$0';
+          document.getElementById('historyLastRemain').style.color = 'var(--grn)';
+          document.getElementById('historyLastOut').textContent = '$0';
+          document.getElementById('historyLastTotalCash').textContent = '$0';
+          document.getElementById('historyAccum').textContent = '$0';
+          document.getElementById('historyAccum').style.color = 'var(--grn)';
         }
         if (!data.length) { listEl.innerHTML = '<div class="empty"><div class="ei">📭</div><p>尚無填報紀錄</p></div>'; return; }
         listEl.innerHTML = '';

@@ -768,8 +768,12 @@ function submitReport() {
     _reportCache = null;
     _reportCacheTime = 0;
     _photoCache = {};
-    // 先等 GAS 寫入完成再重新抓
+    // 切換到記錄頁並重新載入
     setTimeout(function(){
+      showRawPage('pageHistory');
+      setNavMode('reporter');
+      document.getElementById('navHistory').classList.add('active');
+      document.getElementById('navForm').classList.remove('active');
       loadHistory();
     }, 1000);
     setTimeout(function(){

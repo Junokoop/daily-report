@@ -371,10 +371,10 @@ function formatDate(d) {
 }
 
 // ===== 統一照片載入函數（唯一入口）=====
-function loadPhotos(rptId, wrap) {
+function loadPhotos(rptId, wrap, forceRefresh) {
   rptId = String(rptId);
   if (!rptId || !wrap) return;
-  if (wrap.dataset.loaded === '1') return;
+  if (wrap.dataset.loaded === '1' && !forceRefresh) return;
   wrap.dataset.loaded = '1';
 
   function renderPhotoList(photos) {
@@ -393,26 +393,37 @@ function loadPhotos(rptId, wrap) {
     });
   }
 
-  // 優先使用本地快取（含剛壓縮完的照片）
-  if (_photoCache[rptId] && _photoCache[rptId].length) {
+  // 非強制模式：優先使用本地快取
+  if (!forceRefresh && _photoCache[rptId] && _photoCache[rptId].length) {
     renderPhotoList(_photoCache[rptId]);
     return;
   }
 
-  // 快取沒有，從 GAS 拉
-  wrap.innerHTML = '<span style="font-size:11px;color:var(--mu)">載入中…</span>';
+  // 從 GAS 拉（強制刷新或快取無資料）
+  if (!_photoCache[rptId]) {
+    wrap.innerHTML = '<span style="font-size:11px;color:var(--mu)">載入中…</span>';
+  }
   fetch(API + '?action=getphotos&id=' + rptId + '&t=' + Date.now())
     .then(function(r){ return r.json(); })
     .then(function(res){
       if (!res.ok || !res.photos || !res.photos.length) {
-        wrap.innerHTML = '<span style="font-size:11px;color:var(--mu)">無照片</span>';
+        // 若快取有舊資料，仍顯示
+        if (_photoCache[rptId] && _photoCache[rptId].length) {
+          renderPhotoList(_photoCache[rptId]);
+        } else {
+          wrap.innerHTML = '<span style="font-size:11px;color:var(--mu)">無照片</span>';
+        }
         return;
       }
       _photoCache[rptId] = res.photos;
       renderPhotoList(res.photos);
     }).catch(function(err){
-      wrap.innerHTML = '<span style="font-size:11px;color:var(--red)">載入失敗</span>';
-      wrap.dataset.loaded = '0'; // 允許重試
+      if (_photoCache[rptId] && _photoCache[rptId].length) {
+        renderPhotoList(_photoCache[rptId]);
+      } else {
+        wrap.innerHTML = '<span style="font-size:11px;color:var(--red)">載入失敗</span>';
+        wrap.dataset.loaded = '0';
+      }
     });
 }
 
@@ -999,6 +1010,8 @@ function loadAllReports() {
           .then(function(res){ if (res.ok && res.photos) _photoCache[r.id] = res.photos; })
           .catch(function(){});
       });
+      // 刷新報表時清照片快取，確保跨裝置照片同步
+      _photoCache = {};
       try { updateFilterDropdown(); } catch(e) {}
       try { renderSummaryTable(allReports); } catch(e) {}
       try { renderNotifyList(allReports); } catch(e) {}
@@ -1106,19 +1119,31 @@ function renderNotifyList(data) {
         e.stopPropagation();
         if (!confirm('確定清除此通知？（報表資料保留，僅清除修正記錄）')) return;
         // 只清除修正記錄欄位，不刪除報表
-        var payload = JSON.stringify({action:'edit', data:{
+        var _clrForm = new FormData();
+        _clrForm.append('payload', JSON.stringify({action:'edit', data:{
           id: rpt.id,
           editedAt: '',
           editedBy: '',
           editedNote: ''
-        }});
-        fetch(API + '?payload=' + encodeURIComponent(payload), {mode:'no-cors'}).catch(function(){});
+        }}));
+        fetch(API, {method:'POST', body:_clrForm, mode:'no-cors'}).catch(function(){});
+        // 樂觀更新：立即從 allReports / _reportCache 清除修正記錄
+        [allReports, _reportCache].forEach(function(arr) {
+          if (!arr) return;
+          arr.forEach(function(item) {
+            if (String(item.id) === String(rpt.id)) {
+              item.editedAt = ''; item.editedBy = ''; item.editedNote = '';
+            }
+          });
+        });
+        showToast('通知已清除');
+        // 立即重繪通知列
+        renderNotifyList(allReports || []);
+        // 3 秒後再從 GAS 確認
         setTimeout(function() {
-          _reportCache = null;
-          _reportCacheTime = 0;
+          _reportCache = null; _reportCacheTime = 0;
           loadAllReports();
-          showToast('通知已清除');
-        }, 800);
+        }, 3000);
       };
     })(r);
     row.appendChild(delBtn);
@@ -1651,7 +1676,7 @@ function buildCard(rpt, isAdminView) {
   reloadBtn.onclick = function(e) {
     e.stopPropagation();
     photoWrap.dataset.loaded = '0';
-    loadPhotos(String(rpt.id), photoWrap);
+    loadPhotos(String(rpt.id), photoWrap, true);
   };
   photoHeader.appendChild(photoLabel);
   photoHeader.appendChild(reloadBtn);
@@ -2298,7 +2323,7 @@ function refreshCardInPlace(patchData) {
   pcReloadBtn.style.cssText = 'font-size:11px;padding:2px 8px;border:1px solid var(--br);border-radius:6px;background:#fff;cursor:pointer;color:var(--mu)';
   var _pcRptId = String(patchData.id);
   pcReloadBtn.onclick = (function(rid, wrapRef) {
-    return function(e) { e.stopPropagation(); wrapRef.dataset.loaded = '0'; loadPhotos(rid, wrapRef); };
+    return function(e) { e.stopPropagation(); wrapRef.dataset.loaded = '0'; loadPhotos(rid, wrapRef, true); };
   })(_pcRptId, null); // wrapRef 在下方補上
   pcHeader.appendChild(pcLabel);
   pcHeader.appendChild(pcReloadBtn);
@@ -2310,7 +2335,7 @@ function refreshCardInPlace(patchData) {
   pcDiv.appendChild(pcWrap);
   // 補上 reload button 的正確 wrapRef
   pcReloadBtn.onclick = (function(rid, wrap) {
-    return function(e) { e.stopPropagation(); wrap.dataset.loaded = '0'; loadPhotos(rid, wrap); };
+    return function(e) { e.stopPropagation(); wrap.dataset.loaded = '0'; loadPhotos(rid, wrap, true); };
   })(_pcRptId, pcWrap);
   // 若 patchData.expenses 裡有 inline photos，先放進 _photoCache
   var _inlinePhotos = [];

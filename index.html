@@ -711,19 +711,25 @@ function addExp() {
   var cb = c.querySelector('.inv-camera-btn');
   var fi = c.querySelector('.inv-file-input');
   var ci = c.querySelector('.inv-camera-input');
-  var pr = c.querySelector('.inv-photos-row');
-  pb.onclick = function() { fi.click(); };
-  if (cb && ci) { cb.onclick = function() { ci.click(); }; }
-  if (cb && ci) { cb.onclick = function() { ci.click(); }; }
   function handleFiles(files) {
+    if (!files || !files.length) return;
     Array.from(files).forEach(function(f) {
       var reader = new FileReader();
-      reader.onload = function(ev) { expPhotoMap[idx].push(ev.target.result); renderInvPhotos(pr, idx); };
+      reader.onload = function(ev) {
+        expPhotoMap[idx].push(ev.target.result);
+        // 每次從 DOM 重新取 pr，避免 iOS 返回後 stale reference
+        var ec2 = expList ? expList.querySelector('[data-exp-idx="' + idx + '"]') : null;
+        var pr2 = ec2 ? ec2.querySelector('.inv-photos-row') : null;
+        if (pr2) renderInvPhotos(pr2, idx);
+      };
       reader.readAsDataURL(f);
     });
   }
-  fi.onchange = function() { handleFiles(fi.files); fi.value = ''; };
-  if (ci) { ci.onchange = function() { handleFiles(ci.files); ci.value = ''; }; }
+  // 用 addEventListener 確保 iOS 不漏綁
+  fi.addEventListener('change', function() { handleFiles(fi.files); fi.value = ''; });
+  if (ci) { ci.addEventListener('change', function() { handleFiles(ci.files); ci.value = ''; }); }
+  pb.onclick = function(e) { e.preventDefault(); fi.click(); };
+  if (cb && ci) { cb.onclick = function(e) { e.preventDefault(); ci.click(); }; }
   expList.insertBefore(c, addExpBtn);
   calc();
 }

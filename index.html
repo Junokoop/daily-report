@@ -969,7 +969,7 @@ function startAdminRefresh() {
         // 更新公款總覽
         try { renderSummaryTable(res.data); } catch(e) {}
       }).catch(function() {});
-  }, 15000); // 每 15 秒自動刷新通知
+  }, 8000); // 每 8 秒自動刷新通知
 }
 
 function stopAdminRefresh() {
@@ -1039,23 +1039,36 @@ function renderNotifyList(data) {
   var el = document.getElementById('notifyList');
   if (!el) return;
   var edited = data.filter(function(r) { return r.editedAt && r.editedAt !== ''; });
-  // 若有新增通知，顯示提示
+  // 先排序，確保 edited[0] 是最新的
+  edited.sort(function(a, b) {
+    // zh-TW 格式：2026/5/28 下午5:30:00，先轉成可比較的字串
+    function toSortKey(s) {
+      if (!s) return '';
+      // 轉換「上午/下午」為 24 小時制以利排序
+      return s.replace('上午', 'AM').replace('下午', 'PM');
+    }
+    return toSortKey(b.editedAt) > toSortKey(a.editedAt) ? 1 : -1;
+  });
+  // 取排序後最新的 editedAt
   var latestEditedAt = edited.length ? edited[0].editedAt : '';
-  if (_lastNotifyAt && latestEditedAt && latestEditedAt !== _lastNotifyAt) {
-    showToast('有新的修正通知！');
+  // 若 _lastNotifyAt 是 null（初次載入）：靜默設定，不 toast
+  // 若之後有新的修正進來：顯示通知
+  if (_lastNotifyAt !== null && latestEditedAt && latestEditedAt !== _lastNotifyAt) {
+    showToast('⚠️ 有新的修正通知！');
     var card = document.getElementById('notifyCard');
     if (card) {
-      card.style.borderColor = '#ffc107';
-      card.style.boxShadow = '0 0 0 3px rgba(255,193,7,0.3)';
-      setTimeout(function(){ card.style.borderColor=''; card.style.boxShadow=''; }, 3000);
+      card.style.borderColor = '#f59e0b';
+      card.style.boxShadow = '0 0 0 4px rgba(245,158,11,0.35)';
+      setTimeout(function(){ card.style.borderColor=''; card.style.boxShadow=''; }, 4000);
     }
+    // 滾動到通知區
+    try { card.scrollIntoView({behavior:'smooth', block:'start'}); } catch(e) {}
   }
   _lastNotifyAt = latestEditedAt;
   if (!edited.length) {
     el.innerHTML = '<div style="padding:4px 0;color:var(--mu)">目前無更新通知</div>';
     return;
   }
-  edited.sort(function(a, b) { return new Date(b.editedAt) - new Date(a.editedAt); });
   el.innerHTML = '';
   edited.forEach(function(r) {
     var row = document.createElement('div');

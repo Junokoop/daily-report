@@ -726,8 +726,8 @@ function addExp() {
     });
   }
   // 用 addEventListener 確保 iOS 不漏綁
-  fi.addEventListener('change', function() { handleFiles(fi.files); fi.value = ''; });
-  if (ci) { ci.addEventListener('change', function() { handleFiles(ci.files); ci.value = ''; }); }
+  fi.addEventListener('change', function() { var f = Array.from(fi.files||[]); fi.value = ''; handleFiles(f); });
+  if (ci) { ci.addEventListener('change', function() { var f = Array.from(ci.files||[]); ci.value = ''; handleFiles(f); }); }
   pb.onclick = function(e) { e.preventDefault(); fi.click(); };
   if (cb && ci) { cb.onclick = function(e) { e.preventDefault(); ci.click(); }; }
   expList.insertBefore(c, addExpBtn);
@@ -2028,7 +2028,9 @@ function _bindEditFileInput(input, epIdx) {
   if (input.dataset.bound === '1') return;
   input.dataset.bound = '1';
   input.addEventListener('change', function() {
-    var files = input.files;
+    // 先複製 FileList 成真正的陣列，再清 value
+    // input.value='' 在 iOS 上會讓 FileList 變空，必須先 copy
+    var files = Array.from(input.files || []);
     input.value = '';
     handleEditPhotos(files, epIdx);
   });
@@ -2037,9 +2039,11 @@ function _bindEditFileInput(input, epIdx) {
 function handleEditPhotos(files, epIdx) {
   if (!window._editExpPhotoMap) window._editExpPhotoMap = {};
   if (!window._editExpPhotoMap[epIdx]) window._editExpPhotoMap[epIdx] = [];
-  var pending = Array.from(files).length;
+  // files 可能是 FileList 或 Array，統一轉 Array
+  var fileArr = Array.isArray(files) ? files : Array.from(files || []);
+  var pending = fileArr.length;
   if (!pending) return;
-  Array.from(files).forEach(function(f) {
+  fileArr.forEach(function(f) {
     var reader = new FileReader();
     reader.onload = function(ev) {
       if (!window._editExpPhotoMap[epIdx]) window._editExpPhotoMap[epIdx] = [];

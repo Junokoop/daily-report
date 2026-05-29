@@ -588,6 +588,8 @@ function setNavMode(mode) {
 function showRawPage(pid) {
   // 離開 admin 頁時停止 auto refresh
   if (pid !== 'pageAdmin') stopAdminRefresh();
+  // 離開 history 頁時停止 history refresh
+  if (pid !== 'pageHistory') stopHistoryRefresh();
   var pages = ['pageSelect','pageForm','pageHistory','pageAdminLogin','pageAdmin','pageReporterDetail'];
   for (var i = 0; i < pages.length; i++) {
     document.getElementById(pages[i]).classList.remove('show');
@@ -601,7 +603,7 @@ function showPage(p) {
     document.getElementById(navIds[i]).classList.remove('active');
   }
   if (p === 'form') { showRawPage('pageForm'); document.getElementById('navForm').classList.add('active'); }
-  else if (p === 'history') { showRawPage('pageHistory'); document.getElementById('navHistory').classList.add('active'); _reportCache = null; loadHistory(); }
+  else if (p === 'history') { showRawPage('pageHistory'); document.getElementById('navHistory').classList.add('active'); _reportCache = null; loadHistory(); startHistoryRefresh(); }
   else if (p === 'admin') { showRawPage('pageAdmin'); document.getElementById('navAdmin').classList.add('active'); loadAllReports(); renderReporterMgmt(); }
 }
 
@@ -892,12 +894,12 @@ function submitReport() {
           var myData = data.filter(function(r){ return r.reporter === currentReporter; });
           var found = myData.some(function(r){ return String(r.id) === submittedId; });
           if (!found && retries > 0) { pollNewReport(retries - 1); return; }
-          // 找到了或超時：更新畫面
+          // 找到了或超時：直接用已取得的 data 更新畫面，不再重打 GAS
           allReports = data;
           _reportCache = data;
           _reportCacheTime = Date.now();
-          loadHistory();
-          setTimeout(loadAccum, 500);
+          _updateHistoryUI(data);
+          setTimeout(loadAccum, 300);
         }).catch(function(){ if (retries > 0) pollNewReport(retries - 1); });
       }, 3000);
     })(8); // 最多 8 次 × 3 秒 = 24 秒
@@ -938,56 +940,82 @@ function submitReport() {
   }
 }
 
+// 把 UI 更新邏輯抽出，讓 loadHistory 和 pollNewReport 共用同一套
+function _updateHistoryUI(allData) {
+  var listEl = document.getElementById('historyList');
+  if (!listEl) return;
+  try {
+    var data = (allData || []).filter(function(r) { return r.reporter === currentReporter; });
+    data.sort(function(a, b) { return Number(b.id) - Number(a.id); });
+    document.getElementById('historyCount').textContent = '共 ' + data.length + ' 筆';
+    if (data.length > 0) {
+      var lastRemain = parseFloat(data[0].remaining) || 0;
+      var lastReceiptCash = parseFloat(data[0].receiptCash) || 0;
+      var lastTotalCash = parseFloat(data[0].totalCash) || 0;
+      var prevRemaining = data.length > 1 ? (parseFloat(data[1].remaining) || 0) : 0;
+      var todayReceived = lastReceiptCash - prevRemaining;
+      var isNeg = lastRemain < 0;
+      document.getElementById('historyLastRemain').textContent = '$' + prevRemaining.toLocaleString();
+      document.getElementById('historyLastRemain').style.color = 'var(--grn)';
+      document.getElementById('historyLastOut').textContent = '$' + todayReceived.toLocaleString();
+      document.getElementById('historyLastTotalCash').textContent = '$' + lastTotalCash.toLocaleString();
+      document.getElementById('historyAccum').textContent = '$' + lastRemain.toLocaleString();
+      document.getElementById('historyAccum').style.color = isNeg ? 'var(--red)' : 'var(--grn)';
+    } else {
+      document.getElementById('historyLastRemain').textContent = '$0';
+      document.getElementById('historyLastRemain').style.color = 'var(--grn)';
+      document.getElementById('historyLastOut').textContent = '$0';
+      document.getElementById('historyLastTotalCash').textContent = '$0';
+      document.getElementById('historyAccum').textContent = '$0';
+      document.getElementById('historyAccum').style.color = 'var(--grn)';
+    }
+    if (!data.length) { listEl.innerHTML = '<div class="empty"><div class="ei">📭</div><p>尚無填報紀錄</p></div>'; return; }
+    listEl.innerHTML = '';
+    renderSimpleView(data, listEl, false);
+  } catch(e) {
+    listEl.innerHTML = '<div class="empty"><div class="ei">❌</div><p>載入失敗，請重新整理頁面</p></div>';
+  }
+}
+
 function loadHistory() {
   var listEl = document.getElementById('historyList');
   listEl.innerHTML = '<div class="loading">載入中…</div>';
   fetchReports(true)
     .then(function(data) {
-      try {
-        data = data.filter(function(r) { return r.reporter === currentReporter; });
-        // 按 id（時間戳）降序排列，確保 data[0] 是最新一筆
-        data.sort(function(a, b) { return Number(b.id) - Number(a.id); });
-        document.getElementById('historyCount').textContent = '共 ' + data.length + ' 筆';
-        if (data.length > 0) {
-          var lastRemain = parseFloat(data[0].remaining) || 0;
-          var lastReceiptCash = parseFloat(data[0].receiptCash) || 0;
-          var lastTotalCash = parseFloat(data[0].totalCash) || 0;
-          var prevRemaining = data.length > 1 ? (parseFloat(data[1].remaining) || 0) : 0;
-          var todayReceived = lastReceiptCash - prevRemaining;
-          var isNeg = lastRemain < 0;
-          var color = isNeg ? 'var(--red)' : 'var(--grn)';
-          document.getElementById('historyLastRemain').textContent = '$' + prevRemaining.toLocaleString();
-          document.getElementById('historyLastRemain').style.color = 'var(--grn)';
-          document.getElementById('historyLastOut').textContent = '$' + todayReceived.toLocaleString();
-          document.getElementById('historyLastTotalCash').textContent = '$' + lastTotalCash.toLocaleString();
-          document.getElementById('historyAccum').textContent = '$' + lastRemain.toLocaleString();
-          document.getElementById('historyAccum').style.color = color;
-        } else {
-          // 無報表時清零
-          document.getElementById('historyLastRemain').textContent = '$0';
-          document.getElementById('historyLastRemain').style.color = 'var(--grn)';
-          document.getElementById('historyLastOut').textContent = '$0';
-          document.getElementById('historyLastTotalCash').textContent = '$0';
-          document.getElementById('historyAccum').textContent = '$0';
-          document.getElementById('historyAccum').style.color = 'var(--grn)';
-        }
-        if (!data.length) { listEl.innerHTML = '<div class="empty"><div class="ei">📭</div><p>尚無填報紀錄</p></div>'; return; }
-        listEl.innerHTML = '';
-
-        // 依日期分組 + 下拉選單
-        var allHistData = data;
-        renderSimpleView(allHistData, listEl, false);
-
-      } catch(e) {
-        listEl.innerHTML = '<div class="empty"><div class="ei">❌</div><p>載入失敗，請重新整理頁面</p></div>';
-      }
+      allReports = data;
+      _reportCache = data;
+      _reportCacheTime = Date.now();
+      _updateHistoryUI(data);
     })
-    .catch(function(err) {
+    .catch(function() {
       listEl.innerHTML = '<div class="empty"><div class="ei">❌</div><p>載入失敗，請重新整理頁面</p></div>';
     });
 }
 
 var _adminRefreshTimer = null;
+var _historyRefreshTimer = null;
+
+function startHistoryRefresh() {
+  stopHistoryRefresh();
+  _historyRefreshTimer = setInterval(function() {
+    if (!document.getElementById('pageHistory').classList.contains('show')) { stopHistoryRefresh(); return; }
+    // 只在紀錄頁且有填報者時才刷新
+    if (!currentReporter) return;
+    fetch(API + '?action=list&noPhotos=1&t=' + Date.now(), {redirect:'follow', cache:'no-store'})
+      .then(function(r){ return r.json(); })
+      .then(function(res) {
+        if (!res.ok || !res.data) return;
+        allReports = res.data;
+        _reportCache = res.data;
+        _reportCacheTime = Date.now();
+        _updateHistoryUI(res.data);
+      }).catch(function() {});
+  }, 30000); // 每 30 秒刷新
+}
+
+function stopHistoryRefresh() {
+  if (_historyRefreshTimer) { clearInterval(_historyRefreshTimer); _historyRefreshTimer = null; }
+}
 
 function startAdminRefresh() {
   stopAdminRefresh();
@@ -2509,10 +2537,17 @@ function saveEdit() {
     totalCard: totalCard,
     remaining: rc - totalCash,
     receiptNote: document.getElementById('editRn').value.trim(),
-    editedAt: '', editedBy: '', editedNote: '' // computed below
+    editedAt: patchOrig.editedAt   || '',
+    editedBy: patchOrig.editedBy   || '',
+    editedNote: patchOrig.editedNote  || '',
+    // 保留 GAS 端需要的原始欄位，避免覆蓋時清掉
+    reporter:    patchOrig.reporter    || '',
+    uploadedAt:  patchOrig.uploadedAt  || '',
+    prevRemaining: patchOrig.prevRemaining || 0,
+    todayReceived: patchOrig.todayReceived || 0
   };
 
-  // 計算修正記錄（只算一次，無改動則保留原記錄）
+  // 計算修正記錄（只算一次，有改動才更新 editedAt/By/Note）
   var _diffNote = getEditedNote(patchOrig, {
     project: patchData.project, workItems: patchData.workItems,
     receiptCash: patchData.receiptCash, totalCash: patchData.totalCash,
@@ -2527,12 +2562,8 @@ function saveEdit() {
     patchData.editedAt   = _eNow;
     patchData.editedBy   = _eWho;
     patchData.editedNote = _eOld ? (_eEntry + '\n' + _eOld) : _eEntry;
-  } else {
-    // 無改動：保留原修正記錄，不寫入新的 editedAt
-    patchData.editedAt   = patchOrig.editedAt   || '';
-    patchData.editedBy   = patchOrig.editedBy   || '';
-    patchData.editedNote = patchOrig.editedNote  || '';
   }
+  // 無改動：patchData 已保留 patchOrig 的原值，不額外處理
 
     function finish() {
     btn.textContent = '儲存'; btn.disabled = false;

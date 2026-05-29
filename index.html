@@ -2044,14 +2044,25 @@ function handleEditPhotos(files, epIdx) {
     reader.onload = function(ev) {
       if (!window._editExpPhotoMap[epIdx]) window._editExpPhotoMap[epIdx] = [];
       window._editExpPhotoMap[epIdx].push(ev.target.result);
-      // 每次 push 後，從 DOM 重新找 row（避免 stale reference）
-      var ec = document.querySelector('[data-ep-idx="' + epIdx + '"]');
-      var row = ec ? ec.querySelector('.inv-photos-row') : null;
-      renderEditInvPhotos(row, epIdx);
+      // iOS 從相機返回後 DOM repaint 需要時間，retry 確保 render 成功
+      _renderEditPhotoWithRetry(epIdx, 0);
     };
-    reader.onerror = function() { pending--; };
+    reader.onerror = function() {};
     reader.readAsDataURL(f);
   });
+}
+
+function _renderEditPhotoWithRetry(epIdx, attempt) {
+  // 限定在 editModal 裡找，避免找到其他頁面的同名 attribute
+  var modal = document.getElementById('editModal');
+  var ec = modal ? modal.querySelector('[data-ep-idx="' + epIdx + '"]') : null;
+  var row = ec ? ec.querySelector('.inv-photos-row') : null;
+  if (row) {
+    renderEditInvPhotos(row, epIdx);
+  } else if (attempt < 5) {
+    // 最多重試 5 次，每次間隔 200ms（等 iOS repaint）
+    setTimeout(function() { _renderEditPhotoWithRetry(epIdx, attempt + 1); }, 200);
+  }
 }
 function doRemoveEditPhoto(btn) {
   var epIdx = btn.getAttribute('data-ep');
@@ -2078,8 +2089,9 @@ function removeEditPhoto(epIdx, pi, btn) {
 }
 
 function renderEditInvPhotos(rowOrNull, epIdx) {
-  // 每次從 DOM 重新取得 row，避免 Modal 重開後 row 參考失效
-  var row = rowOrNull || document.querySelector('[data-ep-idx="' + epIdx + '"] .inv-photos-row');
+  // 限定在 editModal 裡找，避免找到其他頁面的同名 attribute
+  var modal = document.getElementById('editModal');
+  var row = rowOrNull || (modal ? modal.querySelector('[data-ep-idx="' + epIdx + '"] .inv-photos-row') : null);
   if (!row) return;
   var photos = (window._editExpPhotoMap && window._editExpPhotoMap[epIdx]) ? window._editExpPhotoMap[epIdx] : [];
   row.style.display = photos.length ? 'flex' : 'none';

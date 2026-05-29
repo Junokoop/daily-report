@@ -2436,21 +2436,34 @@ function saveEdit() {
     // 直接更新頁面上對應的那張卡片，不重建整個列表
     refreshCardInPlace(patchData);
 
-    // 背景：等 GAS 寫入完成後再做完整刷新（確保資料同步）
-    setTimeout(function() {
-      _reportCache = null;
-      _reportCacheTime = 0;
-      var curReporter = document.getElementById('reporterDetailTitle') ?
-        document.getElementById('reporterDetailTitle').textContent.replace(' 日報表','') : '';
-      if (document.getElementById('pageReporterDetail').classList.contains('show') && curReporter) {
-        showReporterDetail(curReporter);
-      } else if (document.getElementById('pageAdmin').classList.contains('show')) {
-        loadAllReports();
-      } else {
-        loadHistory();
-        setTimeout(loadAccum, 800);
-      }
-    }, 4000);
+    // 背景輪詢確認 GAS 已寫入，最多等 30 秒，確認後才刷新
+    (function pollUntilUpdated(retries) {
+      setTimeout(function() {
+        fetch(API + '?action=list&noPhotos=1&t=' + Date.now(), {redirect:'follow', cache:'no-store'})
+          .then(function(r){ return r.json(); })
+          .then(function(res) {
+            if (!res.ok || !res.data) return;
+            // 找到這筆資料，確認 editedAt 已寫入
+            var found = null;
+            for (var i = 0; i < res.data.length; i++) {
+              if (String(res.data[i].id) === String(patchData.id)) { found = res.data[i]; break; }
+            }
+            var gasEditedAt = found ? (found.editedAt || '') : '';
+            var confirmed = gasEditedAt === patchData.editedAt;
+            if (!confirmed && retries > 0) {
+              pollUntilUpdated(retries - 1);
+              return;
+            }
+            // 已確認或超時：更新本地快取並靜默刷新
+            _reportCache = res.data;
+            _reportCacheTime = Date.now();
+            allReports = res.data;
+            refreshCardInPlace(patchData);
+            try { renderSummaryTable(res.data); } catch(e) {}
+            try { renderNotifyList(res.data); } catch(e) {}
+          }).catch(function() {});
+      }, 3000);
+    })(8); // 最多輪詢 8 次，每次 3 秒，共 24 秒
   }
 
   function doSend() {

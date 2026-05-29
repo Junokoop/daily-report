@@ -1938,6 +1938,16 @@ function doOpenEditModal(rpt) {
   if (delBtnEl2) delBtnEl2.style.display = '';
   document.getElementById('editModal').classList.add('show');
 
+  // Modal 開啟後立即綁定所有 file input（確保 iOS 不漏綁）
+  document.getElementById('editExpList').querySelectorAll('.ec').forEach(function(ec) {
+    var epIdx = ec.dataset.epIdx;
+    if (!epIdx) return;
+    var fi = ec.querySelector('.edit-inv-file-input');
+    var ci = ec.querySelector('.edit-inv-camera-input');
+    if (fi) _bindEditFileInput(fi, epIdx);
+    if (ci) _bindEditFileInput(ci, epIdx);
+  });
+
   // 非同步載入照片
   // 計算照片總數：同時考慮 photoCount 欄位和 inline photos 陣列
   var totalEditPhotos = exp.reduce(function(s,e){
@@ -1996,28 +2006,26 @@ function doOpenEditModal(rpt) {
 function editExpPhotoCamera(btn, epIdx) {
   var ec = btn.closest('.ec');
   var ci = ec.querySelector('.edit-inv-camera-input');
-  // 先移除舊的 listener 再加新的，避免重複觸發
-  ci.onchange = null;
-  ci.onchange = function() {
-    var files = ci.files;
-    ci.value = '';
-    ci.onchange = null;
-    handleEditPhotos(files, epIdx);
-  };
+  _bindEditFileInput(ci, epIdx);
   ci.click();
 }
 
 function editExpPhotoUpload(btn, epIdx) {
   var ec = btn.closest('.ec');
   var fi = ec.querySelector('.edit-inv-file-input');
-  fi.onchange = null;
-  fi.onchange = function() {
-    var files = fi.files;
-    fi.value = '';
-    fi.onchange = null;
-    handleEditPhotos(files, epIdx);
-  };
+  _bindEditFileInput(fi, epIdx);
   fi.click();
+}
+
+// 確保 input 已綁定（只綁一次，用 dataset 標記）
+function _bindEditFileInput(input, epIdx) {
+  if (input.dataset.bound === '1') return;
+  input.dataset.bound = '1';
+  input.addEventListener('change', function() {
+    var files = input.files;
+    input.value = '';
+    handleEditPhotos(files, epIdx);
+  });
 }
 
 function handleEditPhotos(files, epIdx) {
@@ -2124,6 +2132,11 @@ function addEditExp() {
     '<div class="er"><span class="el">現金金額</span><input type="number" class="edit-exp-cash" value="0" min="0" inputmode="numeric" oninput="updateEditTotal()"></div>' +
     '<div class="er"><span class="el">刷卡金額</span><input type="number" class="edit-exp-card" value="0" min="0" inputmode="numeric" oninput="updateEditTotal()"></div>';
   document.getElementById('editExpList').appendChild(div);
+  // 新增後立即綁定 file input
+  var fi2 = div.querySelector('.edit-inv-file-input');
+  var ci2 = div.querySelector('.edit-inv-camera-input');
+  if (fi2) _bindEditFileInput(fi2, epIdx);
+  if (ci2) _bindEditFileInput(ci2, epIdx);
 }
 
 function updateEditTotal() {

@@ -1039,16 +1039,17 @@ function renderNotifyList(data) {
   var el = document.getElementById('notifyList');
   if (!el) return;
   var edited = data.filter(function(r) { return r.editedAt && r.editedAt !== ''; });
-  // 先排序，確保 edited[0] 是最新的
-  edited.sort(function(a, b) {
-    // zh-TW 格式：2026/5/28 下午5:30:00，先轉成可比較的字串
-    function toSortKey(s) {
-      if (!s) return '';
-      // 轉換「上午/下午」為 24 小時制以利排序
-      return s.replace('上午', 'AM').replace('下午', 'PM');
-    }
-    return toSortKey(b.editedAt) > toSortKey(a.editedAt) ? 1 : -1;
-  });
+  // 先排序，確保 edited[0] 是最新的（zh-TW 格式：2026/5/28 下午5:30:00）
+  function parseZhTW(s) {
+    if (!s) return 0;
+    var m = s.match(/(\d{4})\/(\d{1,2})\/(\d{1,2})\s*(上午|下午)(\d{1,2}):(\d{2}):(\d{2})/);
+    if (!m) return new Date(s).getTime() || 0;
+    var h = parseInt(m[5]);
+    if (m[4] === '下午' && h !== 12) h += 12;
+    if (m[4] === '上午' && h === 12) h = 0;
+    return new Date(parseInt(m[1]), parseInt(m[2])-1, parseInt(m[3]), h, parseInt(m[6]), parseInt(m[7])).getTime();
+  }
+  edited.sort(function(a, b) { return parseZhTW(b.editedAt) - parseZhTW(a.editedAt); });
   // 取排序後最新的 editedAt
   var latestEditedAt = edited.length ? edited[0].editedAt : '';
   // 若 _lastNotifyAt 是 null（初次載入）：靜默設定，不 toast
@@ -1995,27 +1996,46 @@ function doOpenEditModal(rpt) {
 function editExpPhotoCamera(btn, epIdx) {
   var ec = btn.closest('.ec');
   var ci = ec.querySelector('.edit-inv-camera-input');
-  ci.onchange = function() { handleEditPhotos(ci.files, epIdx, ec); ci.value = ''; };
+  // 先移除舊的 listener 再加新的，避免重複觸發
+  ci.onchange = null;
+  ci.onchange = function() {
+    var files = ci.files;
+    ci.value = '';
+    ci.onchange = null;
+    handleEditPhotos(files, epIdx);
+  };
   ci.click();
 }
 
 function editExpPhotoUpload(btn, epIdx) {
   var ec = btn.closest('.ec');
   var fi = ec.querySelector('.edit-inv-file-input');
-  fi.onchange = function() { handleEditPhotos(fi.files, epIdx, ec); fi.value = ''; };
+  fi.onchange = null;
+  fi.onchange = function() {
+    var files = fi.files;
+    fi.value = '';
+    fi.onchange = null;
+    handleEditPhotos(files, epIdx);
+  };
   fi.click();
 }
 
-function handleEditPhotos(files, epIdx, ec) {
+function handleEditPhotos(files, epIdx) {
   if (!window._editExpPhotoMap) window._editExpPhotoMap = {};
   if (!window._editExpPhotoMap[epIdx]) window._editExpPhotoMap[epIdx] = [];
-  var row = ec.querySelector('.inv-photos-row');
+  var pending = Array.from(files).length;
+  if (!pending) return;
   Array.from(files).forEach(function(f) {
     var reader = new FileReader();
     reader.onload = function(ev) {
+      if (!window._editExpPhotoMap[epIdx]) window._editExpPhotoMap[epIdx] = [];
       window._editExpPhotoMap[epIdx].push(ev.target.result);
+      // 每次 push 後，從 DOM 重新找 row（避免 stale reference）
+      var ec = document.querySelector('[data-ep-idx="' + epIdx + '"]');
+      var row = ec ? ec.querySelector('.inv-photos-row') : null;
       renderEditInvPhotos(row, epIdx);
     };
+    reader.onerror = function() { pending--; };
     reader.readAsDataURL(f);
   });
 }
@@ -2520,7 +2540,13 @@ function saveEdit() {
             _reportCache = res.data;
             _reportCacheTime = Date.now();
             allReports = res.data;
-            // patchData 仍保有 inline photos，確保照片不丟失
+            // 確保照片快取不丟失（res.data 的 expenses 不含 photos）
+            var _savedPhotos = _photoCache[String(patchData.id)];
+            // patchData 仍保有 inline photos，重新寫入快取
+            var _inlineP = [];
+            (patchData.expenses||[]).forEach(function(e){ (e.photos||[]).forEach(function(p){ if(p) _inlineP.push(p); }); });
+            if (_inlineP.length) _photoCache[String(patchData.id)] = _inlineP;
+            else if (_savedPhotos && _savedPhotos.length) _photoCache[String(patchData.id)] = _savedPhotos;
             refreshCardInPlace(patchData);
             try { renderSummaryTable(res.data); } catch(e) {}
             try { renderNotifyList(res.data); } catch(e) {}

@@ -374,7 +374,15 @@ function formatDate(d) {
 function loadPhotos(rptId, wrap, forceRefresh) {
   rptId = String(rptId);
   if (!rptId || !wrap) return;
-  if (wrap.dataset.loaded === '1' && !forceRefresh) return;
+
+  // 讀取 wrap 上的預期照片數（由 buildCard 設定的 data-photo-count）
+  var expectedCount = parseInt(wrap.dataset.photoCount || '0');
+  var cachedCount = (_photoCache[rptId] || []).length;
+
+  // 若快取數量 < GAS 預期數量，強制重拉（跨裝置同步的核心邏輯）
+  var needRefresh = forceRefresh || (expectedCount > 0 && cachedCount < expectedCount);
+
+  if (wrap.dataset.loaded === '1' && !needRefresh) return;
   wrap.dataset.loaded = '1';
 
   function renderPhotoList(photos) {
@@ -393,26 +401,32 @@ function loadPhotos(rptId, wrap, forceRefresh) {
     });
   }
 
-  // 優先使用本地快取（非強制刷新時）
-  if (!forceRefresh && _photoCache[rptId] && _photoCache[rptId].length) {
+  // 非強制且快取有足夠照片：直接用快取
+  if (!needRefresh && _photoCache[rptId] && _photoCache[rptId].length) {
     renderPhotoList(_photoCache[rptId]);
     return;
   }
 
-  // 快取沒有，從 GAS 拉
-  wrap.innerHTML = '<span style="font-size:11px;color:var(--mu)">載入中…</span>';
+  // 從 GAS 拉（快取不足或強制刷新）
+  if (!_photoCache[rptId] || !_photoCache[rptId].length) {
+    wrap.innerHTML = '<span style="font-size:11px;color:var(--mu)">載入中…</span>';
+  }
   fetch(API + '?action=getphotos&id=' + rptId + '&t=' + Date.now())
     .then(function(r){ return r.json(); })
     .then(function(res){
       if (!res.ok || !res.photos || !res.photos.length) {
-        wrap.innerHTML = '<span style="font-size:11px;color:var(--mu)">無照片</span>';
+        // 有快取就繼續顯示，沒有才顯示「無照片」
+        if (_photoCache[rptId] && _photoCache[rptId].length) renderPhotoList(_photoCache[rptId]);
+        else wrap.innerHTML = '<span style="font-size:11px;color:var(--mu)">無照片</span>';
         return;
       }
       _photoCache[rptId] = res.photos;
+      // 更新 wrap 上的 photo-count，反映最新數量
+      wrap.dataset.photoCount = String(res.photos.length);
       renderPhotoList(res.photos);
     }).catch(function(err){
-      wrap.innerHTML = '<span style="font-size:11px;color:var(--red)">載入失敗</span>';
-      wrap.dataset.loaded = '0'; // 允許重試
+      if (_photoCache[rptId] && _photoCache[rptId].length) renderPhotoList(_photoCache[rptId]);
+      else { wrap.innerHTML = '<span style="font-size:11px;color:var(--red)">載入失敗</span>'; wrap.dataset.loaded = '0'; }
     });
 }
 
@@ -862,18 +876,31 @@ function submitReport() {
   function onDone(msg) {
     if (btn) { btn.textContent = '上傳報表'; btn.disabled = false; }
     showToast(msg || '報表已成功上傳！');
+    var submittedId = String(report.id);
     doReset();
-    _reportCache = null;
-    _reportCacheTime = 0;
-    _photoCache = {};
-    // 切換到記錄頁並重新載入
-    setTimeout(function(){
-      setNavMode('reporter');
-      showPage('history');
-    }, 1000);
-    setTimeout(function(){
-      loadAccum();
-    }, 2000);
+    _reportCache = null; _reportCacheTime = 0; _photoCache = {};
+    // 立即切到紀錄頁
+    setNavMode('reporter');
+    showRawPage('pageHistory');
+    document.getElementById('navHistory').classList.add('active');
+    document.getElementById('historyList').innerHTML = '<div class="loading">正在同步資料…</div>';
+    // 輪詢直到 GAS 確認新報表已寫入
+    (function pollNewReport(retries) {
+      setTimeout(function() {
+        _reportCache = null; _reportCacheTime = 0;
+        fetchReports(true).then(function(data) {
+          var myData = data.filter(function(r){ return r.reporter === currentReporter; });
+          var found = myData.some(function(r){ return String(r.id) === submittedId; });
+          if (!found && retries > 0) { pollNewReport(retries - 1); return; }
+          // 找到了或超時：更新畫面
+          allReports = data;
+          _reportCache = data;
+          _reportCacheTime = Date.now();
+          loadHistory();
+          setTimeout(loadAccum, 500);
+        }).catch(function(){ if (retries > 0) pollNewReport(retries - 1); });
+      }, 3000);
+    })(8); // 最多 8 次 × 3 秒 = 24 秒
   }
 
   var flat = [];
@@ -918,6 +945,8 @@ function loadHistory() {
     .then(function(data) {
       try {
         data = data.filter(function(r) { return r.reporter === currentReporter; });
+        // 按 id（時間戳）降序排列，確保 data[0] 是最新一筆
+        data.sort(function(a, b) { return Number(b.id) - Number(a.id); });
         document.getElementById('historyCount').textContent = '共 ' + data.length + ' 筆';
         if (data.length > 0) {
           var lastRemain = parseFloat(data[0].remaining) || 0;
@@ -1664,6 +1693,11 @@ function buildCard(rpt, isAdminView) {
   photoWrap.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;margin-top:4px';
   photoWrap.dataset.rptId = String(rpt.id);
   photoWrap.dataset.loaded = '0';
+  // 存預期照片數，loadPhotos 用來偵測跨裝置照片變動
+  var _totalPC = (rpt.expenses||[]).reduce(function(s,e){
+    return s + (e.photoCount||0) + (e.photos&&e.photos.length?e.photos.length:0);
+  }, 0);
+  photoWrap.dataset.photoCount = String(_totalPC);
   photoContainer.appendChild(photoWrap);
   body.appendChild(photoContainer);
   var settlDiv = document.createElement('div');
@@ -2308,6 +2342,10 @@ function refreshCardInPlace(patchData) {
   pcWrap.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;margin-top:4px';
   pcWrap.dataset.rptId = _pcRptId;
   pcWrap.dataset.loaded = '0';
+  var _pcTotalPC = (patchData.expenses||[]).reduce(function(s,e){
+    return s + (e.photoCount||0) + (e.photos&&e.photos.length?e.photos.length:0);
+  }, 0);
+  pcWrap.dataset.photoCount = String(_pcTotalPC || _inlinePhotos.length);
   pcDiv.appendChild(pcWrap);
   // 補上 reload button 的正確 wrapRef
   pcReloadBtn.onclick = (function(rid, wrap) {

@@ -6,7 +6,7 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>施工日報表 v2.7</title>
+<title>施工日報表 v2.9</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{--bd:#6b7280;--hbg:#f3f4f6;--ac:#374151;--tx:#111827;--mu:#9ca3af;--ib:#ffffff;--st:#f9fafb;--br:#e5e7eb;--grn:#2d6a4f;--red:#9b2226}
@@ -259,6 +259,7 @@ table.st{width:100%;border-collapse:collapse;border-top:1.5px solid var(--bd)}
   <div class="admin-header">
     <h2>&#x1F4CB; 我的填報紀錄</h2>
     <span class="admin-count" id="historyCount">共 0 筆</span>
+    <button onclick="forceRefresh()" style="font-size:13px;padding:5px 14px;border:none;border-radius:8px;background:#6b7280;color:#fff;cursor:pointer;font-weight:600">↻ 刷新</button>
   </div>
   <div class="card" style="padding:12px 14px;margin-bottom:12px;background:#eaf4ec;border-color:var(--grn)">
     <div style="display:flex;flex-direction:column;gap:6px">
@@ -289,7 +290,7 @@ table.st{width:100%;border-collapse:collapse;border-top:1.5px solid var(--bd)}
     <div class="sh" style="display:flex;align-items:center;gap:10px">
       <button onclick="showRawPage('pageSelect');setNavMode('none')" style="background:#6b7280;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;color:#fff;padding:5px 14px;line-height:1.5">← 返回</button>
       &#x1F512; 管理者登入
-      <button onclick="_reportCache=null;_reportCacheTime=0;loadAllReports();showToast('已刷新')" style="margin-left:auto;background:#6b7280;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;color:#fff;padding:5px 14px;line-height:1.5">↻ 刷新</button>
+      <button onclick="forceRefresh()" style="margin-left:auto;background:#6b7280;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;color:#fff;padding:5px 14px;line-height:1.5">↻ 刷新</button>
     </div>
     <div class="pw-wrap">
       <input type="password" id="pwInput" placeholder="請輸入管理密碼" onkeydown="if(event.key==='Enter')checkPw()">
@@ -302,7 +303,7 @@ table.st{width:100%;border-collapse:collapse;border-top:1.5px solid var(--bd)}
   <div class="admin-header">
     <h2>&#x1F4CA; 報表管理</h2>
     <span class="admin-count" id="adminCount">共 0 筆</span>
-    <button onclick="_reportCache=null;_reportCacheTime=0;loadAllReports();showToast('已刷新')" style="font-size:13px;padding:5px 14px;border:none;border-radius:8px;background:#6b7280;color:#fff;cursor:pointer;font-weight:600">↻ 刷新</button>
+    <button onclick="forceRefresh()" style="font-size:13px;padding:5px 14px;border:none;border-radius:8px;background:#6b7280;color:#fff;cursor:pointer;font-weight:600">↻ 刷新</button>
   </div>
   <div class="card" id="notifyCard" style="margin-bottom:12px;border-color:#ffc107">
     <div class="sh" style="background:#fff3cd;color:#856404;border-color:#ffc107">&#x1F514; 填報者更新通知</div>
@@ -540,6 +541,19 @@ function applyPendingEdits(arr){
     arr[idx] = merged;
   }
   return arr;
+}
+
+// 只計入「真正的報表列」：必須有非空 id。
+// 避免試算表的空白列／殘列被算進「共 X 筆」，造成筆數與下方總覽不一致。
+function _validReports(arr) {
+  if (!arr || !arr.length) return [];
+  return arr.filter(function(r){
+    return r && r.id !== undefined && r.id !== null && String(r.id).trim() !== '';
+  });
+}
+function updateAdminCount(arr) {
+  var el = document.getElementById('adminCount');
+  if (el) el.textContent = '共 ' + _validReports(arr).length + ' 筆';
 }
 var _photoCache = {}; // 照片快取 {id: [src,...]}
 
@@ -1105,6 +1119,8 @@ function startAdminRefresh() {
         allReports = res.data;
         _reportCache = res.data;
         _reportCacheTime = Date.now();
+        // 同步更新表頭筆數，避免新增/刪除後數字不更新
+        updateAdminCount(res.data);
         // 只更新通知列
         try { renderNotifyList(res.data); } catch(e) {}
         // 更新公款總覽
@@ -1123,7 +1139,7 @@ function loadAllReports() {
   fetchReports(true)
     .then(function(data) {
       allReports = data;
-      document.getElementById('adminCount').textContent = '共 ' + allReports.length + ' 筆';
+      updateAdminCount(allReports);
       _photoCache = {}; // 刷新時先清照片快取，確保跨裝置同步（須在預抓之前，否則會把預抓結果清掉）
       // 背景預抓有照片的報表（最多5筆）
       allReports.filter(function(r){
@@ -1143,6 +1159,27 @@ function loadAllReports() {
     .catch(function(err) {
       listEl.innerHTML = '<div class="empty"><div class="ei">❌</div><p>載入失敗，請重新整理頁面</p></div>';
     });
+}
+
+// 統一的「強制重新整理」：清掉所有本機快取與樂觀暫存，改顯示伺服器最新狀態，
+// 並依目前所在頁面重載正確的資料。解決：
+//   1) 刷新鈕不論在哪頁都只重載管理頁資料，看起來像沒反應
+//   2) 樂觀暫存讓本機一直顯示舊的本地版本，看不到另一台裝置的更新（跨裝置同步）
+function forceRefresh() {
+  _reportCache = null;
+  _reportCacheTime = 0;
+  _photoCache = {};       // 清照片快取，強制跨裝置重抓
+  _pendingEdits = {};     // 手動刷新時清掉樂觀暫存，顯示伺服器真實狀態
+  function shown(p){ var el = document.getElementById(p); return el && el.classList.contains('show'); }
+  if (shown('pageReporterDetail') && window._currentDetailReporter) {
+    showReporterDetail(window._currentDetailReporter);
+  } else if (shown('pageHistory')) {
+    loadHistory();
+    setTimeout(loadAccum, 600);
+  } else {
+    loadAllReports();
+  }
+  showToast('已重新整理');
 }
 
 function renderSummaryTable(data) {
@@ -1598,6 +1635,7 @@ var _batchMode = false;
 
 function showReporterDetail(reporter) {
   // 強制從 GAS 抓最新資料
+  window._currentDetailReporter = reporter;
   _reportCache = null;
   _reportCacheTime = 0;
   document.getElementById('reporterDetailTitle').textContent = reporter + ' 日報表';
@@ -2755,6 +2793,7 @@ function saveEdit() {
             if (_inlineP.length) _photoCache[String(patchData.id)] = _inlineP;
             else if (_savedPhotos && _savedPhotos.length) _photoCache[String(patchData.id)] = _savedPhotos;
             refreshCardInPlace(patchData);
+            try { updateAdminCount(res.data); } catch(e) {}
             try { renderSummaryTable(res.data); } catch(e) {}
             try { renderNotifyList(res.data); } catch(e) {}
           }).catch(function() {});

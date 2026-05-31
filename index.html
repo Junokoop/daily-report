@@ -6,7 +6,7 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>施工日報表 v2.4</title>
+<title>施工日報表 v2.5</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{--bd:#6b7280;--hbg:#f3f4f6;--ac:#374151;--tx:#111827;--mu:#9ca3af;--ib:#ffffff;--st:#f9fafb;--br:#e5e7eb;--grn:#2d6a4f;--red:#9b2226}
@@ -470,6 +470,54 @@ var expList = null;
 var _reportCache = null;
 var _reportCacheTime = 0;
 var CACHE_TTL = 10000; // 60秒快取
+
+// === 編輯樂觀更新暫存層 ===
+// 編輯送出後 GAS 寫入有數秒延遲，期間自動刷新/輪詢若直接套用 GAS 舊資料，
+// 會把剛編輯的結果蓋回舊值（看起來像「沒記錄」「總額沒更新」）。
+// 這裡把本地編輯結果暫存，套在每次抓回的 GAS 列表上，直到 GAS 確實寫入後才放掉。
+var _pendingEdits = {};
+function _clone(o){ try { return JSON.parse(JSON.stringify(o)); } catch(e){ return o; } }
+function _editSig(r){
+  if (!r) return '';
+  var att = (r.attendance||[]).map(function(a){ return (a.name||'')+'|'+(a.am?1:0)+(a.pm?1:0)+'|'+(a.ot||0); }).join(',');
+  var exp = (r.expenses||[]).map(function(e){ return (e.item||'')+'|'+(Number(e.cash)||0)+'|'+(Number(e.card)||0)+'|'+(e.inv?1:0); }).join(',');
+  return [r.date||'', r.project||'', r.workItems||'', Number(r.receiptCash)||0, Number(r.totalCash)||0,
+          Number(r.totalCard)||0, Number(r.remaining)||0, r.receiptNote||'', att, exp, r.editedAt||''].join('§');
+}
+// 把暫存的本地編輯疊到從 GAS 抓回的列表上（就地覆蓋對應那筆）
+function applyPendingEdits(arr){
+  if (!arr || !arr.length) return arr;
+  var ids = Object.keys(_pendingEdits);
+  if (!ids.length) return arr;
+  var now = Date.now();
+  for (var k = 0; k < ids.length; k++) {
+    var id = ids[k], pend = _pendingEdits[id];
+    // 安全閥：超過 90 秒仍未確認就放掉，避免永遠卡住舊狀態
+    if (now - pend.ts > 90000) { delete _pendingEdits[id]; continue; }
+    var idx = -1;
+    for (var i = 0; i < arr.length; i++) { if (String(arr[i].id) === String(id)) { idx = i; break; } }
+    if (idx < 0) continue; // GAS 還沒回傳這筆，先不動
+    // GAS 已反映此次編輯 → 放掉暫存，採用伺服器資料
+    if (_editSig(arr[idx]) === pend.sig) { delete _pendingEdits[id]; continue; }
+    // 否則用本地編輯結果覆蓋編輯欄位（保留伺服器的 reporter / uploadedAt / photoCount 等）
+    var server = arr[idx], p = pend.patch, merged = _clone(server);
+    merged.date        = p.date;
+    merged.project     = p.project;
+    merged.workItems   = p.workItems;
+    merged.attendance  = p.attendance;
+    merged.expenses    = p.expenses;
+    merged.receiptCash = p.receiptCash;
+    merged.totalCash   = p.totalCash;
+    merged.totalCard   = p.totalCard;
+    merged.remaining   = p.remaining;
+    merged.receiptNote = p.receiptNote;
+    merged.editedAt    = p.editedAt;
+    merged.editedBy    = p.editedBy;
+    merged.editedNote  = p.editedNote;
+    arr[idx] = merged;
+  }
+  return arr;
+}
 var _photoCache = {}; // 照片快取 {id: [src,...]}
 
 function getReporters() {
@@ -677,6 +725,7 @@ function fetchReports(forceRefresh) {
         else throw new Error('not JSON');
       }
       if (!res || !res.ok) throw new Error(res ? (res.error || 'not ok') : 'no response');
+      res.data = applyPendingEdits(res.data);
       _reportCache = res.data;
       _reportCacheTime = Date.now();
       return res.data;
@@ -1005,6 +1054,7 @@ function startHistoryRefresh() {
       .then(function(r){ return r.json(); })
       .then(function(res) {
         if (!res.ok || !res.data) return;
+        applyPendingEdits(res.data);
         allReports = res.data;
         _reportCache = res.data;
         _reportCacheTime = Date.now();
@@ -1027,6 +1077,11 @@ function startAdminRefresh() {
       .then(function(r) { return r.json(); })
       .then(function(res) {
         if (!res.ok || !res.data) return;
+        applyPendingEdits(res.data);
+        // 同步更新快取，避免下次操作又抓到舊資料
+        allReports = res.data;
+        _reportCache = res.data;
+        _reportCacheTime = Date.now();
         // 只更新通知列
         try { renderNotifyList(res.data); } catch(e) {}
         // 更新公款總覽
@@ -2443,6 +2498,7 @@ function deleteFromEdit() {
   var btn = document.getElementById('delEditBtn');
   btn.textContent = '刪除中…'; btn.disabled = true;
   var delId = editingId;
+  delete _pendingEdits[String(delId)];
   // 直接呼叫 GAS，不用 deleteReport 共用函數
   fetch(API + '?action=delete&id=' + delId, {mode:'no-cors'})
     .then(function() {
@@ -2568,6 +2624,14 @@ function saveEdit() {
     function finish() {
     btn.textContent = '儲存'; btn.disabled = false;
 
+    // 登記為「待 GAS 確認」的樂觀編輯：在 GAS 寫入完成前，任何自動刷新/輪詢
+    // 抓回的舊資料都會被這份本地編輯覆蓋，避免總額閃回舊值或編輯被蓋掉。
+    _pendingEdits[String(patchData.id)] = {
+      patch: _clone(patchData),
+      sig: _editSig(patchData),
+      ts: Date.now()
+    };
+
     // 先將修改結果直接寫入本地快取，讓 UI 立即反映，不等 GAS
     if (_reportCache) {
       for (var ci = 0; ci < _reportCache.length; ci++) {
@@ -2625,6 +2689,11 @@ function saveEdit() {
     // 直接更新頁面上對應的那張卡片，不重建整個列表
     refreshCardInPlace(patchData);
 
+    // 立即重算最上面的總額／公款總覽，不必等背景輪詢（修正「總額未更新」）
+    try { renderSummaryTable(allReports); } catch(e) {}
+    try { renderNotifyList(allReports); } catch(e) {}
+    if (currentReporter) { try { _updateHistoryUI(allReports); } catch(e) {} }
+
     // 背景輪詢確認 GAS 已寫入，最多等 30 秒，確認後才刷新
     (function pollUntilUpdated(retries) {
       setTimeout(function() {
@@ -2644,6 +2713,7 @@ function saveEdit() {
               return;
             }
             // 已確認或超時：更新本地快取並靜默刷新
+            applyPendingEdits(res.data);
             _reportCache = res.data;
             _reportCacheTime = Date.now();
             allReports = res.data;

@@ -6,7 +6,7 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>施工日報表 v3.5</title>
+<title>施工日報表 v3.7</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{--bd:#6b7280;--hbg:#f3f4f6;--ac:#374151;--tx:#111827;--mu:#9ca3af;--ib:#ffffff;--st:#f9fafb;--br:#e5e7eb;--grn:#2d6a4f;--red:#9b2226}
@@ -483,7 +483,7 @@ function showToast(msg) {
   t._timer = setTimeout(function() { t.classList.remove('show'); }, 2500);
 }
 
-var API = 'https://script.google.com/macros/s/AKfycbwUPD89dDHuNKQELPn6iou-SyswAuHGxLnAhnFUj6qe2dWm1sExgDVPfnKr0V4pUN8B/exec';
+var API = 'https://script.google.com/macros/s/AKfycbzop5J3cnbFuy72J-ExONMxb1hcNUHEeOW-JKGucG68NE7x0JLCa-cLwnL9MaqDJTb2/exec';
 var ADMIN_PW = '86617383';
 var REPORTERS_KEY = 'gas_reporters';
 var currentReporter = '';
@@ -707,7 +707,7 @@ function checkBackend() {
     .then(function(res){
       if (res && res.ok && res.version) {
         el.style.color = 'var(--grn)';
-        el.innerHTML = '✅ 後端為最新版 (' + esc(String(res.version)) + ')<br>App 版本 v3.5 ｜ 網址 ' + esc(shortUrl);
+        el.innerHTML = '✅ 後端為最新版 (' + esc(String(res.version)) + ')<br>App 版本 v3.7 ｜ 網址 ' + esc(shortUrl);
       } else {
         el.style.color = 'var(--red)';
         el.innerHTML = '⚠️ 後端是「舊版程式」，編輯不會儲存。<br>請到 Apps Script：部署 → 管理部署作業 → 編輯現有部署 → 版本選「新版本」→ 部署。<br>網址 ' + esc(shortUrl);
@@ -2725,6 +2725,9 @@ function saveEdit() {
     todayReceived: patchOrig.todayReceived || 0
   };
 
+  // 記下「編輯前」的 editedAt，供儲存確認用（成功儲存後伺服器的值會與此不同）
+  var _origEditedAt = String(patchOrig.editedAt || '');
+
   // 計算修正記錄（只算一次，有改動才更新 editedAt/By/Note）
   var _diffNote = getEditedNote(patchOrig, {
     project: patchData.project, workItems: patchData.workItems,
@@ -2832,11 +2835,13 @@ function saveEdit() {
             for (var i = 0; i < res.data.length; i++) {
               if (String(res.data[i].id) === String(patchData.id)) { found = res.data[i]; break; }
             }
-            // 確認方式：正常編輯帶有唯一的 editedAt，伺服器原樣存回，
-            // 只要伺服器顯示這個 editedAt 就代表存檔成功（避免內容簽章誤判）。
+            // 確認方式：成功儲存會讓 editedAt 從「編輯前的舊值」變成新值。
+            // 不做字串完全比對（Google Sheets 可能把時間字串自動轉成日期、改了格式），
+            // 只要伺服器的 editedAt 非空且與編輯前不同，就代表存檔成功。
             var confirmed;
             if (patchData.editedAt) {
-              confirmed = found && String(found.editedAt || '') === String(patchData.editedAt);
+              var srvEA = found ? String(found.editedAt || '') : '';
+              confirmed = !!found && srvEA !== '' && srvEA !== _origEditedAt;
             } else {
               // 無實質變更：用內容簽章即可
               confirmed = found && _editSig(found) === _editSig(patchData);

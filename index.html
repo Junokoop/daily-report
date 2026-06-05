@@ -6,7 +6,7 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>施工日報表 v3.7</title>
+<title>施工日報表 v3.8</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{--bd:#6b7280;--hbg:#f3f4f6;--ac:#374151;--tx:#111827;--mu:#9ca3af;--ib:#ffffff;--st:#f9fafb;--br:#e5e7eb;--grn:#2d6a4f;--red:#9b2226}
@@ -460,6 +460,88 @@ function loadPhotos(rptId, wrap, forceRefresh) {
 
 function esc(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
+// 產生報表列印內容並開啟列印對話框（可選「儲存成 PDF」）
+function printReport(rpt) {
+  var area = document.getElementById('printArea');
+  if (!area || !rpt) return;
+  function money(n) { return (Number(n) || 0).toLocaleString('en-US'); }
+
+  function build(photos) {
+    var h = '';
+    h += '<div class="print-title">施工日報表</div>';
+    h += '<div class="print-meta">日期：' + esc(rpt.date || '') +
+         '<br>填報者：' + esc(rpt.reporter || '') +
+         '<br>工程名稱：' + esc(rpt.project || '') + '</div>';
+
+    h += '<div class="print-sh">施工項目</div>';
+    h += '<div class="print-content">' + esc(rpt.workItems || '（無）') + '</div>';
+
+    var att = rpt.attendance || [];
+    if (att.length) {
+      h += '<div class="print-sh">出工人員</div>';
+      h += '<table class="print-table"><tr><th>姓名</th><th>上午</th><th>下午</th><th>加班(時)</th></tr>';
+      att.forEach(function(a) {
+        h += '<tr><td>' + esc(a.name || '') + '</td><td>' + (a.am ? '✓' : '') +
+             '</td><td>' + (a.pm ? '✓' : '') + '</td><td>' + (a.ot || 0) + '</td></tr>';
+      });
+      h += '</table>';
+    }
+
+    var exp = rpt.expenses || [];
+    if (exp.length) {
+      h += '<div class="print-sh">公款支出</div>';
+      h += '<table class="print-table"><tr><th>項目</th><th>現金</th><th>刷卡</th><th>發票</th></tr>';
+      exp.forEach(function(e) {
+        h += '<tr><td>' + esc(e.item || '') + '</td><td>' + money(e.cash) +
+             '</td><td>' + money(e.card) + '</td><td>' + (e.inv ? '有' : '') + '</td></tr>';
+      });
+      h += '</table>';
+    }
+
+    h += '<div class="print-sh">現金結算</div>';
+    h += '<table class="print-sum">' +
+         '<tr><td>接收現金</td><td>' + money(rpt.receiptCash) + '</td></tr>' +
+         '<tr><td>支出現金</td><td>' + money(rpt.totalCash) + '</td></tr>' +
+         '<tr><td>支出刷卡</td><td>' + money(rpt.totalCard) + '</td></tr>' +
+         '<tr><td>現金剩餘</td><td>' + money(rpt.remaining) + '</td></tr></table>';
+
+    if (rpt.receiptNote) {
+      h += '<div class="print-sh">備考</div>';
+      h += '<div class="print-content">' + esc(rpt.receiptNote) + '</div>';
+    }
+    if (rpt.editedAt) {
+      h += '<div class="print-content" style="font-size:12px;color:#856404;margin-top:6px">修正：' +
+           esc(rpt.editedAt) + ' / ' + esc(rpt.editedBy || '') + '</div>';
+    }
+
+    if (photos && photos.length) {
+      h += '<div class="print-sh">照片（' + photos.length + '）</div>';
+      photos.forEach(function(src) {
+        if (src) h += '<img src="' + src + '" style="max-width:100%;margin:4px 0;page-break-inside:avoid">';
+      });
+    }
+
+    area.innerHTML = h;
+    // 給圖片一點載入時間再開列印對話框
+    setTimeout(function() { window.print(); }, (photos && photos.length) ? 700 : 120);
+  }
+
+  var totalPC = (rpt.expenses || []).reduce(function(s, e) {
+    return s + (e.photoCount || (e.photos ? e.photos.length : 0) || 0);
+  }, 0);
+
+  if (totalPC > 0) {
+    var cached = _photoCache[String(rpt.id)];
+    if (cached && cached.length) { build(cached); return; }
+    showToast('載入照片中…');
+    getPhotosFromGAS(rpt.id)
+      .then(function(ph) { _photoCache[String(rpt.id)] = ph; build(ph); })
+      .catch(function() { build([]); });
+  } else {
+    build([]);
+  }
+}
+
 function openPhotoOverlay(src) {
   var el = document.getElementById('photoOverlay');
   var img = document.getElementById('photoOverlayImg');
@@ -707,7 +789,7 @@ function checkBackend() {
     .then(function(res){
       if (res && res.ok && res.version) {
         el.style.color = 'var(--grn)';
-        el.innerHTML = '✅ 後端為最新版 (' + esc(String(res.version)) + ')<br>App 版本 v3.7 ｜ 網址 ' + esc(shortUrl);
+        el.innerHTML = '✅ 後端為最新版 (' + esc(String(res.version)) + ')<br>App 版本 v3.8 ｜ 網址 ' + esc(shortUrl);
       } else {
         el.style.color = 'var(--red)';
         el.innerHTML = '⚠️ 後端是「舊版程式」，編輯不會儲存。<br>請到 Apps Script：部署 → 管理部署作業 → 編輯現有部署 → 版本選「新版本」→ 部署。<br>網址 ' + esc(shortUrl);

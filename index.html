@@ -6,7 +6,7 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>施工日報表 v3.2</title>
+<title>施工日報表 v3.3</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{--bd:#6b7280;--hbg:#f3f4f6;--ac:#374151;--tx:#111827;--mu:#9ca3af;--ib:#ffffff;--st:#f9fafb;--br:#e5e7eb;--grn:#2d6a4f;--red:#9b2226}
@@ -2800,12 +2800,20 @@ function saveEdit() {
               showToast('⚠️ 無法連線伺服器確認，請稍後按 ↻ 刷新');
               return;
             }
-            // 找到這筆資料，用內容簽章確認伺服器是否真的存進這次編輯
+            // 找到這筆資料
             var found = null;
             for (var i = 0; i < res.data.length; i++) {
               if (String(res.data[i].id) === String(patchData.id)) { found = res.data[i]; break; }
             }
-            var confirmed = found && _editSig(found) === _editSig(patchData);
+            // 確認方式：正常編輯帶有唯一的 editedAt，伺服器原樣存回，
+            // 只要伺服器顯示這個 editedAt 就代表存檔成功（避免內容簽章誤判）。
+            var confirmed;
+            if (patchData.editedAt) {
+              confirmed = found && String(found.editedAt || '') === String(patchData.editedAt);
+            } else {
+              // 無實質變更：用內容簽章即可
+              confirmed = found && _editSig(found) === _editSig(patchData);
+            }
             if (!confirmed && retries > 0) {
               pollUntilUpdated(retries - 1);
               return;
@@ -2835,7 +2843,7 @@ function saveEdit() {
             showToast('⚠️ 無法連線伺服器確認編輯結果');
           });
       }, 3000);
-    })(8); // 最多輪詢 8 次，每次 3 秒，共 24 秒
+    })(12); // 最多輪詢 12 次，每次 3 秒，共 36 秒（照片多時 GAS 寫入較慢）
   }
 
   function doSend() {

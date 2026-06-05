@@ -6,7 +6,7 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>施工日報表 v3.3</title>
+<title>施工日報表 v3.5</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{--bd:#6b7280;--hbg:#f3f4f6;--ac:#374151;--tx:#111827;--mu:#9ca3af;--ib:#ffffff;--st:#f9fafb;--br:#e5e7eb;--grn:#2d6a4f;--red:#9b2226}
@@ -296,6 +296,10 @@ table.st{width:100%;border-collapse:collapse;border-top:1.5px solid var(--bd)}
       <input type="password" id="pwInput" placeholder="請輸入管理密碼" onkeydown="if(event.key==='Enter')checkPw()">
       <button onclick="checkPw()">進入管理頁面</button>
     </div>
+    <div style="margin-top:14px;border-top:1px solid #eee;padding-top:12px">
+      <button onclick="checkBackend()" style="width:100%;background:#0d9488;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;color:#fff;padding:8px">🔧 後端檢測</button>
+      <div id="backendCheckResult" style="font-size:12px;margin-top:8px;line-height:1.6;color:var(--mu)"></div>
+    </div>
   </div>
 </div>
 
@@ -479,7 +483,7 @@ function showToast(msg) {
   t._timer = setTimeout(function() { t.classList.remove('show'); }, 2500);
 }
 
-var API = 'https://script.google.com/macros/s/AKfycbwU95ENYGepyySTTAY9beUlmhXwOqMYYN-M-03hRnZDM0kp063aZWHRwWfBKl0kzpSa/exec';
+var API = 'https://script.google.com/macros/s/AKfycbwUPD89dDHuNKQELPn6iou-SyswAuHGxLnAhnFUj6qe2dWm1sExgDVPfnKr0V4pUN8B/exec';
 var ADMIN_PW = '86617383';
 var REPORTERS_KEY = 'gas_reporters';
 var currentReporter = '';
@@ -690,6 +694,29 @@ function showPage(p) {
   if (p === 'form') { showRawPage('pageForm'); document.getElementById('navForm').classList.add('active'); }
   else if (p === 'history') { showRawPage('pageHistory'); document.getElementById('navHistory').classList.add('active'); _reportCache = null; loadHistory(); startHistoryRefresh(); }
   else if (p === 'admin') { showRawPage('pageAdmin'); document.getElementById('navAdmin').classList.add('active'); loadAllReports(); renderReporterMgmt(); }
+}
+
+// 後端檢測：確認 App 連到的後端是否為含修正的新版 Code.gs
+function checkBackend() {
+  var el = document.getElementById('backendCheckResult');
+  el.style.color = 'var(--mu)';
+  el.textContent = '檢測中…';
+  var shortUrl = API.replace('https://script.google.com/macros/s/', '…/').slice(0, 30) + '…';
+  fetch(API + '?action=ping&t=' + Date.now(), {redirect:'follow', cache:'no-store'})
+    .then(function(r){ return r.json(); })
+    .then(function(res){
+      if (res && res.ok && res.version) {
+        el.style.color = 'var(--grn)';
+        el.innerHTML = '✅ 後端為最新版 (' + esc(String(res.version)) + ')<br>App 版本 v3.5 ｜ 網址 ' + esc(shortUrl);
+      } else {
+        el.style.color = 'var(--red)';
+        el.innerHTML = '⚠️ 後端是「舊版程式」，編輯不會儲存。<br>請到 Apps Script：部署 → 管理部署作業 → 編輯現有部署 → 版本選「新版本」→ 部署。<br>網址 ' + esc(shortUrl);
+      }
+    })
+    .catch(function(){
+      el.style.color = 'var(--red)';
+      el.innerHTML = '❌ 連不到後端。可能：①部署存取權限不是「任何人」 ②網址錯誤。<br>網址 ' + esc(shortUrl);
+    });
 }
 
 function checkPw() {

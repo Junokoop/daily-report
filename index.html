@@ -6,7 +6,7 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>施工日報表 v2.9</title>
+<title>施工日報表 v3.1</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{--bd:#6b7280;--hbg:#f3f4f6;--ac:#374151;--tx:#111827;--mu:#9ca3af;--ib:#ffffff;--st:#f9fafb;--br:#e5e7eb;--grn:#2d6a4f;--red:#9b2226}
@@ -479,7 +479,7 @@ function showToast(msg) {
   t._timer = setTimeout(function() { t.classList.remove('show'); }, 2500);
 }
 
-var API = 'https://script.google.com/macros/s/AKfycbxmzC_Id5EpFvK0IDq8a1YaDi99_D_LcC1ewr6phg4jZT4DarNIzobjENRaqVdpfvdH/exec';
+var API = 'https://script.google.com/macros/s/AKfycbwU95ENYGepyySTTAY9beUlmhXwOqMYYN-M-03hRnZDM0kp063aZWHRwWfBKl0kzpSa/exec';
 var ADMIN_PW = '86617383';
 var REPORTERS_KEY = 'gas_reporters';
 var currentReporter = '';
@@ -2768,14 +2768,17 @@ function saveEdit() {
         fetch(API + '?action=list&noPhotos=1&t=' + Date.now(), {redirect:'follow', cache:'no-store'})
           .then(function(r){ return r.json(); })
           .then(function(res) {
-            if (!res.ok || !res.data) return;
-            // 找到這筆資料，確認 editedAt 已寫入
+            if (!res.ok || !res.data) {
+              if (retries > 0) { pollUntilUpdated(retries - 1); return; }
+              showToast('⚠️ 無法連線伺服器確認，請稍後按 ↻ 刷新');
+              return;
+            }
+            // 找到這筆資料，用內容簽章確認伺服器是否真的存進這次編輯
             var found = null;
             for (var i = 0; i < res.data.length; i++) {
               if (String(res.data[i].id) === String(patchData.id)) { found = res.data[i]; break; }
             }
-            var gasEditedAt = found ? (found.editedAt || '') : '';
-            var confirmed = gasEditedAt === patchData.editedAt;
+            var confirmed = found && _editSig(found) === _editSig(patchData);
             if (!confirmed && retries > 0) {
               pollUntilUpdated(retries - 1);
               return;
@@ -2796,7 +2799,14 @@ function saveEdit() {
             try { updateAdminCount(res.data); } catch(e) {}
             try { renderSummaryTable(res.data); } catch(e) {}
             try { renderNotifyList(res.data); } catch(e) {}
-          }).catch(function() {});
+            if (!confirmed) {
+              // 伺服器在 24 秒內始終沒有反映這次編輯 → 後端沒有真正存檔
+              showToast('⚠️ 伺服器未儲存此編輯，後端（GAS）可能不支援編輯功能');
+            }
+          }).catch(function() {
+            if (retries > 0) { pollUntilUpdated(retries - 1); return; }
+            showToast('⚠️ 無法連線伺服器確認編輯結果');
+          });
       }, 3000);
     })(8); // 最多輪詢 8 次，每次 3 秒，共 24 秒
   }

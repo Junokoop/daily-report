@@ -6,7 +6,7 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>施工日報表 v3.1</title>
+<title>施工日報表 v3.2</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{--bd:#6b7280;--hbg:#f3f4f6;--ac:#374151;--tx:#111827;--mu:#9ca3af;--ib:#ffffff;--st:#f9fafb;--br:#e5e7eb;--grn:#2d6a4f;--red:#9b2226}
@@ -1030,6 +1030,7 @@ function submitReport() {
 function _updateHistoryUI(allData) {
   var listEl = document.getElementById('historyList');
   if (!listEl) return;
+  _lastHistorySig = _dataSig(allData); // 同步基準，避免首次自動刷新多閃一次
   try {
     var data = (allData || []).filter(function(r) { return r.reporter === currentReporter; });
     data.sort(function(a, b) { return Number(b.id) - Number(a.id); });
@@ -1080,6 +1081,23 @@ function loadHistory() {
 
 var _adminRefreshTimer = null;
 var _historyRefreshTimer = null;
+var _lastAdminSig = null;
+var _lastHistorySig = null;
+
+// 用報表關鍵欄位算一個簽章，自動刷新時用來判斷「資料有沒有變」，
+// 沒變就不重繪，避免畫面每幾秒就閃一次 / 捲動位置被重置。
+function _dataSig(data) {
+  if (!data || !data.length) return '';
+  var parts = [];
+  for (var i = 0; i < data.length; i++) {
+    var r = data[i];
+    if (!r || r.id === undefined || r.id === null || String(r.id).trim() === '') continue;
+    parts.push([r.id, r.reporter, r.date, r.remaining, r.receiptCash, r.totalCash, r.totalCard,
+                r.editedAt || '', r.editedBy || '', r.editedNote || ''].join('|'));
+  }
+  parts.sort();
+  return parts.join('§');
+}
 
 function startHistoryRefresh() {
   stopHistoryRefresh();
@@ -1095,6 +1113,10 @@ function startHistoryRefresh() {
         allReports = res.data;
         _reportCache = res.data;
         _reportCacheTime = Date.now();
+        // 資料沒變就不重繪，避免每 30 秒卡片重建、照片重抓造成閃動
+        var hsig = _dataSig(res.data);
+        if (hsig === _lastHistorySig) return;
+        _lastHistorySig = hsig;
         _updateHistoryUI(res.data);
       }).catch(function() {});
   }, 30000); // 每 30 秒刷新
@@ -1119,9 +1141,13 @@ function startAdminRefresh() {
         allReports = res.data;
         _reportCache = res.data;
         _reportCacheTime = Date.now();
-        // 同步更新表頭筆數，避免新增/刪除後數字不更新
+        // 資料沒變就不重繪，避免畫面一直閃 / 一直「自動刷新」
+        var sig = _dataSig(res.data);
+        if (sig === _lastAdminSig) return;
+        _lastAdminSig = sig;
+        // 同步更新表頭筆數
         updateAdminCount(res.data);
-        // 只更新通知列
+        // 更新通知列
         try { renderNotifyList(res.data); } catch(e) {}
         // 更新公款總覽
         try { renderSummaryTable(res.data); } catch(e) {}
@@ -1140,6 +1166,7 @@ function loadAllReports() {
     .then(function(data) {
       allReports = data;
       updateAdminCount(allReports);
+      _lastAdminSig = _dataSig(allReports); // 同步基準，避免首次自動刷新多閃一次
       _photoCache = {}; // 刷新時先清照片快取，確保跨裝置同步（須在預抓之前，否則會把預抓結果清掉）
       // 背景預抓有照片的報表（最多5筆）
       allReports.filter(function(r){

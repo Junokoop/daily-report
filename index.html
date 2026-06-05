@@ -6,7 +6,7 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>施工日報表 v3.8</title>
+<title>施工日報表 v3.9</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{--bd:#6b7280;--hbg:#f3f4f6;--ac:#374151;--tx:#111827;--mu:#9ca3af;--ib:#ffffff;--st:#f9fafb;--br:#e5e7eb;--grn:#2d6a4f;--red:#9b2226}
@@ -460,86 +460,206 @@ function loadPhotos(rptId, wrap, forceRefresh) {
 
 function esc(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
-// 產生報表列印內容並開啟列印對話框（可選「儲存成 PDF」）
+// 動態載入外部函式庫（jsPDF / html2canvas）
+function _loadScript(src) {
+  return new Promise(function(resolve, reject) {
+    var ex = document.querySelector('script[data-src="' + src + '"]');
+    if (ex && ex._loaded) return resolve();
+    var s = document.createElement('script');
+    s.src = src; s.async = true; s.setAttribute('data-src', src);
+    s.onload = function(){ s._loaded = true; resolve(); };
+    s.onerror = function(){ reject(new Error('load fail: ' + src)); };
+    document.head.appendChild(s);
+  });
+}
+function _ensurePdfLibs() {
+  var jobs = [];
+  if (!(window.jspdf && window.jspdf.jsPDF))
+    jobs.push(_loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'));
+  if (!window.html2canvas)
+    jobs.push(_loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js'));
+  return Promise.all(jobs);
+}
+// 把 base64 載入成 Image 以取得原始尺寸
+function _loadImg(src) {
+  return new Promise(function(resolve) {
+    var im = new Image();
+    im.onload = function(){ resolve(im); };
+    im.onerror = function(){ resolve(null); };
+    im.src = src;
+  });
+}
+
+// 直接產生並儲存 PDF（不走列印對話框）；發票照片每頁 4 張(2x2)
 function printReport(rpt) {
-  var area = document.getElementById('printArea');
-  if (!area || !rpt) return;
+  if (!rpt) return;
   function money(n) { return (Number(n) || 0).toLocaleString('en-US'); }
 
-  function build(photos) {
-    var h = '';
-    h += '<div class="print-title">施工日報表</div>';
-    h += '<div class="print-meta">日期：' + esc(rpt.date || '') +
-         '<br>填報者：' + esc(rpt.reporter || '') +
-         '<br>工程名稱：' + esc(rpt.project || '') + '</div>';
-
-    h += '<div class="print-sh">施工項目</div>';
-    h += '<div class="print-content">' + esc(rpt.workItems || '（無）') + '</div>';
-
-    var att = rpt.attendance || [];
-    if (att.length) {
-      h += '<div class="print-sh">出工人員</div>';
-      h += '<table class="print-table"><tr><th>姓名</th><th>上午</th><th>下午</th><th>加班(時)</th></tr>';
-      att.forEach(function(a) {
-        h += '<tr><td>' + esc(a.name || '') + '</td><td>' + (a.am ? '✓' : '') +
-             '</td><td>' + (a.pm ? '✓' : '') + '</td><td>' + (a.ot || 0) + '</td></tr>';
-      });
-      h += '</table>';
-    }
-
-    var exp = rpt.expenses || [];
-    if (exp.length) {
-      h += '<div class="print-sh">公款支出</div>';
-      h += '<table class="print-table"><tr><th>項目</th><th>現金</th><th>刷卡</th><th>發票</th></tr>';
-      exp.forEach(function(e) {
-        h += '<tr><td>' + esc(e.item || '') + '</td><td>' + money(e.cash) +
-             '</td><td>' + money(e.card) + '</td><td>' + (e.inv ? '有' : '') + '</td></tr>';
-      });
-      h += '</table>';
-    }
-
-    h += '<div class="print-sh">現金結算</div>';
-    h += '<table class="print-sum">' +
-         '<tr><td>接收現金</td><td>' + money(rpt.receiptCash) + '</td></tr>' +
-         '<tr><td>支出現金</td><td>' + money(rpt.totalCash) + '</td></tr>' +
-         '<tr><td>支出刷卡</td><td>' + money(rpt.totalCard) + '</td></tr>' +
-         '<tr><td>現金剩餘</td><td>' + money(rpt.remaining) + '</td></tr></table>';
-
-    if (rpt.receiptNote) {
-      h += '<div class="print-sh">備考</div>';
-      h += '<div class="print-content">' + esc(rpt.receiptNote) + '</div>';
-    }
-    if (rpt.editedAt) {
-      h += '<div class="print-content" style="font-size:12px;color:#856404;margin-top:6px">修正：' +
-           esc(rpt.editedAt) + ' / ' + esc(rpt.editedBy || '') + '</div>';
-    }
-
-    if (photos && photos.length) {
-      h += '<div class="print-sh">照片（' + photos.length + '）</div>';
-      photos.forEach(function(src) {
-        if (src) h += '<img src="' + src + '" style="max-width:100%;margin:4px 0;page-break-inside:avoid">';
-      });
-    }
-
-    area.innerHTML = h;
-    // 給圖片一點載入時間再開列印對話框
-    setTimeout(function() { window.print(); }, (photos && photos.length) ? 700 : 120);
-  }
+  showToast('產生 PDF 中…');
 
   var totalPC = (rpt.expenses || []).reduce(function(s, e) {
     return s + (e.photoCount || (e.photos ? e.photos.length : 0) || 0);
   }, 0);
 
+  // 先確保照片在快取
+  var photoReady;
   if (totalPC > 0) {
     var cached = _photoCache[String(rpt.id)];
-    if (cached && cached.length) { build(cached); return; }
-    showToast('載入照片中…');
-    getPhotosFromGAS(rpt.id)
-      .then(function(ph) { _photoCache[String(rpt.id)] = ph; build(ph); })
-      .catch(function() { build([]); });
+    if (cached && cached.length) photoReady = Promise.resolve(cached);
+    else photoReady = getPhotosFromGAS(rpt.id).then(function(ph){ _photoCache[String(rpt.id)] = ph; return ph; }).catch(function(){ return []; });
   } else {
-    build([]);
+    photoReady = Promise.resolve([]);
   }
+
+  Promise.all([_ensurePdfLibs(), photoReady])
+    .then(function(arr) {
+      var photos = (arr[1] || []).filter(function(p){ return !!p; });
+      return _buildAndSavePdf(rpt, photos, money);
+    })
+    .catch(function(err) {
+      showToast('PDF 產生失敗，請確認網路後再試');
+    });
+}
+
+function _buildAndSavePdf(rpt, photos, money) {
+  // 1) 文字/表格部分先用隱藏容器 + html2canvas 轉成影像（保留中文字）
+  var box = document.createElement('div');
+  box.style.cssText = 'position:fixed;left:-99999px;top:0;width:760px;background:#fff;padding:24px;font-family:-apple-system,\"PingFang TC\",\"Microsoft JhengHei\",sans-serif;color:#1a1a1a';
+  var h = '';
+  h += '<div style="text-align:center;font-size:26px;font-weight:700;letter-spacing:.2em;padding:8px 0 12px;border-bottom:3px solid #333;margin-bottom:14px">施工日報表</div>';
+  h += '<div style="font-size:16px;line-height:2.1;margin-bottom:8px">日期：' + esc(rpt.date || '') +
+       '<br>填報者：' + esc(rpt.reporter || '') +
+       '<br>工程名稱：' + esc(rpt.project || '') + '</div>';
+  function sh(t){ return '<div style="background:#e5e7eb;font-weight:700;font-size:15px;padding:7px 10px;margin:12px 0 6px;border:1px solid #b0a99a">' + t + '</div>'; }
+  h += sh('施工項目') + '<div style="font-size:15px;line-height:1.8;white-space:pre-wrap;padding:2px 2px">' + esc(rpt.workItems || '（無）') + '</div>';
+
+  var att = rpt.attendance || [];
+  if (att.length) {
+    h += sh('出工人員') + '<table style="width:100%;border-collapse:collapse;font-size:14px"><tr>' +
+         '<th style="background:#e5e7eb;border:1px solid #b0a99a;padding:6px">姓名</th>' +
+         '<th style="background:#e5e7eb;border:1px solid #b0a99a;padding:6px">上午</th>' +
+         '<th style="background:#e5e7eb;border:1px solid #b0a99a;padding:6px">下午</th>' +
+         '<th style="background:#e5e7eb;border:1px solid #b0a99a;padding:6px">加班(時)</th></tr>';
+    att.forEach(function(a){
+      h += '<tr><td style="border:1px solid #b0a99a;padding:6px;text-align:center">' + esc(a.name||'') +
+           '</td><td style="border:1px solid #b0a99a;padding:6px;text-align:center">' + (a.am?'✓':'') +
+           '</td><td style="border:1px solid #b0a99a;padding:6px;text-align:center">' + (a.pm?'✓':'') +
+           '</td><td style="border:1px solid #b0a99a;padding:6px;text-align:center">' + (a.ot||0) + '</td></tr>';
+    });
+    h += '</table>';
+  }
+
+  var exp = rpt.expenses || [];
+  if (exp.length) {
+    h += sh('公款支出') + '<table style="width:100%;border-collapse:collapse;font-size:14px"><tr>' +
+         '<th style="background:#e5e7eb;border:1px solid #b0a99a;padding:6px">項目</th>' +
+         '<th style="background:#e5e7eb;border:1px solid #b0a99a;padding:6px">現金</th>' +
+         '<th style="background:#e5e7eb;border:1px solid #b0a99a;padding:6px">刷卡</th>' +
+         '<th style="background:#e5e7eb;border:1px solid #b0a99a;padding:6px">發票</th></tr>';
+    exp.forEach(function(e){
+      h += '<tr><td style="border:1px solid #b0a99a;padding:6px;text-align:center">' + esc(e.item||'') +
+           '</td><td style="border:1px solid #b0a99a;padding:6px;text-align:center">' + money(e.cash) +
+           '</td><td style="border:1px solid #b0a99a;padding:6px;text-align:center">' + money(e.card) +
+           '</td><td style="border:1px solid #b0a99a;padding:6px;text-align:center">' + (e.inv?'有':'') + '</td></tr>';
+    });
+    h += '</table>';
+  }
+
+  h += sh('現金結算') + '<table style="width:100%;border-collapse:collapse;font-size:15px">' +
+       _sumRow('接收現金', money(rpt.receiptCash)) +
+       _sumRow('支出現金', money(rpt.totalCash)) +
+       _sumRow('支出刷卡', money(rpt.totalCard)) +
+       _sumRow('現金剩餘', money(rpt.remaining)) + '</table>';
+
+  if (rpt.receiptNote) h += sh('備考') + '<div style="font-size:15px;line-height:1.8;white-space:pre-wrap">' + esc(rpt.receiptNote) + '</div>';
+  if (rpt.editedAt) h += '<div style="font-size:12px;color:#856404;margin-top:8px">修正：' + esc(rpt.editedAt) + ' / ' + esc(rpt.editedBy||'') + '</div>';
+
+  box.innerHTML = h;
+  document.body.appendChild(box);
+
+  var jsPDF = window.jspdf.jsPDF;
+  var doc = new jsPDF('p', 'mm', 'a4');
+  var PW = 210, PH = 297, M = 10, usableW = PW - M*2, usableH = PH - M*2;
+
+  return window.html2canvas(box, { scale: 2, backgroundColor: '#fff', useCORS: true })
+    .then(function(canvas) {
+      document.body.removeChild(box);
+      var imgData = canvas.toDataURL('image/jpeg', 0.92);
+      var imgH = usableW * canvas.height / canvas.width;
+      // 文字過長則跨頁切片
+      var heightLeft = imgH, position = M;
+      doc.addImage(imgData, 'JPEG', M, position, usableW, imgH);
+      heightLeft -= usableH;
+      while (heightLeft > 0) {
+        position = M - (imgH - heightLeft);
+        doc.addPage();
+        doc.addImage(imgData, 'JPEG', M, position, usableW, imgH);
+        heightLeft -= usableH;
+      }
+      return photos;
+    })
+    .then(function(photos) {
+      if (!photos.length) return;
+      // 2) 發票照片：每頁 4 張（2x2）
+      return Promise.all(photos.map(_loadImg)).then(function(imgs) {
+        var gap = 6;
+        var cellW = (usableW - gap) / 2;       // 每格寬
+        var cellH = (usableH - gap - 8) / 2;    // 每格高（預留 8mm 給標題）
+        for (var i = 0; i < imgs.length; i++) {
+          var slot = i % 4;
+          if (slot === 0) {
+            doc.addPage();
+            doc.setFontSize(13);
+            doc.text('發票照片', M, M + 4);
+          }
+          var col = slot % 2, row = Math.floor(slot / 2);
+          var cx = M + col * (cellW + gap);
+          var cy = M + 8 + row * (cellH + gap);
+          var im = imgs[i];
+          if (!im) continue;
+          // 等比例縮放置中
+          var ratio = Math.min(cellW / im.naturalWidth, cellH / im.naturalHeight);
+          var w = im.naturalWidth * ratio, hh = im.naturalHeight * ratio;
+          var ox = cx + (cellW - w) / 2, oy = cy + (cellH - hh) / 2;
+          try { doc.addImage(im.src, 'JPEG', ox, oy, w, hh); } catch(e) {
+            try { doc.addImage(im.src, 'PNG', ox, oy, w, hh); } catch(e2) {}
+          }
+        }
+      });
+    })
+    .then(function() {
+      var safe = function(s){ return String(s||'').replace(/[\\/:*?"<>|\s]/g, '_'); };
+      var fname = '施工日報表_' + safe(rpt.reporter) + '_' + safe(rpt.date) + '.pdf';
+      var blob = doc.output('blob');
+      _savePdfBlob(blob, fname);
+    });
+}
+
+function _sumRow(k, v) {
+  return '<tr><td style="background:#e5e7eb;font-weight:700;width:130px;border-bottom:1px solid #b0a99a;padding:8px 12px">' + k +
+         '</td><td style="border-bottom:1px solid #b0a99a;padding:8px 12px">' + v + '</td></tr>';
+}
+
+// 儲存 PDF：優先用分享(可「儲存到檔案」，iOS 友善)，否則退回下載連結
+function _savePdfBlob(blob, fname) {
+  try {
+    var file = new File([blob], fname, { type: 'application/pdf' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      navigator.share({ files: [file], title: fname })
+        .then(function(){ showToast('已產生 PDF'); })
+        .catch(function(){ _downloadBlob(blob, fname); });
+      return;
+    }
+  } catch(e) {}
+  _downloadBlob(blob, fname);
+}
+function _downloadBlob(blob, fname) {
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url; a.download = fname;
+  document.body.appendChild(a); a.click();
+  setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(url); }, 10000);
+  showToast('已儲存 PDF');
 }
 
 function openPhotoOverlay(src) {
@@ -789,7 +909,7 @@ function checkBackend() {
     .then(function(res){
       if (res && res.ok && res.version) {
         el.style.color = 'var(--grn)';
-        el.innerHTML = '✅ 後端為最新版 (' + esc(String(res.version)) + ')<br>App 版本 v3.8 ｜ 網址 ' + esc(shortUrl);
+        el.innerHTML = '✅ 後端為最新版 (' + esc(String(res.version)) + ')<br>App 版本 v3.9 ｜ 網址 ' + esc(shortUrl);
       } else {
         el.style.color = 'var(--red)';
         el.innerHTML = '⚠️ 後端是「舊版程式」，編輯不會儲存。<br>請到 Apps Script：部署 → 管理部署作業 → 編輯現有部署 → 版本選「新版本」→ 部署。<br>網址 ' + esc(shortUrl);

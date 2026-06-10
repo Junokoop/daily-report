@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>照片日期印章</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&family=DM+Mono:wght@400;500&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --ink: #1a1a1a;
+  --paper: #f5f0e8;
+  --cream: #ede8da;
+  --accent: #c0392b;
+  --muted: #8a7f72;
+  --border: #ccc4b4;
+  --panel: #faf7f2;
+}
+
+html, body { height: 100%; overflow: hidden; }
+
+body {
+  font-family: 'Noto Sans TC', sans-serif;
+  background: var(--paper);
+  color: var(--ink);
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+}
+
+/* HEADER */
+header {
+  border-bottom: 2px solid var(--ink);
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--paper);
+  flex-shrink: 0;
+}
+header h1 {
+  font-family: 'DM Mono', monospace;
+  font-size: 1rem;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+}
+header span { font-size: 0.65rem; color: var(--muted); letter-spacing: 0.08em; }
+
+/* LAYOUT */
+.app {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* PREVIEW */
+.preview-wrap {
+  background: #1e1e1e;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  height: 44dvh;
+  overflow: hidden;
+  gap: 8px;
+  padding: 8px;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #555;
+  gap: 8px;
+  font-size: 0.8rem;
+  width: 100%;
+  height: 100%;
+}
+.empty-state .big { font-size: 2rem; }
+
+#preview-area {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  gap: 8px;
+}
+
+#main-canvas {
+  display: block;
+  max-width: 100%;
+  max-height: calc(44dvh - 50px);
+  width: auto;
+  height: auto;
+  box-shadow: 0 2px 20px rgba(0,0,0,.6);
+  touch-action: pan-y;
+  user-select: none;
+}
+
+/* swipe hint arrows */
+.swipe-hint {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  color: rgba(255,255,255,0.25);
+  font-size: 1.6rem;
+  pointer-events: none;
+  line-height: 1;
+}
+.swipe-hint.left  { left: 6px; }
+.swipe-hint.right { right: 6px; }
+
+.btn-apply {
+  display: block;
+  width: 100%;
+  padding: 13px;
+  border: 1.5px solid var(--accent);
+  background: var(--accent);
+  color: #fff;
+  font-family: 'DM Mono', monospace;
+  font-size: 0.82rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  cursor: pointer;
+  border-radius: 4px;
+  margin-top: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+.btn-apply:active { opacity: 0.8; }
+
+.nav-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+.nav-btn {
+  padding: 5px 18px;
+  border: 1px solid #444;
+  background: #2a2a2a;
+  color: #ccc;
+  cursor: pointer;
+  border-radius: 4px;
+  font-family: 'DM Mono', monospace;
+  font-size: 0.72rem;
+  -webkit-tap-highlight-color: transparent;
+}
+.nav-btn:active { background: #444; }
+#page-info { color: #666; min-width: 50px; text-align: center; font-family: 'DM Mono', monospace; font-size: 0.72rem; }
+
+/* CONTROLS */
+.controls {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  background: var(--panel);
+  border-top: 2px solid var(--ink);
+}
+
+.section {
+  border-bottom: 1px solid var(--border);
+  padding: 12px 16px;
+}
+
+.section-title {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.6rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+
+#upload-zone {
+  border: 2px dashed var(--border);
+  padding: 14px;
+  text-align: center;
+  cursor: pointer;
+  font-size: 0.8rem;
+  color: var(--muted);
+  line-height: 1.6;
+  border-radius: 6px;
+  -webkit-tap-highlight-color: transparent;
+}
+#upload-zone:active { border-color: var(--accent); background: #fdf0ee; }
+#upload-zone.dragover {
+  border-color: var(--accent);
+  background: #fdf0ee;
+  color: var(--accent);
+}
+#upload-zone .icon { font-size: 1.4rem; display: block; margin-bottom: 2px; }
+.preview-wrap.dragover { outline: 3px dashed var(--accent); outline-offset: -8px; }
+.preview-wrap.dragover .empty-state { color: var(--accent); }
+#file-input { display: none; }
+
+#thumb-list {
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 2px 0 4px;
+  -webkit-overflow-scrolling: touch;
+}
+.thumb-item {
+  flex-shrink: 0;
+  position: relative;
+  cursor: pointer;
+  border-radius: 4px;
+  border: 2px solid transparent;
+}
+.thumb-item.active { border-color: var(--accent); }
+.thumb-item img { width: 52px; height: 40px; object-fit: cover; border-radius: 2px; display: block; }
+.thumb-del {
+  position: absolute; top: 0; right: 0;
+  width: 16px; height: 16px;
+  background: var(--accent); border: none;
+  color: #fff; cursor: pointer; font-size: 0.55rem;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 0 2px 0 3px;
+}
+
+label.lbl {
+  display: block;
+  font-size: 0.68rem;
+  color: var(--muted);
+  margin-bottom: 3px;
+  margin-top: 9px;
+}
+label.lbl:first-child { margin-top: 0; }
+
+input[type="date"],
+input[type="text"],
+input[type="number"],
+select {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  background: #fff;
+  font-family: 'DM Mono', monospace;
+  font-size: 0.85rem;
+  color: var(--ink);
+  outline: none;
+  border-radius: 4px;
+  -webkit-appearance: none;
+  appearance: none;
+}
+select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%238a7f72'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 28px;
+}
+input:focus, select:focus { border-color: var(--ink); }
+
+.swatches { display: flex; gap: 8px; flex-wrap: wrap; }
+.sw {
+  width: 30px; height: 30px; border-radius: 50%;
+  border: 2px solid var(--border); cursor: pointer; padding: 0;
+  transition: transform .1s;
+}
+.sw.active {
+  border-color: var(--ink);
+  box-shadow: 0 0 0 2px var(--panel), 0 0 0 4px var(--ink);
+  transform: scale(1.12);
+}
+input[type="range"] {
+  width: 100%;
+  accent-color: var(--accent);
+  height: 22px;
+}
+
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+.btn {
+  display: block;
+  width: 100%;
+  padding: 13px;
+  border: 1.5px solid var(--ink);
+  background: var(--ink);
+  color: var(--paper);
+  font-family: 'DM Mono', monospace;
+  font-size: 0.78rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  cursor: pointer;
+  border-radius: 4px;
+  margin-top: 8px;
+  -webkit-tap-highlight-color: transparent;
+}
+.btn:active { background: var(--accent); border-color: var(--accent); }
+.btn:disabled { opacity: 0.5; pointer-events: none; }
+.btn.outline { background: transparent; color: var(--ink); }
+.btn.outline:active { background: var(--ink); color: var(--paper); }
+
+/* ZIP rename modal */
+#zip-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  z-index: 100;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+#zip-modal.show { display: flex; }
+#zip-modal-box {
+  background: var(--paper);
+  border-radius: 8px;
+  padding: 24px;
+  width: 100%;
+  max-width: 320px;
+  border: 2px solid var(--ink);
+}
+#zip-modal-box h3 {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.85rem;
+  margin-bottom: 12px;
+  letter-spacing: 0.05em;
+}
+#zip-modal-box input {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-family: 'DM Mono', monospace;
+  font-size: 0.9rem;
+  margin-bottom: 4px;
+}
+#zip-modal-box .ext {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.72rem;
+  color: var(--muted);
+  margin-bottom: 16px;
+  display: block;
+}
+#zip-modal-box .modal-btns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+@media (min-width: 680px) {
+  .app { flex-direction: row; }
+  .controls {
+    width: 290px;
+    flex-shrink: 0;
+    border-top: none;
+    border-right: 1px solid var(--border);
+    order: -1;
+  }
+  .preview-wrap { flex: 1; height: auto; }
+  #main-canvas { max-height: calc(100dvh - 62px - 56px); }
+  #preview-area { padding: 24px; }
+  .btn:hover { background: var(--accent); border-color: var(--accent); }
+  .btn.outline:hover { background: var(--ink); color: var(--paper); }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>照片日期印章</h1>
+  <span>DATE STAMP</span>
+</header>
+
+<div class="app">
+
+  <div class="preview-wrap" id="preview-wrap" style="position:relative">
+    <div class="swipe-hint left">‹</div>
+    <div class="swipe-hint right">›</div>
+    <div class="empty-state" id="empty-state">
+      <span class="big">🖼</span>
+      <span>上傳照片後在此預覽</span>
+    </div>
+    <div id="preview-area">
+      <div class="nav-row">
+        <button class="nav-btn" onclick="navigate(-1)">← 上一張</button>
+        <span id="page-info"></span>
+        <button class="nav-btn" onclick="navigate(1)">下一張 →</button>
+      </div>
+      <canvas id="main-canvas"></canvas>
+    </div>
+  </div>
+
+  <div class="controls">
+
+    <div class="section">
+      <div class="section-title">上傳照片</div>
+      <div id="upload-zone" onclick="document.getElementById('file-input').click()">
+        <span class="icon">📁</span>
+        點擊選取，或拖曳照片到此（支援多張）
+      </div>
+      <input type="file" id="file-input" accept="image/*" multiple>
+    </div>
+
+    <div class="section" id="thumb-section" style="display:none">
+      <div class="section-title">照片列表 <span id="count-badge"></span></div>
+      <div id="thumb-list"></div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">日期文字</div>
+      <label class="lbl">日期</label>
+      <input type="date" id="date-input">
+      <label class="lbl">日期格式</label>
+      <select id="date-format">
+        <option value="YYYY.MM.DD">2025.05.07</option>
+        <option value="YYYY/MM/DD">2025/05/07</option>
+        <option value="YYYY-MM-DD">2025-05-07</option>
+        <option value="MM.DD.YYYY">05.07.2025</option>
+        <option value="DD.MM.YYYY">07.05.2025</option>
+        <option value="YYYY年MM月DD日">2025年05月07日</option>
+        <option value="MM月DD日">05月07日</option>
+      </select>
+      <label class="lbl">字型</label>
+      <select id="font-family">
+        <option value="Arial, sans-serif">Arial（無襯線）</option>
+      </select>
+      <div class="row2">
+        <div>
+          <label class="lbl">字體大小</label>
+          <input type="number" id="font-size" value="60" min="10" max="300">
+        </div>
+        <div>
+          <label class="lbl">顏色</label>
+          <input type="hidden" id="font-color" value="#ffffff">
+          <div class="swatches" id="color-swatches">
+            <button type="button" class="sw active" data-c="#ffffff" style="background:#ffffff"></button>
+            <button type="button" class="sw" data-c="#000000" style="background:#000000"></button>
+            <button type="button" class="sw" data-c="#ff3b30" style="background:#ff3b30"></button>
+            <button type="button" class="sw" data-c="#ffd400" style="background:#ffd400"></button>
+            <button type="button" class="sw" data-c="#34c759" style="background:#34c759"></button>
+            <button type="button" class="sw" data-c="#0a84ff" style="background:#0a84ff"></button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">文字位置</div>
+      <select id="pos-select">
+        <option value="8,8">左上</option>
+        <option value="92,8">右上</option>
+        <option value="8,93">左下</option>
+        <option value="92,93" selected>右下</option>
+      </select>
+    </div>
+
+    <div class="section" style="background:#fff8f6">
+      <button class="btn-apply" onclick="render()">↺ 套用預覽</button>
+    </div>
+
+    <div class="section">
+      <div class="section-title">儲存</div>
+      <button class="btn" id="btn-zip" onclick="downloadZip()">⬇ 全部打包下載 ZIP</button>
+      <button class="btn outline" id="btn-all" onclick="downloadAll()">⬇ 全部依序自動下載</button>
+      <p id="dl-status" style="font-family:'DM Mono',monospace;font-size:0.7rem;color:var(--muted);margin-top:8px;text-align:center;min-height:1.2em"></p>
+    </div>
+
+  </div>
+</div>
+
+<!-- ZIP rename modal -->
+<div id="zip-modal">
+  <div id="zip-modal-box">
+    <h3>ZIP 檔案命名</h3>
+    <input type="text" id="zip-name-input" value="stamped_photos" autocomplete="off">
+    <span class="ext">.zip</span>
+    <div class="modal-btns">
+      <button class="btn outline" onclick="closeZipModal()">取消</button>
+      <button class="btn" onclick="confirmZip()">確認下載</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const state = { photos: [], current: 0, posX: 92, posY: 93 };
+
+const $ = id => document.getElementById(id);
+const canvas      = $('main-canvas');
+const ctx         = canvas.getContext('2d');
+const dateInput   = $('date-input');
+const dateFormat  = $('date-format');
+const fontFamily  = $('font-family');
+const fontSize    = $('font-size');
+const fontColor   = $('font-color');
+const opacityCtrl = $('opacity');
+const shadowCtrl  = $('shadow');
+const posSelect   = $('pos-select');
+
+dateInput.value = new Date().toISOString().slice(0, 10);
+
+posSelect.addEventListener('change', () => {
+  [state.posX, state.posY] = posSelect.value.split(',').map(Number);
+});
+
+document.getElementById('color-swatches').addEventListener('click', e => {
+  const b = e.target.closest('.sw');
+  if (!b) return;
+  fontColor.value = b.dataset.c;
+  document.querySelectorAll('#color-swatches .sw').forEach(x => x.classList.remove('active'));
+  b.classList.add('active');
+});
+
+// No auto-render on input — user clicks "套用預覽" to refresh
+
+// ── Swipe to navigate ──
+let swipeStartX = 0;
+const previewWrap = $('preview-wrap');
+previewWrap.addEventListener('touchstart', e => {
+  swipeStartX = e.touches[0].clientX;
+}, { passive: true });
+previewWrap.addEventListener('touchend', e => {
+  const dx = e.changedTouches[0].clientX - swipeStartX;
+  if (Math.abs(dx) > 40) {
+    navigate(dx < 0 ? 1 : -1);
+  }
+}, { passive: true });
+
+$('file-input').addEventListener('change', e => loadFiles(e.target.files));
+
+// ── Drag & drop loading (desktop) ──
+function setupDropZone(el) {
+  if (!el) return;
+  ['dragenter', 'dragover'].forEach(evt =>
+    el.addEventListener(evt, e => {
+      e.preventDefault();
+      e.stopPropagation();
+      el.classList.add('dragover');
+    })
+  );
+  ['dragleave', 'dragend'].forEach(evt =>
+    el.addEventListener(evt, e => {
+      e.preventDefault();
+      e.stopPropagation();
+      el.classList.remove('dragover');
+    })
+  );
+  el.addEventListener('drop', e => {
+    e.preventDefault();
+    e.stopPropagation();
+    el.classList.remove('dragover');
+    const files = e.dataTransfer && e.dataTransfer.files;
+    if (files && files.length) loadFiles(files);
+  });
+}
+setupDropZone($('upload-zone'));
+setupDropZone($('preview-wrap'));
+// Stop the browser opening an image dropped outside a drop zone
+['dragover', 'drop'].forEach(evt =>
+  window.addEventListener(evt, e => {
+    if (!e.target.closest('#upload-zone, #preview-wrap')) e.preventDefault();
+  })
+);
+
+function loadFiles(files) {
+  [...files].forEach(file => {
+    if (!file.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const img = new Image();
+      img.onload = () => {
+        state.photos.push({ name: file.name, img });
+        if (state.photos.length === 1) state.current = 0;
+        rebuildThumbs();
+        render();
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+  // Reset so same file can be re-selected
+  $('file-input').value = '';
+}
+
+function rebuildThumbs() {
+  const has = state.photos.length > 0;
+  $('thumb-section').style.display = has ? '' : 'none';
+  $('empty-state').style.display   = has ? 'none' : 'flex';
+  $('preview-area').style.display  = has ? 'flex' : 'none';
+  $('count-badge').textContent     = `(${state.photos.length})`;
+  $('thumb-list').innerHTML = '';
+  state.photos.forEach((p, i) => {
+    const tc = document.createElement('canvas');
+    tc.width = 80; tc.height = 60;
+    tc.getContext('2d').drawImage(p.img, 0, 0, 80, 60);
+    const item = document.createElement('div');
+    item.className = 'thumb-item' + (i === state.current ? ' active' : '');
+    item.innerHTML = `<img src="${tc.toDataURL()}"><button class="thumb-del">✕</button>`;
+    item.querySelector('img').onclick = () => { state.current = i; rebuildThumbs(); render(); };
+    item.querySelector('.thumb-del').onclick = e => {
+      e.stopPropagation();
+      state.photos.splice(i, 1);
+      state.current = Math.min(state.current, Math.max(0, state.photos.length - 1));
+      rebuildThumbs(); render();
+    };
+    $('thumb-list').appendChild(item);
+  });
+  $('page-info').textContent = state.photos.length ? `${state.current + 1} / ${state.photos.length}` : '';
+}
+
+function navigate(dir) {
+  if (!state.photos.length) return;
+  state.current = (state.current + dir + state.photos.length) % state.photos.length;
+  rebuildThumbs(); render();
+  $('dl-status').textContent = '';
+}
+
+function render() {
+  if (!state.photos.length) return;
+  const p    = state.photos[state.current];
+  const wrap = $('preview-wrap');
+  const maxW = wrap.clientWidth - 16;
+  const maxH = wrap.clientHeight - 50;
+  const scale = Math.min(1, maxW / p.img.width, maxH / p.img.height);
+  canvas.width  = Math.round(p.img.width  * scale);
+  canvas.height = Math.round(p.img.height * scale);
+  ctx.drawImage(p.img, 0, 0, canvas.width, canvas.height);
+  stamp(ctx, canvas.width, canvas.height, scale);
+}
+
+function stamp(c, w, h, scale) {
+  const fmt  = dateFormat.value;
+  const d    = dateInput.value; // YYYY-MM-DD
+  const [y, m, day] = d ? d.split('-') : ['', '', ''];
+  const text = fmt
+    .replace('YYYY', y).replace('MM', m).replace('DD', day)
+    .replace('年', '年').replace('月', '月').replace('日', '日');
+  const fSize = Math.max(1, Math.round(parseFloat(fontSize.value) * scale));
+  const px    = (state.posX / 100) * w;
+  const py    = (state.posY / 100) * h;
+  const align = state.posX <= 15 ? 'left' : state.posX >= 85 ? 'right' : 'center';
+  c.save();
+  c.font         = `${fSize}px ${fontFamily.value}`;
+  c.textAlign    = align;
+  c.textBaseline = 'middle';
+  c.fillStyle = fontColor.value;
+  c.fillText(text, px, py);
+  c.restore();
+}
+
+// Build export canvas at original resolution
+function buildExport(photo) {
+  const ec = document.createElement('canvas');
+  ec.width  = photo.img.width;
+  ec.height = photo.img.height;
+  const ec2 = ec.getContext('2d');
+  ec2.drawImage(photo.img, 0, 0);
+  stamp(ec2, ec.width, ec.height, 1);
+  return ec;
+}
+
+function ecToBlob(ec) {
+  return new Promise((res, rej) =>
+    ec.toBlob(b => b ? res(b) : rej(new Error('toBlob failed')), 'image/jpeg', 0.92)
+  );
+}
+
+function downloadZip() {
+  if (!state.photos.length) return;
+  $('zip-name-input').value = 'stamped_photos';
+  $('zip-modal').classList.add('show');
+  setTimeout(() => $('zip-name-input').focus(), 100);
+}
+
+function closeZipModal() {
+  $('zip-modal').classList.remove('show');
+}
+
+async function downloadAll() {
+  if (!state.photos.length) return;
+  const btn    = $('btn-all');
+  const status = $('dl-status');
+  const total  = state.photos.length;
+  btn.disabled = true;
+  try {
+    for (let i = 0; i < total; i++) {
+      status.textContent = `下載中 ${i + 1} / ${total}…`;
+      const p    = state.photos[i];
+      const blob = await ecToBlob(buildExport(p));
+      const name = 'stamped_' + p.name.replace(/\.[^.]+$/, '') + '.jpg';
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href = url;
+      a.download = name;
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      await new Promise(r => setTimeout(r, 400));
+    }
+    status.textContent = `已觸發 ${total} 張下載`;
+  } catch (e) {
+    status.textContent = '下載失敗：' + e.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function confirmZip() {
+  closeZipModal();
+  const zipName = ($('zip-name-input').value.trim() || 'stamped_photos') + '.zip';
+  const btn    = $('btn-zip');
+  const status = $('dl-status');
+  btn.disabled = true;
+
+  try {
+    const zip   = new JSZip();
+    const total = state.photos.length;
+
+    for (let i = 0; i < total; i++) {
+      status.textContent = `打包中 ${i + 1} / ${total}…`;
+      const p    = state.photos[i];
+      const blob = await ecToBlob(buildExport(p));
+      const name = 'stamped_' + p.name.replace(/\.[^.]+$/, '') + '.jpg';
+      zip.file(name, blob);
+    }
+
+    status.textContent = '壓縮中…';
+    const zipBlob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+    const url = URL.createObjectURL(zipBlob);
+    const a   = document.createElement('a');
+    a.href = url;
+    a.download = zipName;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 3000);
+
+    status.textContent = `完成！共 ${total} 張已打包 ✓`;
+    setTimeout(() => { status.textContent = ''; }, 5000);
+  } catch(e) {
+    status.textContent = '失敗：' + e.message;
+    setTimeout(() => { status.textContent = ''; }, 4000);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+window.addEventListener('resize', render);
+</script>
+</body>
+</html>

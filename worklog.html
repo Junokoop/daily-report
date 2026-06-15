@@ -36,6 +36,9 @@ textarea{resize:vertical;line-height:1.6}
 #toolbar button.danger{background:var(--warn);color:#fff}
 #toolbar select{max-width:46vw}
 #saveState{font-size:12px;opacity:.8;min-width:64px;text-align:center}
+.edit-tools{display:none;gap:8px;align-items:center}
+body.edit-on .edit-tools{display:inline-flex;flex-wrap:wrap;gap:8px}
+body.edit-on #btnEditMode{background:var(--accent-2);color:#fff;font-weight:700}
 
 /* ── 紙張 ── */
 #printPages{display:none}
@@ -61,8 +64,15 @@ td.ctr{text-align:center}
 #itemTable td:first-child{font-size:13px}
 #itemTable input[type=number]{padding-right:2px}
 tr.item-row.has-qty td{background:#f3fbf3}
-tr.item-row .rowdel{display:inline}
-.rowdel{color:var(--warn);cursor:pointer;border:none;background:none;font-size:13px;padding:0 2px}
+/* 編輯態才顯示的報表內工具：紅色✕、新增列鈕、日期輸入 */
+.rowdel{display:none;color:var(--warn);cursor:pointer;border:none;background:none;font-size:13px;padding:0 2px}
+.addrow-btn{display:none}
+body.edit-on .rowdel{display:inline}
+body.edit-on .addrow-btn{display:inline-block}
+.date-edit{display:none}
+body.edit-on .date-edit{display:inline-block}
+.date-view{}
+body.edit-on .date-view{display:none}
 
 /* 金額欄位：預設隱藏，可切換顯示編輯 */
 .money{display:none}
@@ -105,7 +115,7 @@ body.show-money tr.money{display:table-row}
 @media print{
   @page{size:A4 portrait;margin:8mm 8mm}
   body{background:#fff;font-size:10px}
-  #toolbar,.addrow-btn,.rowdel,.no-print{display:none!important}
+  #toolbar,.addrow-btn,.rowdel,.date-edit,.no-print{display:none!important}
   #sheet,.print-page{box-shadow:none;margin:0;padding:0;max-width:none;overflow:visible}
   body.multi-print #sheet{display:none}
   body.multi-print #printPages{display:block}
@@ -139,13 +149,16 @@ body.show-money tr.money{display:table-row}
   <button id="btnPrev" title="前一頁">◀</button>
   <select id="daySelect" title="切換日報"></select>
   <button id="btnNext" title="後一頁">▶</button>
-  <button id="btnRange" class="primary">＋區間新增</button>
-  <button id="btnDelDay" class="danger">刪除</button>
-  <button id="btnDelRange" class="danger">區間刪除</button>
-  <button id="btnClearAll" class="danger">清除全部</button>
+  <button id="btnEditMode">編輯</button>
+  <span class="edit-tools">
+    <button id="btnRange" class="primary">＋區間新增</button>
+    <button id="btnDelDay" class="danger">刪除</button>
+    <button id="btnDelRange" class="danger">區間刪除</button>
+    <button id="btnClearAll" class="danger">清除全部</button>
+    <button id="btnImportPdf">匯入PDF</button>
+  </span>
   <button id="btnMoney">金額:隱藏</button>
   <button id="btnPrintRange">列印/儲存區間</button>
-  <button id="btnImportPdf">匯入PDF</button>
   <input type="file" id="importPdfFile" style="display:none">
 </div>
 
@@ -223,9 +236,9 @@ body.show-money tr.money{display:table-row}
     </tr>
     <tr>
       <td class="lbl">開工日期</td>
-      <td colspan="3"><input type="date" id="f_startDate" style="width:auto;max-width:70%">　<span id="f_rocStart" class="calc"></span></td>
+      <td colspan="3"><input type="date" id="f_startDate" class="date-edit" style="width:auto;max-width:70%">　<span id="f_rocStart" class="calc"></span></td>
       <td class="lbl">預定完工日期</td>
-      <td colspan="3"><input type="date" id="f_endDate" style="width:auto;max-width:70%">　<span id="f_rocEnd" class="calc"></span></td>
+      <td colspan="3"><input type="date" id="f_endDate" class="date-edit" style="width:auto;max-width:70%">　<span id="f_rocEnd" class="calc"></span></td>
     </tr>
     <tr>
       <td class="lbl">預定進度(%)</td>
@@ -710,6 +723,16 @@ $('btnMoney').addEventListener('click',()=>{
 if(localStorage.getItem('logShowMoney')==='1'){
   document.body.classList.add('show-money');
   $('btnMoney').textContent='金額:顯示';
+}
+// 編輯工具：預設隱藏，按「編輯」才顯現
+$('btnEditMode').addEventListener('click',()=>{
+  const on=document.body.classList.toggle('edit-on');
+  $('btnEditMode').textContent=on?'完成':'編輯';
+  try{localStorage.setItem('logEditOn',on?'1':'0');}catch(e){}
+});
+if(localStorage.getItem('logEditOn')==='1'){
+  document.body.classList.add('edit-on');
+  $('btnEditMode').textContent='完成';
 }
 
 // 材料/人員機具

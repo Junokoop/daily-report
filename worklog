@@ -1,0 +1,1152 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>公共工程施工日誌</title>
+<meta name="theme-color" content="#1c2733">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="apple-mobile-web-app-title" content="施工日誌">
+<style>
+:root{
+  --ink:#1c2733; --line:#8a96a3; --line-dark:#3d4a57;
+  --bg:#eef1f4; --paper:#ffffff; --accent:#0b5e8e; --accent-2:#0d7a4f;
+  --warn:#b3261e; --muted:#5b6873;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{font-family:"標楷體","DFKai-SB","BiauKai","Kaiti TC","KaiTi","TW-Kai",serif;background:var(--bg);color:var(--ink);font-size:15px}
+button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
+input,textarea{border:none;background:transparent;width:100%}
+input:focus,textarea:focus{outline:2px solid var(--accent);outline-offset:-2px;background:#eaf4fb}
+input[type=number]{text-align:right;-moz-appearance:textfield}
+input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appearance:none}
+textarea{resize:vertical;line-height:1.6}
+
+/* ── 工具列 ── */
+#toolbar{position:sticky;top:0;z-index:50;background:var(--ink);color:#fff;
+  display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:8px 12px;
+  font-family:"Microsoft JhengHei",sans-serif}
+#toolbar .title{font-weight:700;letter-spacing:2px;margin-right:auto}
+#toolbar button,#toolbar select{background:#fff;color:var(--ink);border:none;border-radius:4px;
+  padding:6px 12px;cursor:pointer;font-size:14px}
+#toolbar button.primary{background:var(--accent-2);color:#fff;font-weight:700}
+#toolbar button.danger{background:var(--warn);color:#fff}
+#toolbar select{max-width:46vw}
+#saveState{font-size:12px;opacity:.8;min-width:64px;text-align:center}
+
+/* ── 紙張 ── */
+#printPages{display:none}
+#sheet,.print-page{max-width:1120px;margin:16px auto;background:var(--paper);
+  box-shadow:0 2px 14px rgba(0,0,0,.18);padding:28px 26px}
+h1.doc-title{text-align:center;font-size:24px;letter-spacing:14px;font-weight:700;margin-bottom:4px}
+.report-no{display:flex;justify-content:space-between;font-size:14px;margin-bottom:2px}
+.report-no input{width:120px;border-bottom:1px solid var(--line)}
+
+table.grid{width:100%;border-collapse:collapse;table-layout:fixed}
+table.grid th,table.grid td{border:1px solid var(--line-dark);padding:3px 5px;font-size:14px;vertical-align:middle;line-height:1.35;overflow-wrap:break-word}
+table.grid th{background:#f2f4f6;font-weight:700;text-align:center}
+td.lbl{background:#f2f4f6;font-weight:700;text-align:center}
+td.ctr{white-space:nowrap}
+td.num,th.num{text-align:right}
+td.ctr{text-align:center}
+.calc{color:var(--accent);font-weight:700}
+.section-title{border:1px solid var(--line-dark);border-bottom:none;background:#e7ebef;
+  font-weight:700;padding:5px 8px;margin-top:14px;font-size:15px}
+.section-title:first-of-type{margin-top:10px}
+
+/* 工項表 */
+#itemTable td:first-child{font-size:13px}
+#itemTable input[type=number]{padding-right:2px}
+tr.item-row.has-qty td{background:#f3fbf3}
+tr.item-row .rowdel{display:inline}
+.rowdel{color:var(--warn);cursor:pointer;border:none;background:none;font-size:13px;padding:0 2px}
+
+/* 金額欄位：預設隱藏，可切換顯示編輯 */
+.money{display:none}
+col.money{display:none}
+body.show-money .money{display:table-cell}
+body.show-money col.money{display:table-column}
+body.show-money div.money{display:block}
+body.show-money tr.money{display:table-row}
+
+#summaryBox td{font-size:14px}
+.pct{color:var(--accent-2);font-weight:700}
+
+.chkline{padding:4px 2px;line-height:1.9;font-size:14px}
+.chkline label{margin-right:14px;white-space:nowrap;cursor:pointer}
+.chkline input[type=checkbox],.chkline input[type=radio]{width:auto;margin-right:3px;vertical-align:-2px}
+
+.free-text{border:1px solid var(--line-dark);border-top:none;padding:4px 6px}
+.free-text textarea{min-height:48px}
+
+.sign-row{display:flex;border:1px solid var(--line-dark);border-top:none}
+.sign-row>div{flex:1;padding:8px;min-height:64px;font-size:14px}
+.sign-row>div+div{border-left:1px solid var(--line-dark)}
+.sign-row input{border-bottom:1px dotted var(--line);margin-top:6px}
+
+.note{font-size:11.5px;line-height:1.7;color:var(--muted);margin-top:10px;white-space:pre-wrap}
+
+.addrow-btn{margin:6px 0;background:none;border:1px dashed var(--accent);color:var(--accent);
+  border-radius:4px;padding:4px 14px;cursor:pointer;font-size:13px;
+  font-family:"Microsoft JhengHei",sans-serif}
+
+/* 手機 */
+@media (max-width:760px){
+  #sheet{padding:12px 6px;margin:8px 4px}
+  h1.doc-title{font-size:19px;letter-spacing:8px}
+  table.grid th,table.grid td{font-size:12px;padding:2px 3px}
+  #itemTable td:first-child{font-size:11.5px}
+}
+
+/* ── 列印 ── */
+@media print{
+  @page{size:A4 portrait;margin:8mm 8mm}
+  body{background:#fff;font-size:10px}
+  #toolbar,.addrow-btn,.rowdel,.no-print{display:none!important}
+  #sheet,.print-page{box-shadow:none;margin:0;padding:0;max-width:none;overflow:visible}
+  body.multi-print #sheet{display:none}
+  body.multi-print #printPages{display:block}
+  .print-page{page-break-after:always}
+  .print-page:last-child{page-break-after:auto}
+  table.grid th,table.grid td{font-size:8.5px;padding:0.5px 2px;border-color:#000;line-height:1.25}
+  td.lbl,table.grid th,.section-title{background:#eee!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  tr.item-row.has-qty td{background:#fff}
+  input{font-size:8.5px;padding:0}
+  h1.doc-title{font-size:15px;letter-spacing:8px;margin-bottom:1px}
+  .report-no{font-size:8.5px;margin-bottom:1px}
+  .section-title{font-size:9px;padding:1px 4px;margin-top:2px;page-break-after:avoid}
+  .free-text{padding:1px 4px}
+  .free-text textarea,.chkline{font-size:8.5px;line-height:1.4}
+  .free-text textarea{min-height:0;height:auto;overflow:hidden}
+  .chkline{padding:0}
+  input:focus,textarea:focus{outline:none;background:transparent}
+  tr.item-row.hide-print{display:none}
+  .sign-row>div{min-height:30px;padding:2px 4px;font-size:8.5px}
+  .note{font-size:6.6px;line-height:1.35;margin-top:2px}
+  .calc{color:#000}.pct{color:#000}
+  table.grid,.section-title,.free-text,.sign-row{page-break-inside:avoid}
+}
+</style>
+</head>
+<body>
+
+<div id="toolbar">
+  <span class="title">施工日誌</span>
+  <span id="saveState">已儲存</span>
+  <button id="btnPrev" title="前一頁">◀</button>
+  <select id="daySelect" title="切換日報"></select>
+  <button id="btnNext" title="後一頁">▶</button>
+  <button id="btnRange" class="primary">＋區間新增</button>
+  <button id="btnDelDay" class="danger">刪除</button>
+  <button id="btnDelRange" class="danger">區間刪除</button>
+  <button id="btnClearAll" class="danger">清除全部</button>
+  <button id="btnMoney">金額:隱藏</button>
+  <button id="btnPrintRange">列印/儲存區間</button>
+  <button id="btnImportPdf">匯入PDF</button>
+  <input type="file" id="importPdfFile" style="display:none">
+</div>
+
+<div id="rangeDlg" class="no-print" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:99;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:8px;padding:20px;width:300px;font-family:'Microsoft JhengHei',sans-serif">
+    <b style="display:block;margin-bottom:12px">依日期區間新增日報</b>
+    <div style="margin-bottom:8px">起：<input type="date" id="rg_from" style="border:1px solid var(--line);padding:4px;border-radius:4px;width:auto"></div>
+    <div style="margin-bottom:14px">迄：<input type="date" id="rg_to" style="border:1px solid var(--line);padding:4px;border-radius:4px;width:auto"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button id="rg_cancel" style="padding:6px 14px;border:1px solid var(--line);background:#fff;border-radius:4px;cursor:pointer">取消</button>
+      <button id="rg_ok" style="padding:6px 14px;border:none;background:var(--accent-2);color:#fff;border-radius:4px;cursor:pointer;font-weight:700">新增</button>
+    </div>
+    <div style="font-size:12px;color:var(--muted);margin-top:10px">每一天建立一頁日報；已存在的日期會自動略過。</div>
+  </div>
+</div>
+
+<div id="delRangeDlg" class="no-print" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:99;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:8px;padding:20px;width:300px;font-family:'Microsoft JhengHei',sans-serif">
+    <b style="display:block;margin-bottom:12px">依日期區間刪除日報</b>
+    <div style="margin-bottom:8px">起：<input type="date" id="dr_from" style="border:1px solid var(--line);padding:4px;border-radius:4px;width:auto"></div>
+    <div style="margin-bottom:14px">迄：<input type="date" id="dr_to" style="border:1px solid var(--line);padding:4px;border-radius:4px;width:auto"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button id="dr_cancel" style="padding:6px 14px;border:1px solid var(--line);background:#fff;border-radius:4px;cursor:pointer">取消</button>
+      <button id="dr_ok" style="padding:6px 14px;border:none;background:var(--warn);color:#fff;border-radius:4px;cursor:pointer;font-weight:700">刪除</button>
+    </div>
+    <div style="font-size:12px;color:var(--muted);margin-top:10px">將刪除區間內所有日報，無法復原。</div>
+  </div>
+</div>
+
+<div id="printRangeDlg" class="no-print" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:99;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:8px;padding:20px;width:300px;font-family:'Microsoft JhengHei',sans-serif">
+    <b style="display:block;margin-bottom:12px">列印日期區間</b>
+    <div style="margin-bottom:8px">起：<input type="date" id="rp_from" style="border:1px solid var(--line);padding:4px;border-radius:4px;width:auto"></div>
+    <div style="margin-bottom:14px">迄：<input type="date" id="rp_to" style="border:1px solid var(--line);padding:4px;border-radius:4px;width:auto"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">
+      <button id="rp_cancel" style="padding:6px 14px;border:1px solid var(--line);background:#fff;border-radius:4px;cursor:pointer">取消</button>
+      <button id="rp_pdf" style="padding:6px 14px;border:none;background:var(--accent-2);color:#fff;border-radius:4px;cursor:pointer;font-weight:700">存成PDF</button>
+      <button id="rp_ok" style="padding:6px 14px;border:none;background:var(--accent);color:#fff;border-radius:4px;cursor:pointer;font-weight:700">列印</button>
+    </div>
+    <div style="font-size:12px;color:var(--muted);margin-top:10px">區間內每一天的日報各一頁；「存成PDF」可重新匯入編輯。</div>
+  </div>
+</div>
+<div id="printPages"></div>
+
+<div id="sheet">
+  <h1 class="doc-title">公共工程施工日誌</h1>
+  <div class="report-no">
+    <span>表報編號：<input id="f_no" style="width:90px;border-bottom:1px solid var(--line);text-align:center"></span>
+    <span>第 <b id="f_seq" class="calc">1</b> 頁</span>
+  </div>
+
+  <table class="grid hdr">
+    <colgroup><col style="width:12.5%"><col style="width:12.5%"><col style="width:12.5%"><col style="width:12.5%">
+    <col style="width:12.5%"><col style="width:12.5%"><col style="width:12.5%"><col style="width:12.5%"></colgroup>
+    <tr>
+      <td colspan="5">本日天氣：上午 <input id="f_wxAM" style="width:48px;border-bottom:1px solid var(--line);text-align:center">　下午 <input id="f_wxPM" style="width:48px;border-bottom:1px solid var(--line);text-align:center"></td>
+      <td class="lbl">填報日期</td>
+      <td colspan="2"><input type="date" id="f_date" style="width:auto;max-width:100%"><div id="f_rocDate" class="calc"></div></td>
+    </tr>
+    <tr>
+      <td class="lbl">工程名稱</td>
+      <td colspan="4"><input id="f_projName"></td>
+      <td class="lbl">承攬廠商名稱</td>
+      <td colspan="2"><input id="f_contractor"></td>
+    </tr>
+    <tr>
+      <td class="lbl">核定工期</td>
+      <td class="num"><input type="number" id="f_totalDays" min="0" style="width:calc(100% - 18px)">天</td>
+      <td class="lbl">累計工期</td>
+      <td class="num"><span id="f_elapsed" class="calc">－</span> 天</td>
+      <td class="lbl">剩餘工期</td>
+      <td class="num"><span id="f_remain" class="calc">－</span> 天</td>
+      <td class="lbl">工期延展天數</td>
+      <td class="num"><input type="number" id="f_extDays" min="0" style="width:calc(100% - 18px)">天</td>
+    </tr>
+    <tr>
+      <td class="lbl">開工日期</td>
+      <td colspan="3"><input type="date" id="f_startDate" style="width:auto;max-width:70%">　<span id="f_rocStart" class="calc"></span></td>
+      <td class="lbl">預定完工日期</td>
+      <td colspan="3"><input type="date" id="f_endDate" style="width:auto;max-width:70%">　<span id="f_rocEnd" class="calc"></span></td>
+    </tr>
+    <tr>
+      <td class="lbl">預定進度(%)</td>
+      <td colspan="3" class="num"><input type="number" id="f_planPct" step="0.01" style="width:90px"> %</td>
+      <td class="lbl">實際進度(%)</td>
+      <td colspan="3" class="num"><span id="f_actPct" class="calc pct">0.00</span> %</td>
+    </tr>
+  </table>
+
+  <div class="section-title">一、依施工計畫書執行按圖施工概況：</div>
+  <table class="grid" id="itemTable">
+    <colgroup><col><col style="width:7%"><col style="width:10%"><col style="width:11%"><col style="width:11%">
+    <col class="money" style="width:8.5%"><col class="money" style="width:9%"><col class="money" style="width:10%"><col class="money" style="width:10%"></colgroup>
+    <thead>
+      <tr>
+        <th>施工項目</th><th>單位</th><th>契約數量</th><th>本日完成數量</th><th>累計完成數量</th>
+        <th class="money">單價</th><th class="money">本日金額</th><th class="money">累計完成金額</th><th class="money">總計</th>
+      </tr>
+    </thead>
+    <tbody id="itemBody"></tbody>
+    <tfoot>
+      <tr style="font-weight:700" class="money">
+        <td class="ctr money" colspan="6">合計（主體工程費 <span id="f_effTotal" class="calc">0</span>　Σ契約金額 <span id="f_grandTotal" class="calc">0</span>）</td>
+        <td class="num money"><span id="f_dayAmt" class="calc">0</span></td>
+        <td class="num money"><span id="f_cumAmt" class="calc">0</span></td>
+        <td class="num money"><span id="f_grandTotal2" class="calc">0</span></td>
+      </tr>
+    </tfoot>
+  </table>
+  <button class="addrow-btn" id="btnAddItem">＋ 新增工項</button>
+
+  <div class="section-title">二、工地材料管理概況（含約定之重要材料使用狀況及數量等）：</div>
+  <table class="grid" id="matTable">
+    <colgroup><col><col style="width:9%"><col style="width:13%"><col style="width:14%"><col style="width:14%"><col style="width:18%"></colgroup>
+    <thead><tr><th>材料名稱</th><th>單位</th><th>契約數量</th><th>本日使用數量</th><th>累計使用數量</th><th>備註</th></tr></thead>
+    <tbody id="matBody"></tbody>
+  </table>
+  <button class="addrow-btn" id="btnAddMat">＋ 新增材料</button>
+
+  <div class="section-title">三、工地人員及機具管理（含約定之出工人數及機具使用情形及數量）：</div>
+  <table class="grid" id="crewTable">
+    <colgroup><col style="width:17%"><col style="width:11%"><col style="width:11%"><col style="width:5%">
+    <col style="width:17%"><col style="width:11%"><col style="width:11%"></colgroup>
+    <thead><tr><th>工別</th><th>本日人數</th><th>累計人數</th><th style="border-top:none;border-bottom:none;background:#fff"></th><th>機具名稱</th><th>本日使用數量</th><th>累計使用數量</th></tr></thead>
+    <tbody id="crewBody"></tbody>
+  </table>
+  <button class="addrow-btn" id="btnAddCrew">＋ 新增工別/機具</button>
+
+  <div class="section-title">四、本日施工項目是否有須依「營造業專業工程特定施工項目應置之技術士種類、比率或人數標準表」規定應設置技術士之專業工程：</div>
+  <div class="free-text chkline">
+    <label><input type="radio" name="r_tech" id="f_techYes">有</label>
+    <label><input type="radio" name="r_tech" id="f_techNo" checked>無</label>
+    <span style="color:var(--muted)">（如勾選「有」，應填寫後附「公共工程施工日誌之技術士簽章表」）</span>
+  </div>
+
+  <div class="section-title">五、工地職業安全衛生事項之督導、公共環境與安全之維護及其他工地行政事務：</div>
+  <div class="free-text">
+    <div class="chkline">(一)施工前檢查事項：</div>
+    <div class="chkline">1. 實施勤前教育（含工地預防災變及危害告知）：
+      <label><input type="checkbox" id="f_s1y">有</label><label><input type="checkbox" id="f_s1n">無</label></div>
+    <div class="chkline">2. 確認新進勞工是否提報勞工保險（或其他商業保險）資料及安全衛生教育訓練紀錄：
+      <label><input type="checkbox" id="f_s2y">有</label><label><input type="checkbox" id="f_s2n">無</label><label><input type="checkbox" id="f_s2x">無新進勞工</label></div>
+    <div class="chkline">3. 檢查勞工個人防護具：
+      <label><input type="checkbox" id="f_s3y">有</label><label><input type="checkbox" id="f_s3n">無</label></div>
+    <div class="chkline">(二)其他事項：</div>
+    <textarea id="f_safetyOther" rows="2"></textarea>
+  </div>
+
+  <div class="section-title">六、施工取樣試驗紀錄：</div>
+  <div class="free-text"><textarea id="f_sampling" rows="2"></textarea></div>
+
+  <div class="section-title">七、通知分包廠商辦理事項：</div>
+  <div class="free-text"><textarea id="f_subNotice" rows="2"></textarea></div>
+
+  <div class="section-title">八、重要事項紀錄：</div>
+  <div class="free-text"><textarea id="f_important" rows="2"></textarea></div>
+
+  <div class="sign-row">
+    <div>簽章：【工地負責人】(註3)<br><input id="f_sign"></div>
+    <div style="max-width:300px" class="money">
+      <table class="grid" style="border:none" id="summaryBox">
+        <tr><td class="lbl">主體工程費</td><td class="num"><span id="s_total" class="calc">0</span></td></tr>
+        <tr><td class="lbl">施作金額</td><td class="num"><span id="s_done" class="calc">0</span></td></tr>
+        <tr><td class="lbl">實際進度</td><td class="num"><span id="s_pct" class="calc pct">0.0000</span> %</td></tr>
+        <tr><td class="lbl">本日金額</td><td class="num"><span id="s_day" class="calc">0</span></td></tr>
+        <tr><td class="lbl">本日進度</td><td class="num"><span id="s_dayPct" class="calc pct">0.0000</span> %</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="note">註：1.依營造業法第32條第1項第2款規定，工地主任應按日填報施工日誌。
+2.本施工日誌格式僅供參考，惟原則應包含上開欄位，各機關亦得依工程性質及契約約定事項自行增訂之。
+3.本工程依營造業法第30條規定須置工地主任者，由工地主任簽章；依上開規定免置工地主任者，則由營造業法第32條第2項所定之人員簽章。廠商非屬營造業者，由工地負責人簽章。
+4.契約工期如有修正，應填修正後之契約工期，含展延工期及不計工期天數；如有依契約變更設計，預定進度及實際進度應填變更設計後計算之進度。
+5.上開重要事項紀錄包含(1)主辦機關及監造單位指示(2)工地遇緊急異常狀況之通報處理情形(3)本日是否由專任工程人員督察按圖施工、解決施工技術問題等。
+6.上開施工前檢查事項所列工作應由職業安全衛生管理辦法第3條規定所置職業安全衛生人員於每日施工前辦理，工地主任負責督導及確認該事項完成後於施工日誌填載。
+7.公共工程屬建築物者，請依內政部最新訂頒之「建築物施工日誌」填寫。</div>
+</div>
+
+<script>
+/* ════════ 資料 ════════ */
+const LS_KEY = 'constructionLog_v2';
+
+function blankItems(n){ return Array.from({length:n},()=>({name:'',unit:'',cQty:0,price:0})); }
+
+function blankReport(dateStr){
+  return {
+    date: dateStr, no:'', wxAM:'晴', wxPM:'晴', planPct:null,
+    qty: {},                 // itemIdx -> 本日完成數量
+    materials: [],           // {name,unit,cQty,dQty}
+    crews: [['技術工',0],['小工',0]].map(c=>({name:c[0],dQty:0})),
+    machines: [['挖土機',0],['清溝車',0]].map(c=>({name:c[0],dQty:0})),
+    tech:'no',
+    s1:'y', s2:'x', s3:'y', safetyOther:'',
+    sampling:'', subNotice:'', important:'', sign:''
+  };
+}
+function defaultData(){
+  return {
+    project:{ name:'', contractor:'', no:'', totalDays:null, extDays:null, startDate:'', endDate:'', manualTotal:null },
+    items: blankItems(15),
+    reports: []
+  };
+}
+let DB = load();
+// 一次性遷移：既有日報未勾選者補預設（勤前教育:有、無新進勞工、防護具:有）
+if(!DB._v || DB._v<3){
+  DB.reports.forEach(r=>{
+    if(!r.s1) r.s1='y';
+    if(!r.s2) r.s2='x';
+    if(!r.s3) r.s3='y';
+    if(!r.tech) r.tech='no';
+  });
+  DB._v=3;
+}
+DB.project.manualTotal=null; // 主體工程費一律自動計算
+let curIdx = DB.reports.length ? DB.reports.length-1 : -1;
+
+function load(){
+  try{ const d = JSON.parse(localStorage.getItem(LS_KEY)); if(d && d.items) return d; }catch(e){}
+  return defaultData();
+}
+let saveTimer=null;
+function save(){
+  document.getElementById('saveState').textContent='儲存中…';
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(()=>{
+    localStorage.setItem(LS_KEY, JSON.stringify(DB));
+    document.getElementById('saveState').textContent='已儲存';
+  },400);
+}
+
+/* ════════ 工具 ════════ */
+const $=id=>document.getElementById(id);
+const fmt=n=>{ if(!isFinite(n)) return '0'; return n.toLocaleString('zh-TW',{minimumFractionDigits:0,maximumFractionDigits:2}); };
+const fq=n=>{ if(!isFinite(n)||n===0) return '0'; return +n.toFixed(3)+''; };
+function rocDate(iso){
+  if(!iso) return '';
+  const [y,m,d]=iso.split('-').map(Number);
+  return `${y-1911}年${m}月${d}日`;
+}
+function daysBetween(a,b){ // inclusive: 開工日當天=第1天
+  return Math.floor((new Date(b)-new Date(a))/86400000)+1;
+}
+function sortReports(){ DB.reports.sort((a,b)=>a.date<b.date?-1:1); }
+
+/* 累計：日期 <= 指定報表日期之所有本日數量加總 */
+function cumQty(itemIdx, uptoDate){
+  let s=0;
+  for(const r of DB.reports){
+    if(r.date<=uptoDate) s += (+r.qty[itemIdx]||0);
+  }
+  return s;
+}
+
+/* ════════ 渲染 ════════ */
+function renderDaySelect(){
+  const sel=$('daySelect'); sel.innerHTML='';
+  DB.reports.forEach((r,i)=>{
+    const o=document.createElement('option');
+    o.value=i; o.textContent=`#${i+1}　${rocDate(r.date)}`;
+    sel.appendChild(o);
+  });
+  if(curIdx>=0) sel.value=curIdx;
+  sel.style.display = DB.reports.length? '':'none';
+}
+
+function renderItems(){
+  const tb=$('itemBody'); tb.innerHTML='';
+  const r = curIdx>=0 ? DB.reports[curIdx] : null;
+  DB.items.forEach((it,i)=>{
+    const tr=document.createElement('tr'); tr.className='item-row';
+    const dq = r ? (+r.qty[i]||0) : 0;
+    const cq = r ? cumQty(i, r.date) : 0;
+    if(dq) tr.classList.add('has-qty');
+    if(printOnlyUsed && !dq && !cq) tr.classList.add('hide-print');
+    const da = dq*(+it.price||0);   // 本日金額 = 本日數量 × 單價
+    const ca = cq*(+it.price||0);   // 累計完成金額 = 累計數量 × 單價
+    const total = (+it.cQty||0)*(+it.price||0); // 總計 = 契約數量 × 單價
+    tr.innerHTML=`
+      <td><button class="rowdel no-print" data-del="${i}">✕</button><input data-f="name" data-i="${i}" value="${esc(it.name)}"></td>
+      <td class="ctr"><input data-f="unit" data-i="${i}" value="${esc(it.unit)}" style="text-align:center"></td>
+      <td class="num"><input type="number" step="any" data-f="cQty" data-i="${i}" value="${it.cQty||''}"></td>
+      <td class="num"><input type="number" step="any" min="0" data-day="${i}" value="${dq||''}" placeholder="0" ${r?'':'disabled'}></td>
+      <td class="num calc">${fq(cq)}</td>
+      <td class="num money"><input type="number" step="any" data-f="price" data-i="${i}" value="${it.price||''}"></td>
+      <td class="num calc money">${fmt(da)}</td>
+      <td class="num calc money">${fmt(ca)}</td>
+      <td class="num calc money">${fmt(total)}</td>`;
+    tb.appendChild(tr);
+  });
+}
+
+function esc(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;')}
+
+function listTable(tbodyId, rows, cols){
+  // cols: [{f,type,ph}]  rows: array of objects
+  const tb=$(tbodyId); tb.innerHTML='';
+  rows.forEach((row,ri)=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=cols.map(c=>{
+      if(c.f==='__del') return `<td class="ctr no-print"><button class="rowdel" style="display:inline" data-ldel="${ri}">✕</button></td>`;
+      if(c.f==='__gap') return `<td style="border-top:none;border-bottom:none"></td>`;
+      if(c.calc) return `<td class="num calc">${c.calc(row,ri)}</td>`;
+      const v=row[c.f]??'';
+      const t=c.type||'text';
+      return `<td class="${t==='number'?'num':''}"><input type="${t}" ${t==='number'?'step="any" min="0"':''} data-lf="${c.f}" data-lr="${ri}" value="${esc(v)}"></td>`;
+    }).join('');
+    tb.appendChild(tr);
+  });
+}
+
+function cumMat(name, uptoDate){
+  let s=0;
+  for(const r of DB.reports) if(r.date<=uptoDate)
+    for(const m of (r.materials||[])) if(m.name===name) s+=(+m.dQty||0);
+  return s;
+}
+function cumCrew(kind, name, uptoDate){
+  let s=0;
+  for(const r of DB.reports) if(r.date<=uptoDate)
+    for(const c of (r[kind]||[])) if(c.name===name) s+=(+c.dQty||0);
+  return s;
+}
+
+function renderSubTables(){
+  const r = curIdx>=0 ? DB.reports[curIdx] : null;
+  if(!r){ $('matBody').innerHTML=''; $('crewBody').innerHTML=''; return; }
+  // 材料
+  const mb=$('matBody'); mb.innerHTML='';
+  (r.materials).forEach((m,ri)=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`
+      <td><button class="rowdel" style="display:inline" data-mdel="${ri}">✕</button><input data-mf="name" data-mr="${ri}" value="${esc(m.name)}"></td>
+      <td class="ctr"><input data-mf="unit" data-mr="${ri}" value="${esc(m.unit||'')}" style="text-align:center"></td>
+      <td class="num"><input type="number" step="any" data-mf="cQty" data-mr="${ri}" value="${m.cQty??''}"></td>
+      <td class="num"><input type="number" step="any" data-mf="dQty" data-mr="${ri}" value="${m.dQty??''}"></td>
+      <td class="num calc">${fq(cumMat(m.name,r.date))}</td>
+      <td><input data-mf="note" data-mr="${ri}" value="${esc(m.note||'')}"></td>`;
+    mb.appendChild(tr);
+  });
+  if(!r.materials.length){ mb.innerHTML='<tr><td colspan="6" class="ctr" style="color:var(--muted)">－</td></tr>'; }
+  // 人員/機具（左右並列）
+  const cb=$('crewBody'); cb.innerHTML='';
+  const n=Math.max(r.crews.length, r.machines.length);
+  for(let i=0;i<n;i++){
+    const c=r.crews[i], m=r.machines[i];
+    const tr=document.createElement('tr');
+    tr.innerHTML=
+      (c?`<td><button class="rowdel" style="display:inline" data-cdel="${i}">✕</button><input data-cf="name" data-cr="${i}" value="${esc(c.name)}"></td>
+          <td class="num"><input type="number" step="any" data-cf="dQty" data-cr="${i}" value="${c.dQty??''}"></td>
+          <td class="num calc">${fq(cumCrew('crews',c.name,r.date))}</td>`
+        :'<td></td><td></td><td></td>')
+      +`<td style="border-top:none;border-bottom:none"></td>`
+      +(m?`<td><button class="rowdel" style="display:inline" data-kdel="${i}">✕</button><input data-kf="name" data-kr="${i}" value="${esc(m.name)}"></td>
+          <td class="num"><input type="number" step="any" data-kf="dQty" data-kr="${i}" value="${m.dQty??''}"></td>
+          <td class="num calc">${fq(cumCrew('machines',m.name,r.date))}</td>`
+        :'<td></td><td></td><td></td>');
+    cb.appendChild(tr);
+  }
+}
+
+function renderHeader(){
+  const p=DB.project, r=curIdx>=0?DB.reports[curIdx]:null;
+  $('f_projName').value=p.name; $('f_contractor').value=p.contractor;
+  // 核定工期自動 = 預定完工日 − 開工日 + 1（未手動覆寫時）
+  let autoDays=null;
+  if(p.startDate && p.endDate && p.endDate>=p.startDate) autoDays=daysBetween(p.startDate,p.endDate);
+  const effTotalDays = (p.totalDays!=null&&p.totalDays!=='') ? +p.totalDays : autoDays;
+  $('f_totalDays').value = (p.totalDays!=null&&p.totalDays!=='') ? p.totalDays : (autoDays!=null?autoDays:'');
+  $('f_totalDays').dataset.auto = autoDays!=null?String(autoDays):'';
+  $('f_extDays').value=p.extDays??'';
+  $('f_startDate').value=p.startDate; $('f_endDate').value=p.endDate;
+  $('f_rocStart').textContent=rocDate(p.startDate); $('f_rocEnd').textContent=rocDate(p.endDate);
+  $('f_seq').textContent = curIdx+1;
+  if(r){
+    $('f_no').value = r.no || String(curIdx+1);
+    $('f_no').placeholder = String(curIdx+1);
+    $('f_wxAM').value=r.wxAM; $('f_wxPM').value=r.wxPM;
+    $('f_date').value=r.date; $('f_rocDate').textContent=rocDate(r.date);
+    $('f_techYes').checked=r.tech==='yes'; $('f_techNo').checked=r.tech!=='yes';
+    $('f_s1y').checked=r.s1==='y'; $('f_s1n').checked=r.s1==='n';
+    $('f_s2y').checked=r.s2==='y'; $('f_s2n').checked=r.s2==='n'; $('f_s2x').checked=r.s2==='x';
+    $('f_s3y').checked=r.s3==='y'; $('f_s3n').checked=r.s3==='n';
+    $('f_safetyOther').value=r.safetyOther; $('f_sampling').value=r.sampling;
+    $('f_subNotice').value=r.subNotice; $('f_important').value=r.important; $('f_sign').value=r.sign;
+    // 工期
+    let autoPlan=null;
+    if(p.startDate){
+      const elapsed=daysBetween(p.startDate, r.date);
+      $('f_elapsed').textContent=elapsed;
+      const tot=(effTotalDays!=null)?(effTotalDays+(+p.extDays||0)):null;
+      $('f_remain').textContent = tot!=null ? (tot-elapsed) : '－';
+      if(tot>0) autoPlan=Math.min(100, elapsed/tot*100);
+    }else{ $('f_elapsed').textContent='－'; $('f_remain').textContent='－'; }
+    // 預定進度：未手動輸入時自動 = 累計工期 ÷ 總工期 × 100
+    $('f_planPct').value = (r.planPct!=null) ? r.planPct : (autoPlan!=null?+autoPlan.toFixed(2):'');
+    $('f_planPct').dataset.auto = autoPlan!=null?autoPlan.toFixed(2):'';
+  }
+}
+
+function renderTotals(){
+  const r=curIdx>=0?DB.reports[curIdx]:null;
+  let grand=0, dayAmt=0, cumAmt=0;
+  let cQtySum=0, cumQtySum=0, dayQtySum=0;
+  DB.items.forEach((it,i)=>{
+    grand += (+it.cQty||0)*(+it.price||0);
+    cQtySum += (+it.cQty||0);
+    if(r){
+      const dq=(+r.qty[i]||0), cq=cumQty(i,r.date), p=(+it.price||0);
+      dayAmt += dq*p;
+      cumAmt += cq*p;
+      dayQtySum += dq; cumQtySum += cq;
+    }
+  });
+  // 主體工程費 = Σ總計（契約數量 × 單價 加總）
+  const eff = grand;
+  // 實際進度 = 施作金額(累計完成金額) ÷ 主體工程費 × 100；本日進度 = 本日金額 ÷ 主體工程費 × 100
+  let actPct, dayPct;
+  if(eff>0){ actPct=cumAmt/eff*100; dayPct=dayAmt/eff*100; }
+  else if(cQtySum>0){ actPct=cumQtySum/cQtySum*100; dayPct=dayQtySum/cQtySum*100; }
+  else { actPct=0; dayPct=0; }
+  $('s_total').textContent=fmt(eff);
+  $('f_effTotal').textContent=fmt(eff);
+  $('f_grandTotal').textContent=fmt(grand); $('f_grandTotal2').textContent=fmt(grand);
+  $('f_dayAmt').textContent=fmt(dayAmt); $('f_cumAmt').textContent=fmt(cumAmt);
+  $('f_actPct').textContent=actPct.toFixed(2);
+  $('s_done').textContent=fmt(cumAmt);
+  $('s_pct').textContent=actPct.toFixed(4); $('s_day').textContent=fmt(dayAmt);
+  $('s_dayPct').textContent=dayPct.toFixed(4);
+}
+
+function renderAll(){
+  renderDaySelect(); renderHeader(); renderItems(); renderSubTables(); renderTotals();
+}
+
+/* ════════ 事件 ════════ */
+let printOnlyUsed=false;
+
+// 專案欄位
+[['f_projName','name'],['f_contractor','contractor']]
+.forEach(([id,f])=>$(id).addEventListener('input',e=>{DB.project[f]=e.target.value;save();}));
+// 日期欄位：input+change 雙監聽（iOS Safari 只觸發 change）
+function bindProjDate(id,f){
+  const h=e=>{
+    DB.project[f]=e.target.value;
+    // 開工日期：若僅有一筆未填寫數量的日報，將其日期同步為開工日（第一頁＝開工日期）
+    if(f==='startDate' && e.target.value && DB.reports.length===1
+       && Object.keys(DB.reports[0].qty).length===0){
+      DB.reports[0].date=e.target.value;
+    }
+    renderAll(); save();
+  };
+  $(id).addEventListener('input',h); $(id).addEventListener('change',h);
+}
+bindProjDate('f_startDate','startDate'); bindProjDate('f_endDate','endDate');
+$('f_totalDays').addEventListener('input',e=>{
+  const v=e.target.value, auto=e.target.dataset.auto;
+  // 清空或與自動值(完工−開工+1)相同 → 回到自動；否則手動覆寫
+  DB.project.totalDays = (v===''||v===auto) ? null : +v;
+  renderHeader(); save();
+});
+$('f_extDays').addEventListener('input',e=>{DB.project.extDays=e.target.value===''?null:+e.target.value;renderHeader();save();});
+
+// 日報欄位
+function bindR(id,f,checkbox){
+  $(id).addEventListener('input',e=>{
+    if(curIdx<0)return; DB.reports[curIdx][f]=e.target.value; save();
+  });
+}
+bindR('f_wxAM','wxAM');bindR('f_wxPM','wxPM');
+bindR('f_safetyOther','safetyOther');bindR('f_sampling','sampling');
+bindR('f_subNotice','subNotice');bindR('f_important','important');bindR('f_sign','sign');
+$('f_no').addEventListener('input',e=>{
+  if(curIdx<0)return;
+  // 與自動序號相同時視為自動（留空），否則記錄手動覆寫值
+  DB.reports[curIdx].no = (e.target.value===String(curIdx+1)) ? '' : e.target.value;
+  save();
+});
+$('f_planPct').addEventListener('input',e=>{
+  if(curIdx<0)return;
+  const v=e.target.value;
+  // 與自動值相同或清空 → 回到自動計算；否則記錄手動值
+  DB.reports[curIdx].planPct = (v===''||v===e.target.dataset.auto) ? null : +v;
+  save();
+});
+const dateChanged=e=>{
+  if(curIdx<0||!e.target.value)return;
+  const r=DB.reports[curIdx];
+  if(r.date===e.target.value)return;
+  r.date=e.target.value;
+  sortReports(); curIdx=DB.reports.indexOf(r);
+  renderAll(); save();
+};
+$('f_date').addEventListener('change',dateChanged);
+$('f_date').addEventListener('input',dateChanged);
+$('f_techYes').addEventListener('change',()=>{if(curIdx>=0){DB.reports[curIdx].tech='yes';save();}});
+$('f_techNo').addEventListener('change',()=>{if(curIdx>=0){DB.reports[curIdx].tech='no';save();}});
+function bindChk(id,f,val){
+  $(id).addEventListener('change',e=>{
+    if(curIdx<0)return; const r=DB.reports[curIdx];
+    r[f]= e.target.checked? val : '';
+    renderHeader(); save();
+  });
+}
+bindChk('f_s1y','s1','y');bindChk('f_s1n','s1','n');
+bindChk('f_s2y','s2','y');bindChk('f_s2n','s2','n');bindChk('f_s2x','s2','x');
+bindChk('f_s3y','s3','y');bindChk('f_s3n','s3','n');
+
+// 工項表（事件委派）
+$('itemTable').addEventListener('input',e=>{
+  const t=e.target;
+  if(t.dataset.day!==undefined){
+    if(curIdx<0)return;
+    const i=+t.dataset.day, v=t.value===''?0:+t.value;
+    if(v) DB.reports[curIdx].qty[i]=v; else delete DB.reports[curIdx].qty[i];
+    // 局部更新該列 + 合計
+    const tr=t.closest('tr');
+    const r=DB.reports[curIdx];
+    tr.classList.toggle('has-qty',!!v);
+    updateRowCalc(tr,i,r);
+    renderTotals(); save();
+  }else if(t.dataset.f){
+    const i=+t.dataset.i, f=t.dataset.f;
+    DB.items[i][f]=(f==='cQty'||f==='price')?(t.value===''?0:+t.value):t.value;
+    if(f==='cQty'||f==='price'){
+      const r=curIdx>=0?DB.reports[curIdx]:null;
+      if(r) updateRowCalc(t.closest('tr'),i,r);
+      else t.closest('tr').querySelectorAll('td')[8].textContent=fmt((+DB.items[i].cQty||0)*(+DB.items[i].price||0));
+    }
+    renderTotals(); save();
+  }
+});
+function tr_of(t){return t.closest('tr');}
+/* 更新單列計算欄：累計數量(4)、本日金額(6)、累計金額(7)、總計(8)=累計金額 */
+function updateRowCalc(tr,i,r){
+  const it=DB.items[i];
+  const tds=tr.querySelectorAll('td');
+  const dq=(+r.qty[i]||0), cq=cumQty(i,r.date), p=(+it.price||0);
+  tds[4].textContent=fq(cq);
+  tds[6].textContent=fmt(dq*p);
+  tds[7].textContent=fmt(cq*p);
+  tds[8].textContent=fmt((+it.cQty||0)*p);
+}
+$('itemTable').addEventListener('click',e=>{
+  const d=e.target.dataset.del;
+  if(d!==undefined && confirm('刪除工項「'+(DB.items[+d].name||'(空白)')+'」？所有日報之該項數量將一併移除。')){
+    const idx=+d;
+    DB.items.splice(idx,1);
+    DB.reports.forEach(r=>{
+      const nq={};
+      Object.keys(r.qty).forEach(k=>{
+        const ki=+k;
+        if(ki<idx)nq[ki]=r.qty[k]; else if(ki>idx)nq[ki-1]=r.qty[k];
+      });
+      r.qty=nq;
+    });
+    renderItems(); renderTotals(); save();
+  }
+});
+$('btnAddItem').addEventListener('click',()=>{
+  DB.items.push({name:'',unit:'',cQty:0,price:0});
+  renderItems(); save();
+  const last=$('itemBody').lastElementChild;
+  if(last) last.querySelector('input[data-f="name"]').focus();
+});
+$('btnMoney').addEventListener('click',()=>{
+  const on=document.body.classList.toggle('show-money');
+  $('btnMoney').textContent=on?'金額:顯示':'金額:隱藏';
+  try{localStorage.setItem('logShowMoney',on?'1':'0');}catch(e){}
+});
+if(localStorage.getItem('logShowMoney')==='1'){
+  document.body.classList.add('show-money');
+  $('btnMoney').textContent='金額:顯示';
+}
+
+// 材料/人員機具
+$('matTable').addEventListener('input',e=>{
+  const t=e.target; if(t.dataset.mf===undefined||curIdx<0)return;
+  const m=DB.reports[curIdx].materials[+t.dataset.mr];
+  m[t.dataset.mf]=(t.type==='number')?(t.value===''?0:+t.value):t.value;
+  if(t.dataset.mf==='dQty'||t.dataset.mf==='name'){renderSubTables();}
+  save();
+});
+$('matTable').addEventListener('click',e=>{
+  if(e.target.dataset.mdel!==undefined&&curIdx>=0){
+    DB.reports[curIdx].materials.splice(+e.target.dataset.mdel,1);
+    renderSubTables(); save();
+  }
+});
+$('btnAddMat').addEventListener('click',()=>{
+  if(curIdx<0)return alert('請先新增日報');
+  DB.reports[curIdx].materials.push({name:'',unit:'',cQty:0,dQty:0,note:''});
+  renderSubTables(); save();
+});
+$('crewTable').addEventListener('input',e=>{
+  const t=e.target; if(curIdx<0)return;
+  if(t.dataset.cf!==undefined){
+    const c=DB.reports[curIdx].crews[+t.dataset.cr];
+    c[t.dataset.cf]=(t.type==='number')?(t.value===''?0:+t.value):t.value;
+  }else if(t.dataset.kf!==undefined){
+    const m=DB.reports[curIdx].machines[+t.dataset.kr];
+    m[t.dataset.kf]=(t.type==='number')?(t.value===''?0:+t.value):t.value;
+  }else return;
+  if(t.type==='number'||true){renderSubTables();}
+  save();
+});
+$('crewTable').addEventListener('click',e=>{
+  if(curIdx<0)return;
+  if(e.target.dataset.cdel!==undefined){DB.reports[curIdx].crews.splice(+e.target.dataset.cdel,1);renderSubTables();save();}
+  if(e.target.dataset.kdel!==undefined){DB.reports[curIdx].machines.splice(+e.target.dataset.kdel,1);renderSubTables();save();}
+});
+$('btnAddCrew').addEventListener('click',()=>{
+  if(curIdx<0)return alert('請先新增日報');
+  const r=DB.reports[curIdx];
+  r.crews.push({name:'',dQty:0}); r.machines.push({name:'',dQty:0});
+  renderSubTables(); save();
+});
+
+// 日報管理
+$('btnDelDay').addEventListener('click',()=>{
+  if(curIdx<0)return;
+  if(!confirm('刪除日報 '+rocDate(DB.reports[curIdx].date)+'？'))return;
+  DB.reports.splice(curIdx,1);
+  curIdx=DB.reports.length?Math.min(curIdx,DB.reports.length-1):-1;
+  renderAll(); save();
+});
+// 區間刪除
+$('btnDelRange').addEventListener('click',()=>{
+  if(!DB.reports.length)return alert('尚無日報');
+  $('delRangeDlg').style.display='flex';
+  $('dr_from').value=DB.reports[0].date;
+  $('dr_to').value=DB.reports[DB.reports.length-1].date;
+});
+$('dr_cancel').addEventListener('click',()=>$('delRangeDlg').style.display='none');
+$('dr_ok').addEventListener('click',()=>{
+  const a=$('dr_from').value, b=$('dr_to').value;
+  if(!a||!b||a>b){alert('日期區間不正確');return;}
+  const hit=DB.reports.filter(r=>r.date>=a&&r.date<=b);
+  if(!hit.length){alert('區間內沒有日報');return;}
+  if(!confirm('刪除 '+hit.length+' 筆日報（'+rocDate(a)+' ～ '+rocDate(b)+'）？\n無法復原。'))return;
+  DB.reports=DB.reports.filter(r=>!(r.date>=a&&r.date<=b));
+  curIdx=DB.reports.length?Math.min(curIdx,DB.reports.length-1):-1;
+  $('delRangeDlg').style.display='none';
+  renderAll(); save();
+  alert('已刪除 '+hit.length+' 筆日報');
+});
+$('btnClearAll').addEventListener('click',()=>{
+  if(!confirm('清除全部資料？\n所有日報、工項與工程資訊將永久刪除，無法復原。'))return;
+  if(!confirm('再次確認：確定要清除全部資料嗎？'))return;
+  DB=defaultData();
+  DB.reports.push(blankReport(new Date().toISOString().slice(0,10)));
+  DB.reports[0].s1='y'; DB.reports[0].s2='x'; DB.reports[0].s3='y'; DB.reports[0].tech='no';
+  DB._v=3; DB.project.manualTotal=null;
+  curIdx=0;
+  renderAll(); save();
+  alert('已清除全部資料');
+});
+$('daySelect').addEventListener('change',e=>{curIdx=+e.target.value;renderAll();});
+// 翻頁
+$('btnPrev').addEventListener('click',()=>{ if(curIdx>0){curIdx--;renderAll();} });
+$('btnNext').addEventListener('click',()=>{ if(curIdx<DB.reports.length-1){curIdx++;renderAll();} });
+
+// 日期區間新增
+$('btnRange').addEventListener('click',()=>{ $('rangeDlg').style.display='flex';
+  $('rg_from').value = DB.reports.length
+    ? (()=>{const d=new Date(DB.reports[DB.reports.length-1].date);d.setDate(d.getDate()+1);return d.toISOString().slice(0,10);})()
+    : (DB.project.startDate||new Date().toISOString().slice(0,10));
+  $('rg_to').value = $('rg_from').value;
+});
+$('rg_cancel').addEventListener('click',()=>$('rangeDlg').style.display='none');
+$('rg_ok').addEventListener('click',()=>{
+  const a=$('rg_from').value, b=$('rg_to').value;
+  if(!a||!b||a>b){alert('日期區間不正確');return;}
+  const existing=new Set(DB.reports.map(r=>r.date));
+  const tpl=DB.reports[DB.reports.length-1];
+  let d=new Date(a), end=new Date(b), n=0;
+  while(d<=end){
+    const iso=d.toISOString().slice(0,10);
+    if(!existing.has(iso)){
+      const nr=blankReport(iso);
+      if(tpl){
+        nr.crews=tpl.crews.map(c=>({name:c.name,dQty:0}));
+        nr.machines=tpl.machines.map(m=>({name:m.name,dQty:0}));
+      }
+      DB.reports.push(nr); n++;
+    }
+    d.setDate(d.getDate()+1);
+  }
+  sortReports();
+  curIdx=DB.reports.findIndex(r=>r.date===a);
+  if(curIdx<0)curIdx=DB.reports.length-1;
+  $('rangeDlg').style.display='none';
+  renderAll(); save();
+  alert('已新增 '+n+' 筆日報'+(n<((end-new Date(a))/86400000+1)?'（既有日期已略過）':''));
+});
+
+// 列印區間：區間內每天的日報各印一頁
+function cloneSheetWithValues(pageIdx){
+  const src=$('sheet'), c=src.cloneNode(true);
+  c.removeAttribute('id'); c.classList.add('print-page');
+  const a=src.querySelectorAll('input,textarea,select'), b=c.querySelectorAll('input,textarea,select');
+  a.forEach((el,i)=>{
+    const t=b[i];
+    if(el.type==='checkbox'||el.type==='radio'){
+      if(el.checked)t.setAttribute('checked','');else t.removeAttribute('checked');
+      if(el.type==='radio') t.name=el.name+'_p'+pageIdx; // 避免跨頁 radio 互斥
+    }else if(el.tagName==='TEXTAREA'){ t.textContent=el.value; }
+    else t.setAttribute('value',el.value);
+  });
+  c.querySelectorAll('[id]').forEach(el=>el.removeAttribute('id'));
+  return c;
+}
+$('btnPrintRange').addEventListener('click',()=>{
+  if(!DB.reports.length)return alert('尚無日報');
+  $('printRangeDlg').style.display='flex';
+  $('rp_from').value=DB.reports[0].date;
+  $('rp_to').value=DB.reports[DB.reports.length-1].date;
+});
+$('rp_cancel').addEventListener('click',()=>$('printRangeDlg').style.display='none');
+$('rp_ok').addEventListener('click',()=>{
+  const a=$('rp_from').value, b=$('rp_to').value;
+  if(!a||!b||a>b){alert('日期區間不正確');return;}
+  const idxs=DB.reports.map((r,i)=>[r.date,i]).filter(([dt])=>dt>=a&&dt<=b).map(([,i])=>i);
+  if(!idxs.length){alert('區間內沒有日報');return;}
+  $('printRangeDlg').style.display='none';
+  const keep=curIdx;
+  const box=$('printPages'); box.innerHTML='';
+  idxs.forEach((idx,p)=>{
+    curIdx=idx; renderAll();
+    box.appendChild(cloneSheetWithValues(p));
+  });
+  curIdx=keep; renderAll();
+  document.body.classList.add('multi-print');
+  const cleanup=()=>{
+    document.body.classList.remove('multi-print');
+    box.innerHTML='';
+    window.removeEventListener('afterprint',cleanup);
+  };
+  window.addEventListener('afterprint',cleanup);
+  setTimeout(()=>window.print(),50);
+});
+$('rp_pdf').addEventListener('click',async()=>{
+  const a=$('rp_from').value, b=$('rp_to').value;
+  if(!a||!b||a>b){alert('日期區間不正確');return;}
+  const idxs=DB.reports.map((r,i)=>[r.date,i]).filter(([dt])=>dt>=a&&dt<=b).map(([,i])=>i);
+  if(!idxs.length){alert('區間內沒有日報');return;}
+  $('printRangeDlg').style.display='none';
+  const btn=$('rp_pdf'), old=btn.textContent; btn.textContent='產生中…'; btn.disabled=true;
+  try{
+    const bytes=await buildPdf(idxs);
+    await saveOrShare(bytes,'施工日誌_'+a+'_'+b+'.pdf');
+  }catch(err){ alert('存檔失敗：'+(err&&err.message||err)); }
+  finally{ btn.textContent=old; btn.disabled=false; }
+});
+
+// 匯入工項：從 Excel/CSV 抓取 施工項目/單位/契約數量/單價
+let _xlsxReady=null;
+function loadScript(urls){
+  return new Promise((res,rej)=>{
+    let i=0;
+    const tryNext=()=>{
+      if(i>=urls.length){rej(new Error('無法載入解析元件，請確認網路或稍後再試'));return;}
+      const sc=document.createElement('script');
+      sc.src=urls[i++];
+      sc.onload=res;
+      sc.onerror=()=>{sc.remove();tryNext();};
+      document.head.appendChild(sc);
+    };
+    tryNext();
+  });
+}
+function loadXLSX(){
+  if(window.XLSX) return Promise.resolve();
+  if(_xlsxReady) return _xlsxReady;
+  _xlsxReady=loadScript([
+    'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
+    'https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js'
+  ]).then(()=>{ if(!window.XLSX) throw new Error('解析元件載入後未就緒'); });
+  return _xlsxReady;
+}
+function parseItemsFromRows(rows){
+  // 尋找含「施工項目」的標題列，依同列的「單位/契約數量/單價」定位欄位
+  let hd=-1, cName=-1, cUnit=-1, cQty=-1, cPrice=-1;
+  for(let r=0;r<rows.length;r++){
+    const row=rows[r]||[];
+    for(let c=0;c<row.length;c++){
+      const v=String(row[c]??'');
+      if(v.includes('施工項目')||v.includes('工程項目')||v.includes('項目名稱')){
+        hd=r; cName=c;
+        for(let k=0;k<row.length;k++){
+          const h=String(row[k]??'');
+          if(cUnit<0&&h.includes('單位'))cUnit=k;
+          if(cQty<0&&(h.includes('契約數量')||h==='數量'))cQty=k;
+          if(cPrice<0&&h.includes('單價'))cPrice=k;
+        }
+        break;
+      }
+    }
+    if(hd>=0)break;
+  }
+  if(hd<0) return null;
+  const num=v=>{const n=parseFloat(String(v??'').replace(/,/g,''));return isFinite(n)?n:0;};
+  const items=[];
+  for(let r=hd+1;r<rows.length;r++){
+    const row=rows[r]||[];
+    const name=String(row[cName]??'').trim();
+    // 遇到下一區段或合計即停止（檔案內同一份清單會重複多次，只取第一份）
+    if(/^[二三四五六七八]、|材料名稱|^合\s*計/.test(name)) break;
+    if(!name) continue;
+    items.push({
+      name,
+      unit: cUnit>=0?String(row[cUnit]??'').trim():'',
+      cQty: cQty>=0?num(row[cQty]):0,
+      price: cPrice>=0?num(row[cPrice]):0
+    });
+  }
+  return items.length?items:null;
+}
+
+// PDF 工項解析
+let _pdfReady=null;
+function loadPDFJS(){
+  if(window.pdfjsLib) return Promise.resolve();
+  if(_pdfReady) return _pdfReady;
+  _pdfReady=loadScript([
+    'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js'
+  ]).then(()=>{
+    if(!window.pdfjsLib) throw new Error('PDF 解析元件載入後未就緒');
+    pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+  });
+  return _pdfReady;
+}
+/* 將每頁文字片段(x,y,str,w)重組為依標題欄位對齊的列陣列 */
+function alignPdfLines(pages){
+  const rows=[];
+  let bounds=null;  // 各欄左邊界 x（依標題列偵測）
+  const lineOf=items=>{
+    const lines={};
+    for(const it of items){
+      if(!String(it.str).trim()) continue;
+      const key=Math.round(it.y/3)*3;
+      (lines[key]=lines[key]||[]).push(it);
+    }
+    return Object.keys(lines).map(Number).sort((a,b)=>b-a)
+      .map(y=>lines[y].sort((a,b)=>a.x-b.x));
+  };
+  for(const items of pages){
+    for(const cells of lineOf(items)){
+      if(!bounds){
+        // 標題列：含「施工項目」即以各標題起始 x 當欄界
+        const hasHead=cells.some(c=>/施工項目|工程項目|項目名稱/.test(c.str));
+        if(!hasHead) continue;
+        // 取得標題關鍵字的 x 位置
+        const find=re=>{const c=cells.find(c=>re.test(c.str));return c?c.x:null;};
+        const xs=[
+          find(/施工項目|工程項目|項目名稱/),
+          find(/單位/),
+          find(/契約數量|數量/),
+          find(/單價/),
+          find(/總計|複價|金額/)
+        ];
+        // 去除找不到的欄；至少要有 項目 與 單價
+        bounds=xs;
+        rows.push(['施工項目','單位','契約數量','單價','總計']);
+        continue;
+      }
+      // 依欄界把片段分配到欄（用片段中心落在哪個區間）
+      const row=['','','','',''];
+      for(const c of cells){
+        const cx=c.x;
+        let bi=0;
+        for(let k=0;k<bounds.length;k++){
+          if(bounds[k]==null) continue;
+          const lo=bounds[k]-6;
+          const next=(()=>{for(let m=k+1;m<bounds.length;m++)if(bounds[m]!=null)return bounds[m];return Infinity;})();
+          if(cx>=lo && cx<next-6){ bi=k; break; }
+          if(cx>=lo) bi=k;
+        }
+        row[bi]=row[bi]?row[bi]+c.str.trim():c.str.trim();
+      }
+      rows.push(row);
+    }
+  }
+  return rows;
+}
+async function parsePdfItems(buf){
+  await loadPDFJS();
+  const pdf=await pdfjsLib.getDocument({
+    data:buf,
+    cMapUrl:'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/',
+    cMapPacked:true,
+    useSystemFonts:true
+  }).promise;
+  const pages=[];
+  for(let p=1;p<=pdf.numPages;p++){
+    const page=await pdf.getPage(p);
+    const tc=await page.getTextContent();
+    pages.push(tc.items.map(it=>({x:it.transform[4],y:it.transform[5],w:it.width||0,str:it.str})));
+  }
+  return parseItemsFromRows(alignPdfLines(pages));
+}
+
+// 存成PDF：產生含可重新匯入資料的 PDF（畫面影像 + 內嵌日誌資料）
+function loadHtml2Canvas(){
+  if(window.html2canvas) return Promise.resolve();
+  return loadScript([
+    'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js'
+  ]).then(()=>{ if(!window.html2canvas) throw new Error('影像元件未就緒'); });
+}
+function loadPDFLib(){
+  if(window.PDFLib) return Promise.resolve();
+  return loadScript([
+    'https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js'
+  ]).then(()=>{ if(!window.PDFLib) throw new Error('PDF 元件未就緒'); });
+}
+async function buildPdf(idxs){
+  await loadHtml2Canvas(); await loadPDFLib();
+  const {PDFDocument}=PDFLib;
+  const doc=await PDFDocument.create();
+  const A4W=595.28, A4H=841.89, M=18;
+  const holder=document.createElement('div');
+  holder.style.cssText='position:fixed;left:-99999px;top:0;width:1120px;background:#fff;z-index:-1';
+  document.body.appendChild(holder);
+  const keep=curIdx;
+  try{
+    for(const idx of idxs){
+      curIdx=idx; renderAll();
+      const clone=cloneSheetWithValues(idx);
+      clone.style.cssText='width:1080px;background:#fff;padding:20px';
+      holder.innerHTML=''; holder.appendChild(clone);
+      const canvas=await html2canvas(clone,{scale:2,backgroundColor:'#ffffff',useCORS:true,logging:false});
+      const png=await doc.embedPng(canvas.toDataURL('image/png'));
+      const page=doc.addPage([A4W,A4H]);
+      const maxW=A4W-2*M, maxH=A4H-2*M;
+      let w=maxW, h=w*canvas.height/canvas.width;
+      if(h>maxH){ h=maxH; w=h*canvas.width/canvas.height; }
+      page.drawImage(png,{x:(A4W-w)/2,y:A4H-M-h,width:w,height:h});
+    }
+  }finally{
+    curIdx=keep; renderAll(); holder.remove();
+  }
+  // 內嵌完整資料，供日後重新匯入編輯
+  const json=JSON.stringify(DB);
+  await doc.attach(new TextEncoder().encode(json),'施工日誌資料.json',
+    {mimeType:'application/json',description:'施工日誌可編輯資料',creationDate:new Date(),modificationDate:new Date()});
+  return doc.save();
+}
+async function saveOrShare(bytes,filename){
+  const blob=new Blob([bytes],{type:'application/pdf'});
+  const file=new File([blob],filename,{type:'application/pdf'});
+  // iOS：優先用分享(可儲存到「檔案」)
+  if(navigator.canShare && navigator.canShare({files:[file]})){
+    try{ await navigator.share({files:[file],title:filename}); return; }catch(e){ if(e&&e.name==='AbortError')return; }
+  }
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob); a.download=filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+}
+// 匯入PDF：讀取先前存檔內嵌的日誌資料
+$('btnImportPdf').addEventListener('click',()=>$('importPdfFile').click());
+$('importPdfFile').addEventListener('change',async e=>{
+  const f=e.target.files[0]; e.target.value=''; if(!f)return;
+  const btn=$('btnImportPdf'), old=btn.textContent; btn.textContent='讀取中…'; btn.disabled=true;
+  try{
+    await loadPDFJS();
+    const buf=await f.arrayBuffer();
+    const pdf=await pdfjsLib.getDocument({data:buf}).promise;
+    const att=await pdf.getAttachments();
+    if(!att||!Object.keys(att).length) throw new Error('此 PDF 不含可編輯資料（僅能匯入本程式「存成PDF」產生的檔案）');
+    const key=Object.keys(att).find(k=>/\.json$/i.test(k))||Object.keys(att)[0];
+    const d=JSON.parse(new TextDecoder().decode(att[key].content));
+    if(!d.items||!d.reports) throw new Error('內嵌資料格式不符');
+    if(!confirm('匯入此 PDF 的資料？\n目前畫面上的資料將被取代。'))return;
+    DB=d; sortReports();
+    curIdx=DB.reports.length?DB.reports.length-1:-1;
+    renderAll(); save();
+    alert('已匯入：'+DB.reports.length+' 筆日報、'+DB.items.length+' 項工項');
+  }catch(err){ alert('匯入失敗：'+(err&&err.message||err)); }
+  finally{ btn.textContent=old; btn.disabled=false; }
+});
+
+/* ════════ 啟動 ════════ */
+if(curIdx<0){ // 首次：第一頁採開工日期（未設定則用今日）
+  DB.reports.push(blankReport(DB.project.startDate || new Date().toISOString().slice(0,10)));
+  curIdx=0;
+}
+sortReports();
+renderAll();
+
+// PWA：註冊 service worker（離線可用）
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>{
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  });
+}
+</script>
+</body>
+</html>

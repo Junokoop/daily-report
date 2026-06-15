@@ -460,7 +460,7 @@ function listTable(tbodyId, rows, cols){
   rows.forEach((row,ri)=>{
     const tr=document.createElement('tr');
     tr.innerHTML=cols.map(c=>{
-      if(c.f==='__del') return `<td class="ctr no-print"><button class="rowdel" style="display:inline" data-ldel="${ri}">✕</button></td>`;
+      if(c.f==='__del') return `<td class="ctr no-print"><button class="rowdel" data-ldel="${ri}">✕</button></td>`;
       if(c.f==='__gap') return `<td style="border-top:none;border-bottom:none"></td>`;
       if(c.calc) return `<td class="num calc">${c.calc(row,ri)}</td>`;
       const v=row[c.f]??'';
@@ -492,7 +492,7 @@ function renderSubTables(){
   (r.materials).forEach((m,ri)=>{
     const tr=document.createElement('tr');
     tr.innerHTML=`
-      <td><button class="rowdel" style="display:inline" data-mdel="${ri}">✕</button><input data-mf="name" data-mr="${ri}" value="${esc(m.name)}"></td>
+      <td><button class="rowdel" data-mdel="${ri}">✕</button><input data-mf="name" data-mr="${ri}" value="${esc(m.name)}"></td>
       <td class="ctr"><input data-mf="unit" data-mr="${ri}" value="${esc(m.unit||'')}" style="text-align:center"></td>
       <td class="num"><input type="number" step="any" data-mf="cQty" data-mr="${ri}" value="${m.cQty??''}"></td>
       <td class="num"><input type="number" step="any" data-mf="dQty" data-mr="${ri}" value="${m.dQty??''}"></td>
@@ -508,12 +508,12 @@ function renderSubTables(){
     const c=r.crews[i], m=r.machines[i];
     const tr=document.createElement('tr');
     tr.innerHTML=
-      (c?`<td><button class="rowdel" style="display:inline" data-cdel="${i}">✕</button><input data-cf="name" data-cr="${i}" value="${esc(c.name)}"></td>
+      (c?`<td><button class="rowdel" data-cdel="${i}">✕</button><input data-cf="name" data-cr="${i}" value="${esc(c.name)}"></td>
           <td class="num"><input type="number" step="any" data-cf="dQty" data-cr="${i}" value="${c.dQty??''}"></td>
           <td class="num calc">${fq(cumCrew('crews',c.name,r.date))}</td>`
         :'<td></td><td></td><td></td>')
       +`<td style="border-top:none;border-bottom:none"></td>`
-      +(m?`<td><button class="rowdel" style="display:inline" data-kdel="${i}">✕</button><input data-kf="name" data-kr="${i}" value="${esc(m.name)}"></td>
+      +(m?`<td><button class="rowdel" data-kdel="${i}">✕</button><input data-kf="name" data-kr="${i}" value="${esc(m.name)}"></td>
           <td class="num"><input type="number" step="any" data-kf="dQty" data-kr="${i}" value="${m.dQty??''}"></td>
           <td class="num calc">${fq(cumCrew('machines',m.name,r.date))}</td>`
         :'<td></td><td></td><td></td>');

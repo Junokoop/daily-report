@@ -203,7 +203,7 @@ body.show-money tr.money{display:table-row}
     <tr>
       <td colspan="5">本日天氣：上午 <input id="f_wxAM" style="width:48px;border-bottom:1px solid var(--line);text-align:center">　下午 <input id="f_wxPM" style="width:48px;border-bottom:1px solid var(--line);text-align:center"></td>
       <td class="lbl">填報日期</td>
-      <td colspan="2"><input type="date" id="f_date" style="width:auto;max-width:100%"><div id="f_rocDate" class="calc"></div></td>
+      <td colspan="2"><span id="f_rocDate" class="calc" style="font-size:15px"></span></td>
     </tr>
     <tr>
       <td class="lbl">工程名稱</td>
@@ -525,7 +525,7 @@ function renderHeader(){
     $('f_no').value = r.no || String(curIdx+1);
     $('f_no').placeholder = String(curIdx+1);
     $('f_wxAM').value=r.wxAM; $('f_wxPM').value=r.wxPM;
-    $('f_date').value=r.date; $('f_rocDate').textContent=rocDate(r.date);
+    $('f_rocDate').textContent=rocDate(r.date);
     $('f_techYes').checked=r.tech==='yes'; $('f_techNo').checked=r.tech!=='yes';
     $('f_s1y').checked=r.s1==='y'; $('f_s1n').checked=r.s1==='n';
     $('f_s2y').checked=r.s2==='y'; $('f_s2n').checked=r.s2==='n'; $('f_s2x').checked=r.s2==='x';
@@ -632,16 +632,6 @@ $('f_planPct').addEventListener('input',e=>{
   DB.reports[curIdx].planPct = (v===''||v===e.target.dataset.auto) ? null : +v;
   save();
 });
-const dateChanged=e=>{
-  if(curIdx<0||!e.target.value)return;
-  const r=DB.reports[curIdx];
-  if(r.date===e.target.value)return;
-  r.date=e.target.value;
-  sortReports(); curIdx=DB.reports.indexOf(r);
-  renderAll(); save();
-};
-$('f_date').addEventListener('change',dateChanged);
-$('f_date').addEventListener('input',dateChanged);
 $('f_techYes').addEventListener('change',()=>{if(curIdx>=0){DB.reports[curIdx].tech='yes';save();}});
 $('f_techNo').addEventListener('change',()=>{if(curIdx>=0){DB.reports[curIdx].tech='no';save();}});
 function bindChk(id,f,val){

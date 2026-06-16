@@ -163,7 +163,7 @@ body.show-money tr.money{display:table-row}
 
 <div id="toolbar">
   <span class="title">施工日誌</span>
-  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.16l</span>
+  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.16n</span>
   <span id="saveState">已儲存</span>
   <button id="btnPrev" title="前一頁">◀</button>
   <select id="daySelect" title="切換日報"></select>
@@ -467,6 +467,12 @@ function progressData(){
     dayProg: grand>0 ? nonLumpDay/grand : 0,
     cumProg: grand>0 ? nonLumpCum/grand : 0 };
 }
+// 本日一式有效值：手動輸入優先，否則用工程進度
+function effDayUnit(){
+  const r=curIdx>=0?DB.reports[curIdx]:null;
+  if(r && r.dayUnitManual!=null && r.dayUnitManual!=='') return +r.dayUnitManual;
+  return progressData().dayProg;
+}
 
 function renderItems(){
   const tb=$('itemBody'); tb.innerHTML='';
@@ -475,8 +481,8 @@ function renderItems(){
   DB.items.forEach((it,i)=>{
     const tr=document.createElement('tr'); tr.className='item-row';
     const isLump = String(it.unit||'').replace(/\s/g,'').includes('式');
-    // 式工項：本日完成/累計自動 = 工程進度（唯讀，與本日一式同步）
-    const dq = isLump ? pd.dayProg : (r ? (+r.qty[i]||0) : 0);
+    // 式工項：本日完成 = 本日一式有效值（手動優先），累計 = 工程進度
+    const dq = isLump ? effDayUnit() : (r ? (+r.qty[i]||0) : 0);
     const cq = isLump ? pd.cumProg : (r ? cumQty(i, r.date) : 0);
     if(dq) tr.classList.add('has-qty');
     if(printOnlyUsed && !dq && !cq) tr.classList.add('hide-print');
@@ -639,9 +645,8 @@ function renderTotals(){
   $('s_done').textContent=fmt(cumAmt);
   $('s_pct').textContent=actPct.toFixed(4); $('s_day').textContent=fmt(dayAmt);
   $('s_dayPct').textContent=dayPct.toFixed(4);
-  // 本日一式 = 非式工項本日金額 ÷ 主體工程費（與「式」列本日完成同步）
-  const pd=progressData();
-  $('s_dayUnit').textContent=pd.dayProg.toFixed(4);
+  // 本日一式 = 非式工項本日金額 ÷ 主體工程費（自動）
+  $('s_dayUnit').textContent=effDayUnit().toFixed(4);
 }
 
 function renderAll(){
@@ -698,8 +703,7 @@ $('f_planPct').addEventListener('input',e=>{
   DB.reports[curIdx].planPct = (v===''||v===e.target.dataset.auto) ? null : +v;
   save();
 });
-$('f_techYes').addEventListener('change',()=>{if(curIdx>=0){DB.reports[curIdx].tech='yes';save();}});
-$('f_techNo').addEventListener('change',()=>{if(curIdx>=0){DB.reports[curIdx].tech='no';save();}});
+$('f_techYes').addEventListener('change',()=>{if(curIdx>=0){DB.reports[curIdx].tech='yes';save();}});$('f_techNo').addEventListener('change',()=>{if(curIdx>=0){DB.reports[curIdx].tech='no';save();}});
 function bindChk(id,f,val){
   $(id).addEventListener('change',e=>{
     if(curIdx<0)return; const r=DB.reports[curIdx];
@@ -768,11 +772,12 @@ function refreshLumpRows(){
     if(!String(it.unit||'').replace(/\s/g,'').includes('式')) return;
     const tr=rows[i]; if(!tr) return;
     const tds=tr.querySelectorAll('td');
+    const du=effDayUnit();
     const dayIn=tds[3].querySelector('input');
-    if(dayIn && document.activeElement!==dayIn) dayIn.value=nv(pd.dayProg);
+    if(dayIn && document.activeElement!==dayIn) dayIn.value=nv(du);
     tds[4].textContent=fq(pd.cumProg);
     const p=(+it.price||0);
-    tds[6].textContent=fmt(pd.dayProg*p);
+    tds[6].textContent=fmt(du*p);
     tds[7].textContent=fmt(pd.cumProg*p);
   });
 }

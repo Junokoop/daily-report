@@ -27,17 +27,19 @@ textarea{resize:vertical;line-height:1.6}
 
 /* ── 工具列 ── */
 #toolbar{position:sticky;top:0;z-index:50;background:var(--ink);color:#fff;
-  display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:8px 12px;
+  display:flex;flex-wrap:nowrap;align-items:center;gap:8px;padding:8px 12px;
+  overflow-x:auto;-webkit-overflow-scrolling:touch;
   font-family:"Microsoft JhengHei",sans-serif}
-#toolbar .title{font-weight:700;letter-spacing:2px;margin-right:auto}
+#toolbar > *{flex:0 0 auto}
+#toolbar .title{font-weight:700;letter-spacing:2px}
 #toolbar button,#toolbar select{background:#fff;color:var(--ink);border:none;border-radius:4px;
-  padding:6px 12px;cursor:pointer;font-size:14px}
+  padding:6px 12px;cursor:pointer;font-size:14px;white-space:nowrap}
 #toolbar button.primary{background:var(--accent-2);color:#fff;font-weight:700}
 #toolbar button.danger{background:var(--warn);color:#fff}
 #toolbar select{max-width:46vw}
 #saveState{font-size:12px;opacity:.8;min-width:64px;text-align:center}
 .edit-tools{display:none;gap:8px;align-items:center}
-body.edit-on .edit-tools{display:inline-flex;flex-wrap:wrap;gap:8px}
+body.edit-on .edit-tools{display:inline-flex;flex-wrap:nowrap;gap:8px}
 body.edit-on #btnEditMode{background:var(--accent-2);color:#fff;font-weight:700}
 
 /* ── 紙張 ── */
@@ -54,6 +56,9 @@ table.grid th{background:#fff;font-weight:700;text-align:center}
 td.lbl{background:#fff;font-weight:700;text-align:center}
 td.ctr{white-space:nowrap}
 td.num,th.num{text-align:right}
+td.num{white-space:nowrap}
+#itemTable td.num{font-size:13px}
+#itemTable td.money,#itemTable th.money{font-size:12.5px}
 td.ctr{text-align:center}
 .calc{color:#000;font-weight:700}
 .section-title{border:1px solid var(--line-dark);border-bottom:none;background:#fff;
@@ -145,7 +150,7 @@ body.show-money tr.money{display:table-row}
 
 <div id="toolbar">
   <span class="title">施工日誌</span>
-  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.16e</span>
+  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.16g</span>
   <span id="saveState">已儲存</span>
   <button id="btnPrev" title="前一頁">◀</button>
   <select id="daySelect" title="切換日報"></select>
@@ -252,8 +257,8 @@ body.show-money tr.money{display:table-row}
 
   <div class="section-title">一、依施工計畫書執行按圖施工概況：</div>
   <table class="grid" id="itemTable">
-    <colgroup><col><col style="width:6%"><col style="width:9%"><col style="width:10%"><col style="width:10%">
-    <col class="money" style="width:8%"><col class="money" style="width:8.5%"><col class="money" style="width:9%"><col class="money" style="width:9%"><col style="width:12%"></colgroup>
+    <colgroup><col style="width:14%"><col style="width:5%"><col style="width:8%"><col style="width:8.5%"><col style="width:8.5%">
+    <col class="money" style="width:9%"><col class="money" style="width:10%"><col class="money" style="width:10%"><col class="money" style="width:10%"><col style="width:9%"></colgroup>
     <thead>
       <tr>
         <th>施工項目</th><th>單位</th><th>契約數量</th><th>本日完成數量</th><th>累計完成數量</th>

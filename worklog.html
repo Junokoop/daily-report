@@ -150,7 +150,7 @@ body.show-money tr.money{display:table-row}
 
 <div id="toolbar">
   <span class="title">施工日誌</span>
-  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.16g</span>
+  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.16h</span>
   <span id="saveState">已儲存</span>
   <button id="btnPrev" title="前一頁">◀</button>
   <select id="daySelect" title="切換日報"></select>
@@ -1187,8 +1187,12 @@ async function buildPdf(idxs){
       const clone=cloneSheetWithValues(idx);
       clone.style.cssText='width:1080px;background:#fff;padding:20px';
       holder.innerHTML=''; holder.appendChild(clone);
-      const canvas=await html2canvas(clone,{scale:2,backgroundColor:'#ffffff',useCORS:true,logging:false});
-      const png=await doc.embedPng(canvas.toDataURL('image/png'));
+      // 截圖：降低倍率(1.6)足夠清晰且快很多
+      const canvas=await html2canvas(clone,{scale:1.6,backgroundColor:'#ffffff',useCORS:true,logging:false});
+      // 改用 JPEG 編碼(比 PNG 快很多、檔案更小)，並用 toBlob 避免龐大 base64
+      const blob=await new Promise(res=>canvas.toBlob(res,'image/jpeg',0.92));
+      const bytes=new Uint8Array(await blob.arrayBuffer());
+      const png=await doc.embedJpg(bytes);
       const page=doc.addPage([A4W,A4H]);
       const maxW=A4W-2*M, maxH=A4H-2*M;
       let w=maxW, h=w*canvas.height/canvas.width;

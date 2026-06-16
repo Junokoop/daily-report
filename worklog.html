@@ -424,7 +424,7 @@ function renderDaySelect(){
   const sel=$('daySelect'); sel.innerHTML='';
   DB.reports.forEach((r,i)=>{
     const o=document.createElement('option');
-    o.value=i; o.textContent=`#${i+1}　${rocDate(r.date)}`;
+    o.value=i; o.textContent=`#${i+1}　${r.date?rocDate(r.date):'未設定日期'}`;
     sel.appendChild(o);
   });
   if(curIdx>=0) sel.value=curIdx;
@@ -552,7 +552,7 @@ function renderHeader(){
     $('f_subNotice').value=r.subNotice; $('f_important').value=r.important; $('f_sign').value=r.sign;
     // 工期
     let autoPlan=null;
-    if(p.startDate){
+    if(p.startDate && r.date){
       const elapsed=daysBetween(p.startDate, r.date);
       $('f_elapsed').textContent=elapsed;
       const tot=(effTotalDays!=null)?(effTotalDays+(+p.extDays||0)):null;
@@ -844,10 +844,15 @@ $('btnNext').addEventListener('click',()=>{ if(curIdx<DB.reports.length-1){curId
 
 // 日期區間新增
 $('btnRange').addEventListener('click',()=>{ $('rangeDlg').style.display='flex';
-  $('rg_from').value = DB.reports.length
-    ? (()=>{const d=new Date(DB.reports[DB.reports.length-1].date);d.setDate(d.getDate()+1);return d.toISOString().slice(0,10);})()
-    : (DB.project.startDate||new Date().toISOString().slice(0,10));
-  $('rg_to').value = $('rg_from').value;
+  const dated=DB.reports.map(r=>r.date).filter(Boolean).sort();
+  let def;
+  if(dated.length){
+    const dt=new Date(dated[dated.length-1]); dt.setDate(dt.getDate()+1);
+    def=dt.toISOString().slice(0,10);
+  }else{
+    def=DB.project.startDate || new Date().toISOString().slice(0,10);
+  }
+  $('rg_from').value=def; $('rg_to').value=def;
 });
 $('rg_cancel').addEventListener('click',()=>$('rangeDlg').style.display='none');
 function isBlankReport(r){
@@ -1203,8 +1208,8 @@ $('importPdfFile').addEventListener('change',async e=>{
 });
 
 /* ════════ 啟動 ════════ */
-if(curIdx<0){ // 首次：第一頁採開工日期（未設定則用今日）
-  DB.reports.push(blankReport(DB.project.startDate || new Date().toISOString().slice(0,10)));
+if(curIdx<0){ // 首次：建立一張未設定日期的空白報表，待「區間新增」才開始記錄日期
+  DB.reports.push(blankReport(''));
   curIdx=0;
 }
 // 點擊數字輸入框自動全選，輸入即覆蓋原值

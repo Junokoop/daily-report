@@ -395,8 +395,8 @@ function save(){
 
 /* ════════ 工具 ════════ */
 const $=id=>document.getElementById(id);
-const fmt=n=>{ if(!isFinite(n)) return '0'; return n.toLocaleString('zh-TW',{minimumFractionDigits:0,maximumFractionDigits:2}); };
-const fq=n=>{ if(!isFinite(n)||n===0) return '0'; return +n.toFixed(3)+''; };
+const fmt=n=>{ if(!isFinite(n)) return '0.00'; return n.toLocaleString('zh-TW',{minimumFractionDigits:2,maximumFractionDigits:2}); };
+const fq=n=>{ if(!isFinite(n)) n=0; return (+n).toLocaleString('zh-TW',{minimumFractionDigits:2,maximumFractionDigits:2}); };
 function rocDate(iso){
   if(!iso) return '';
   const [y,m,d]=iso.split('-').map(Number);
@@ -566,14 +566,18 @@ function renderTotals(){
   const r=curIdx>=0?DB.reports[curIdx]:null;
   let grand=0, dayAmt=0, cumAmt=0;
   let cQtySum=0, cumQtySum=0, dayQtySum=0;
+  let lumpDayQty=0, hasLump=false;   // 單位=一式 之本日完成數量
   DB.items.forEach((it,i)=>{
     grand += (+it.cQty||0)*(+it.price||0);
     cQtySum += (+it.cQty||0);
+    const isLump = String(it.unit||'').includes('式');
+    if(isLump) hasLump=true;
     if(r){
       const dq=(+r.qty[i]||0), cq=cumQty(i,r.date), p=(+it.price||0);
       dayAmt += dq*p;
       cumAmt += cq*p;
       dayQtySum += dq; cumQtySum += cq;
+      if(isLump) lumpDayQty += dq;
     }
   });
   // 主體工程費 = Σ總計（契約數量 × 單價 加總）
@@ -591,7 +595,9 @@ function renderTotals(){
   $('s_done').textContent=fmt(cumAmt);
   $('s_pct').textContent=actPct.toFixed(4); $('s_day').textContent=fmt(dayAmt);
   $('s_dayPct').textContent=dayPct.toFixed(4);
-  $('s_dayUnit').textContent=(eff>0?dayAmt/eff:0).toFixed(4);
+  // 本日一式：若有「一式」單位工項，直接帶入其本日完成數量；否則 = 本日金額 ÷ 主體工程費
+  const dayUnit = hasLump ? lumpDayQty : (eff>0?dayAmt/eff:0);
+  $('s_dayUnit').textContent=dayUnit.toFixed(4);
 }
 
 function renderAll(){
@@ -1175,6 +1181,14 @@ if(curIdx<0){ // 首次：第一頁採開工日期（未設定則用今日）
   DB.reports.push(blankReport(DB.project.startDate || new Date().toISOString().slice(0,10)));
   curIdx=0;
 }
+// 點擊數字輸入框自動全選，輸入即覆蓋原值
+document.addEventListener('focusin',e=>{
+  const t=e.target;
+  if(t.tagName==='INPUT' && t.type==='number'){
+    setTimeout(()=>{ try{ t.select(); }catch(_){} },0);
+  }
+});
+
 sortReports();
 renderAll();
 

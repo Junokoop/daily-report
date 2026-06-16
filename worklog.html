@@ -145,7 +145,7 @@ body.show-money tr.money{display:table-row}
 
 <div id="toolbar">
   <span class="title">施工日誌</span>
-  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.16b</span>
+  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.16d</span>
   <span id="saveState">已儲存</span>
   <button id="btnPrev" title="前一頁">◀</button>
   <select id="daySelect" title="切換日報"></select>
@@ -433,13 +433,33 @@ function renderDaySelect(){
   sel.style.display = DB.reports.length? '':'none';
 }
 
+function progressData(){
+  const r = curIdx>=0 ? DB.reports[curIdx] : null;
+  let grand=0, nonLumpDay=0, nonLumpCum=0;
+  DB.items.forEach((it,i)=>{
+    const p=(+it.price||0);
+    grand += (+it.cQty||0)*p;
+    const isLump=String(it.unit||'').replace(/\s/g,'').includes('式');
+    if(!isLump && r){
+      nonLumpDay += (+r.qty[i]||0)*p;
+      nonLumpCum += cumQty(i,r.date)*p;
+    }
+  });
+  return { grand,
+    dayProg: grand>0 ? nonLumpDay/grand : 0,
+    cumProg: grand>0 ? nonLumpCum/grand : 0 };
+}
+
 function renderItems(){
   const tb=$('itemBody'); tb.innerHTML='';
   const r = curIdx>=0 ? DB.reports[curIdx] : null;
+  const pd = progressData();
   DB.items.forEach((it,i)=>{
     const tr=document.createElement('tr'); tr.className='item-row';
-    const dq = r ? (+r.qty[i]||0) : 0;
-    const cq = r ? cumQty(i, r.date) : 0;
+    const isLump = String(it.unit||'').replace(/\s/g,'').includes('式');
+    // 式工項：本日完成/累計自動 = 工程進度（唯讀，與本日一式同步）
+    const dq = isLump ? pd.dayProg : (r ? (+r.qty[i]||0) : 0);
+    const cq = isLump ? pd.cumProg : (r ? cumQty(i, r.date) : 0);
     if(dq) tr.classList.add('has-qty');
     if(printOnlyUsed && !dq && !cq) tr.classList.add('hide-print');
     const da = dq*(+it.price||0);   // 本日金額 = 本日數量 × 單價
@@ -449,7 +469,7 @@ function renderItems(){
       <td><button class="rowdel no-print" data-del="${i}">✕</button><input data-f="name" data-i="${i}" value="${esc(it.name)}"></td>
       <td class="ctr"><input data-f="unit" data-i="${i}" value="${esc(it.unit)}" style="text-align:center"></td>
       <td class="num"><input type="text" inputmode="decimal" class="numfld" data-f="cQty" data-i="${i}" value="${nv(it.cQty)}"></td>
-      <td class="num"><input type="text" inputmode="decimal" class="numfld" data-day="${i}" value="${nv(dq)}" placeholder="0.00" ${r?'':'disabled'}></td>
+      <td class="num"><input type="text" inputmode="decimal" class="numfld" data-day="${i}" value="${nv(dq)}" placeholder="0.00" ${(r&&!isLump)?'':'disabled'}></td>
       <td class="num calc">${fq(cq)}</td>
       <td class="num money"><input type="text" inputmode="decimal" class="numfld" data-f="price" data-i="${i}" value="${nv(it.price)}"></td>
       <td class="num calc money">${fmt(da)}</td>
@@ -601,9 +621,9 @@ function renderTotals(){
   $('s_done').textContent=fmt(cumAmt);
   $('s_pct').textContent=actPct.toFixed(4); $('s_day').textContent=fmt(dayAmt);
   $('s_dayPct').textContent=dayPct.toFixed(4);
-  // 本日一式：若有「式」單位工項且當天有填其本日完成數量，直接帶入；否則 = 本日金額 ÷ 主體工程費
-  const dayUnit = lumpDayQty>0 ? lumpDayQty : (eff>0?dayAmt/eff:0);
-  $('s_dayUnit').textContent=dayUnit.toFixed(4);
+  // 本日一式 = 非式工項本日金額 ÷ 主體工程費（與「式」列本日完成同步）
+  const pd=progressData();
+  $('s_dayUnit').textContent=pd.dayProg.toFixed(4);
 }
 
 function renderAll(){
@@ -720,6 +740,23 @@ function updateRowCalc(tr,i,r){
   tds[6].textContent=fmt(dq*p);
   tds[7].textContent=fmt(cq*p);
   tds[8].textContent=fmt((+it.cQty||0)*p);
+  refreshLumpRows();
+}
+// 刷新「式」工項列的本日完成/累計（自動 = 工程進度），不重建表格
+function refreshLumpRows(){
+  const pd=progressData();
+  const rows=$('itemBody').querySelectorAll('tr');
+  DB.items.forEach((it,i)=>{
+    if(!String(it.unit||'').replace(/\s/g,'').includes('式')) return;
+    const tr=rows[i]; if(!tr) return;
+    const tds=tr.querySelectorAll('td');
+    const dayIn=tds[3].querySelector('input');
+    if(dayIn && document.activeElement!==dayIn) dayIn.value=nv(pd.dayProg);
+    tds[4].textContent=fq(pd.cumProg);
+    const p=(+it.price||0);
+    tds[6].textContent=fmt(pd.dayProg*p);
+    tds[7].textContent=fmt(pd.cumProg*p);
+  });
 }
 $('itemTable').addEventListener('click',e=>{
   const d=e.target.dataset.del;
@@ -950,11 +987,14 @@ $('rp_pdf').addEventListener('click',async()=>{
   if(!a||!b||a>b){alert('日期區間不正確');return;}
   const idxs=DB.reports.map((r,i)=>[r.date,i]).filter(([dt])=>dt>=a&&dt<=b).map(([,i])=>i);
   if(!idxs.length){alert('區間內沒有日報');return;}
+  const name='施工日誌_'+a+'_'+b+'.pdf';
+  const handle=await pickSaveHandle(name);   // 點擊當下先選資料夾
+  if(handle==='cancel')return;
   $('printRangeDlg').style.display='none';
   const btn=$('rp_pdf'), old=btn.textContent; btn.textContent='產生中…'; btn.disabled=true;
   try{
     const bytes=await buildPdf(idxs);
-    await saveOrShare(bytes,'施工日誌_'+a+'_'+b+'.pdf');
+    await writeOut(handle,bytes,name);
   }catch(err){ alert('存檔失敗：'+(err&&err.message||err)); }
   finally{ btn.textContent=old; btn.disabled=false; }
 });
@@ -1155,19 +1195,25 @@ async function buildPdf(idxs){
     {mimeType:'application/json',description:'施工日誌可編輯資料',creationDate:new Date(),modificationDate:new Date()});
   return doc.save();
 }
-async function saveOrShare(bytes,filename){
+// 在使用者點擊當下先取得存檔位置（避免產生 PDF 後授權過期）
+async function pickSaveHandle(filename){
+  if(!window.showSaveFilePicker) return null;
+  try{
+    return await window.showSaveFilePicker({
+      suggestedName: filename,
+      types:[{description:'PDF 檔', accept:{'application/pdf':['.pdf']}}]
+    });
+  }catch(e){
+    if(e&&e.name==='AbortError') return 'cancel';   // 使用者取消
+    return null;                                      // 不支援或失敗 → 之後用下載
+  }
+}
+async function writeOut(handle,bytes,filename){
   const blob=new Blob([bytes],{type:'application/pdf'});
-  // 1) 可選擇資料夾路徑的儲存對話框（桌面 Chrome / Edge 等）
-  if(window.showSaveFilePicker){
-    try{
-      const handle=await window.showSaveFilePicker({
-        suggestedName: filename,
-        types:[{description:'PDF 檔', accept:{'application/pdf':['.pdf']}}]
-      });
-      const ws=await handle.createWritable();
-      await ws.write(blob); await ws.close();
-      return;
-    }catch(e){ if(e&&e.name==='AbortError') return; /* 使用者取消 */ }
+  // 1) 已選好資料夾路徑 → 直接寫入
+  if(handle && handle!=='cancel'){
+    try{ const ws=await handle.createWritable(); await ws.write(blob); await ws.close(); return; }
+    catch(e){ /* 寫入失敗 → 改用下載 */ }
   }
   // 2) iOS / 行動裝置：分享面板（可儲存到「檔案」並選資料夾）
   const file=new File([blob],filename,{type:'application/pdf'});
@@ -1180,16 +1226,20 @@ async function saveOrShare(bytes,filename){
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(()=>URL.revokeObjectURL(a.href),4000);
 }
+async function saveOrShare(bytes,filename){ await writeOut(null,bytes,filename); }
 // 儲存全部：一鍵將所有日報頁存成一份多頁 PDF（含可重新匯入資料）
 $('btnSaveAll').addEventListener('click',async()=>{
   if(!DB.reports.length)return alert('尚無日報');
+  const first=DB.reports[0].date, last=DB.reports[DB.reports.length-1].date;
+  const name = first===last ? '施工日誌_'+first+'.pdf' : '施工日誌_'+first+'_'+last+'.pdf';
+  // 先在點擊當下取得存檔位置（避免產生 PDF 後授權過期）
+  const handle=await pickSaveHandle(name);
+  if(handle==='cancel')return;
   const btn=$('btnSaveAll'), old=btn.textContent; btn.textContent='產生中…'; btn.disabled=true;
   try{
     const idxs=DB.reports.map((_,i)=>i);   // 已依日期排序
     const bytes=await buildPdf(idxs);
-    const first=DB.reports[0].date, last=DB.reports[DB.reports.length-1].date;
-    const name = first===last ? '施工日誌_'+first+'.pdf' : '施工日誌_'+first+'_'+last+'.pdf';
-    await saveOrShare(bytes,name);
+    await writeOut(handle,bytes,name);
   }catch(err){ alert('儲存失敗：'+(err&&err.message||err)); }
   finally{ btn.textContent=old; btn.disabled=false; }
 });

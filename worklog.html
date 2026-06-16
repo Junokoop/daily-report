@@ -150,7 +150,7 @@ body.show-money tr.money{display:table-row}
 
 <div id="toolbar">
   <span class="title">施工日誌</span>
-  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.16h</span>
+  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.16i</span>
   <span id="saveState">已儲存</span>
   <button id="btnPrev" title="前一頁">◀</button>
   <select id="daySelect" title="切換日報"></select>
@@ -1002,7 +1002,7 @@ $('rp_pdf').addEventListener('click',async()=>{
   $('printRangeDlg').style.display='none';
   const btn=$('rp_pdf'), old=btn.textContent; btn.textContent='產生中…'; btn.disabled=true;
   try{
-    const bytes=await buildPdf(idxs);
+    const bytes=await buildPdf(idxs,(done,total)=>{ btn.textContent='產生中 '+done+'/'+total; });
     await writeOut(handle,bytes,name);
   }catch(err){ alert('存檔失敗：'+(err&&err.message||err)); }
   finally{ btn.textContent=old; btn.disabled=false; }
@@ -1172,7 +1172,7 @@ function loadPDFLib(){
     'https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js'
   ]).then(()=>{ if(!window.PDFLib) throw new Error('PDF 元件未就緒'); });
 }
-async function buildPdf(idxs){
+async function buildPdf(idxs, onProgress){
   await loadHtml2Canvas(); await loadPDFLib();
   const {PDFDocument}=PDFLib;
   const doc=await PDFDocument.create();
@@ -1182,22 +1182,24 @@ async function buildPdf(idxs){
   document.body.appendChild(holder);
   const keep=curIdx;
   try{
+    let n=0;
     for(const idx of idxs){
-      curIdx=idx; renderAll();
+      // 每頁只渲染表單本身（略過 daySelect 重建，省下逐頁掃全部日報）
+      curIdx=idx; renderHeader(); renderItems(); renderSubTables(); renderTotals();
       const clone=cloneSheetWithValues(idx);
       clone.style.cssText='width:1080px;background:#fff;padding:20px';
       holder.innerHTML=''; holder.appendChild(clone);
-      // 截圖：降低倍率(1.6)足夠清晰且快很多
-      const canvas=await html2canvas(clone,{scale:1.6,backgroundColor:'#ffffff',useCORS:true,logging:false});
-      // 改用 JPEG 編碼(比 PNG 快很多、檔案更小)，並用 toBlob 避免龐大 base64
-      const blob=await new Promise(res=>canvas.toBlob(res,'image/jpeg',0.92));
+      // 截圖倍率 1.4 + JPEG 0.9：更快、檔更小，黑白表單仍清晰
+      const canvas=await html2canvas(clone,{scale:1.4,backgroundColor:'#ffffff',useCORS:false,logging:false,imageTimeout:0});
+      const blob=await new Promise(res=>canvas.toBlob(res,'image/jpeg',0.9));
       const bytes=new Uint8Array(await blob.arrayBuffer());
-      const png=await doc.embedJpg(bytes);
+      const img=await doc.embedJpg(bytes);
       const page=doc.addPage([A4W,A4H]);
       const maxW=A4W-2*M, maxH=A4H-2*M;
       let w=maxW, h=w*canvas.height/canvas.width;
       if(h>maxH){ h=maxH; w=h*canvas.width/canvas.height; }
-      page.drawImage(png,{x:(A4W-w)/2,y:A4H-M-h,width:w,height:h});
+      page.drawImage(img,{x:(A4W-w)/2,y:A4H-M-h,width:w,height:h});
+      if(onProgress) onProgress(++n, idxs.length);
     }
   }finally{
     curIdx=keep; renderAll(); holder.remove();
@@ -1206,7 +1208,8 @@ async function buildPdf(idxs){
   const json=JSON.stringify(DB);
   await doc.attach(new TextEncoder().encode(json),'施工日誌資料.json',
     {mimeType:'application/json',description:'施工日誌可編輯資料',creationDate:new Date(),modificationDate:new Date()});
-  return doc.save();
+  // useObjectStreams:false → 寫出更快
+  return doc.save({useObjectStreams:false});
 }
 // 在使用者點擊當下先取得存檔位置（避免產生 PDF 後授權過期）
 async function pickSaveHandle(filename){
@@ -1251,7 +1254,7 @@ $('btnSaveAll').addEventListener('click',async()=>{
   const btn=$('btnSaveAll'), old=btn.textContent; btn.textContent='產生中…'; btn.disabled=true;
   try{
     const idxs=DB.reports.map((_,i)=>i);   // 已依日期排序
-    const bytes=await buildPdf(idxs);
+    const bytes=await buildPdf(idxs,(done,total)=>{ btn.textContent='產生中 '+done+'/'+total; });
     await writeOut(handle,bytes,name);
   }catch(err){ alert('儲存失敗：'+(err&&err.message||err)); }
   finally{ btn.textContent=old; btn.disabled=false; }

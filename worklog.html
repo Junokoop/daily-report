@@ -41,6 +41,7 @@ textarea{resize:vertical;line-height:1.6}
 .edit-tools{display:none;gap:8px;align-items:center}
 body.edit-on .edit-tools{display:inline-flex;flex-wrap:nowrap;gap:8px}
 body.edit-on #btnEditMode{background:var(--accent-2);color:#fff;font-weight:700}
+body.edit-on .browse-only{display:none}
 
 /* ── 紙張 ── */
 #printPages{display:none}
@@ -56,6 +57,7 @@ table.grid th{background:#fff;font-weight:700;text-align:center}
 td.lbl{background:#fff;font-weight:700;text-align:center}
 td.ctr{white-space:nowrap}
 td.num,th.num{text-align:right}
+td.num input.numfld{text-align:right}
 td.num{white-space:nowrap}
 #itemTable td.num{font-size:13px}
 #itemTable td.money,#itemTable th.money{font-size:12.5px}
@@ -78,6 +80,17 @@ body.edit-on .addrow-btn{display:inline-block}
 body.edit-on .date-edit{display:inline-block}
 .date-view{}
 body.edit-on .date-view{display:none}
+
+/* 瀏覽頁（未按編輯）：報表所有輸入欄唯讀，看得到但改不了 */
+body:not(.edit-on) #sheet input,
+body:not(.edit-on) #sheet textarea,
+body:not(.edit-on) #sheet select{
+  pointer-events:none;
+}
+body:not(.edit-on) #sheet input[type=checkbox],
+body:not(.edit-on) #sheet input[type=radio]{
+  pointer-events:none;
+}
 
 /* 金額欄位：預設隱藏，可切換顯示編輯 */
 .money{display:none}
@@ -150,7 +163,7 @@ body.show-money tr.money{display:table-row}
 
 <div id="toolbar">
   <span class="title">施工日誌</span>
-  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.16i</span>
+  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.16l</span>
   <span id="saveState">已儲存</span>
   <button id="btnPrev" title="前一頁">◀</button>
   <select id="daySelect" title="切換日報"></select>
@@ -164,8 +177,8 @@ body.show-money tr.money{display:table-row}
     <button id="btnImportPdf">匯入PDF</button>
   </span>
   <button id="btnMoney">金額:隱藏</button>
-  <button id="btnPrintRange">列印/儲存區間</button>
-  <button id="btnSaveAll" class="primary">儲存全部</button>
+  <button id="btnPrintRange" class="browse-only">列印/儲存區間</button>
+  <button id="btnSaveAll" class="primary browse-only">儲存全部</button>
   <input type="file" id="importPdfFile" style="display:none">
 </div>
 
@@ -1293,6 +1306,22 @@ document.addEventListener('focusin',e=>{
   if(t.tagName==='INPUT' && (t.type==='number' || (t.classList&&t.classList.contains('numfld')))){
     try{ t.select(); }catch(_){}
   }
+});
+
+// 瀏覽頁（未按編輯）攔截報表內的鍵盤輸入，徹底鎖定數值
+['beforeinput','keydown','paste'].forEach(ev=>{
+  document.addEventListener(ev,e=>{
+    if(document.body.classList.contains('edit-on'))return;
+    const t=e.target;
+    if(t && t.closest && t.closest('#sheet') && (t.tagName==='INPUT'||t.tagName==='TEXTAREA'||t.tagName==='SELECT')){
+      if(ev==='keydown'){
+        const k=e.key;
+        if(['Tab','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End'].includes(k))return;
+        if((e.ctrlKey||e.metaKey) && ['c','a','x'].includes(k.toLowerCase()))return;
+      }
+      e.preventDefault();
+    }
+  },true);
 });
 
 sortReports();

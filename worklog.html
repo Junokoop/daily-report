@@ -397,6 +397,9 @@ function save(){
 const $=id=>document.getElementById(id);
 const fmt=n=>{ if(!isFinite(n)) return '0.00'; return n.toLocaleString('zh-TW',{minimumFractionDigits:2,maximumFractionDigits:2}); };
 const fq=n=>{ if(!isFinite(n)) n=0; return (+n).toLocaleString('zh-TW',{minimumFractionDigits:2,maximumFractionDigits:2}); };
+// 輸入框值：兩位小數（0 或空白顯示空字串，由 placeholder 帶 0.00）
+const nv=x=>{ const n=+x; return (x===''||x==null||!isFinite(n)||n===0)?'':n.toFixed(2); };
+const pnum=v=>{ if(v==='')return 0; const n=parseFloat(String(v).replace(/,/g,'')); return isFinite(n)?n:0; };
 function rocDate(iso){
   if(!iso) return '';
   const [y,m,d]=iso.split('-').map(Number);
@@ -443,10 +446,10 @@ function renderItems(){
     tr.innerHTML=`
       <td><button class="rowdel no-print" data-del="${i}">✕</button><input data-f="name" data-i="${i}" value="${esc(it.name)}"></td>
       <td class="ctr"><input data-f="unit" data-i="${i}" value="${esc(it.unit)}" style="text-align:center"></td>
-      <td class="num"><input type="number" step="any" data-f="cQty" data-i="${i}" value="${it.cQty||''}"></td>
-      <td class="num"><input type="number" step="any" min="0" data-day="${i}" value="${dq||''}" placeholder="0" ${r?'':'disabled'}></td>
+      <td class="num"><input type="text" inputmode="decimal" class="numfld" data-f="cQty" data-i="${i}" value="${nv(it.cQty)}"></td>
+      <td class="num"><input type="text" inputmode="decimal" class="numfld" data-day="${i}" value="${nv(dq)}" placeholder="0.00" ${r?'':'disabled'}></td>
       <td class="num calc">${fq(cq)}</td>
-      <td class="num money"><input type="number" step="any" data-f="price" data-i="${i}" value="${it.price||''}"></td>
+      <td class="num money"><input type="text" inputmode="decimal" class="numfld" data-f="price" data-i="${i}" value="${nv(it.price)}"></td>
       <td class="num calc money">${fmt(da)}</td>
       <td class="num calc money">${fmt(ca)}</td>
       <td class="num calc money">${fmt(total)}</td>`;
@@ -672,9 +675,8 @@ $('itemTable').addEventListener('input',e=>{
   const t=e.target;
   if(t.dataset.day!==undefined){
     if(curIdx<0)return;
-    const i=+t.dataset.day, v=t.value===''?0:+t.value;
+    const i=+t.dataset.day, v=pnum(t.value);
     if(v) DB.reports[curIdx].qty[i]=v; else delete DB.reports[curIdx].qty[i];
-    // 局部更新該列 + 合計
     const tr=t.closest('tr');
     const r=DB.reports[curIdx];
     tr.classList.toggle('has-qty',!!v);
@@ -682,13 +684,27 @@ $('itemTable').addEventListener('input',e=>{
     renderTotals(); save();
   }else if(t.dataset.f){
     const i=+t.dataset.i, f=t.dataset.f;
-    DB.items[i][f]=(f==='cQty'||f==='price')?(t.value===''?0:+t.value):t.value;
-    if(f==='cQty'||f==='price'){
+    DB.items[i][f]=(f==='cQty'||f==='price')?pnum(t.value):t.value;
+    const tr=t.closest('tr');
+    // 單位含「式」時，契約數量自動帶 1（若尚未填）
+    if(f==='unit' && String(t.value).includes('式') && !(+DB.items[i].cQty)){
+      DB.items[i].cQty=1;
+      const cQtyIn=tr.querySelector('input[data-f="cQty"]');
+      if(cQtyIn && document.activeElement!==cQtyIn) cQtyIn.value=nv(1);
+    }
+    if(f==='cQty'||f==='price'||f==='unit'){
       const r=curIdx>=0?DB.reports[curIdx]:null;
-      if(r) updateRowCalc(t.closest('tr'),i,r);
-      else t.closest('tr').querySelectorAll('td')[8].textContent=fmt((+DB.items[i].cQty||0)*(+DB.items[i].price||0));
+      if(r) updateRowCalc(tr,i,r);
+      else tr.querySelectorAll('td')[8].textContent=fmt((+DB.items[i].cQty||0)*(+DB.items[i].price||0));
     }
     renderTotals(); save();
+  }
+});
+// 數值欄離開時補成兩位小數
+$('itemTable').addEventListener('focusout',e=>{
+  const t=e.target;
+  if(t.classList&&t.classList.contains('numfld')){
+    t.value = t.value==='' ? '' : nv(pnum(t.value));
   }
 });
 function tr_of(t){return t.closest('tr');}
@@ -1184,8 +1200,8 @@ if(curIdx<0){ // 首次：第一頁採開工日期（未設定則用今日）
 // 點擊數字輸入框自動全選，輸入即覆蓋原值
 document.addEventListener('focusin',e=>{
   const t=e.target;
-  if(t.tagName==='INPUT' && t.type==='number'){
-    setTimeout(()=>{ try{ t.select(); }catch(_){} },0);
+  if(t.tagName==='INPUT' && (t.type==='number' || (t.classList&&t.classList.contains('numfld')))){
+    try{ t.select(); }catch(_){}
   }
 });
 

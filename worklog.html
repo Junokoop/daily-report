@@ -145,7 +145,7 @@ body.show-money tr.money{display:table-row}
 
 <div id="toolbar">
   <span class="title">施工日誌</span>
-  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.16</span>
+  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.16b</span>
   <span id="saveState">已儲存</span>
   <button id="btnPrev" title="前一頁">◀</button>
   <select id="daySelect" title="切換日報"></select>
@@ -576,7 +576,7 @@ function renderTotals(){
   DB.items.forEach((it,i)=>{
     grand += (+it.cQty||0)*(+it.price||0);
     cQtySum += (+it.cQty||0);
-    const isLump = String(it.unit||'').includes('式');
+    const isLump = String(it.unit||'').replace(/\s/g,'').includes('式');
     if(isLump) hasLump=true;
     if(r){
       const dq=(+r.qty[i]||0), cq=cumQty(i,r.date), p=(+it.price||0);

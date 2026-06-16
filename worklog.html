@@ -756,6 +756,12 @@ if(localStorage.getItem('logShowMoney')==='1'){
 $('btnEditMode').addEventListener('click',()=>{
   const on=document.body.classList.toggle('edit-on');
   $('btnEditMode').textContent=on?'完成':'編輯';
+  // 按「完成」時，金額一併切回隱藏
+  if(!on && document.body.classList.contains('show-money')){
+    document.body.classList.remove('show-money');
+    $('btnMoney').textContent='金額:隱藏';
+    try{localStorage.setItem('logShowMoney','0');}catch(e){}
+  }
 });
 
 // 材料/人員機具

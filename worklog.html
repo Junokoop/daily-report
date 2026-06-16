@@ -850,11 +850,20 @@ $('btnRange').addEventListener('click',()=>{ $('rangeDlg').style.display='flex';
   $('rg_to').value = $('rg_from').value;
 });
 $('rg_cancel').addEventListener('click',()=>$('rangeDlg').style.display='none');
+function isBlankReport(r){
+  return Object.keys(r.qty||{}).length===0
+    && !(r.materials&&r.materials.length)
+    && !(r.crews||[]).some(c=>+c.dQty)
+    && !(r.machines||[]).some(m=>+m.dQty)
+    && !r.sign && !r.important && !r.safetyOther && !r.sampling && !r.subNotice;
+}
 $('rg_ok').addEventListener('click',()=>{
   const a=$('rg_from').value, b=$('rg_to').value;
   if(!a||!b||a>b){alert('日期區間不正確');return;}
-  const existing=new Set(DB.reports.map(r=>r.date));
   const tpl=DB.reports[DB.reports.length-1];
+  // 覆蓋起始頁：移除不在本區間、且未填寫過的空白日報（如自動建立的起始頁）
+  DB.reports=DB.reports.filter(r=>(r.date>=a&&r.date<=b) || !isBlankReport(r));
+  const existing=new Set(DB.reports.map(r=>r.date));
   let d=new Date(a), end=new Date(b), n=0;
   while(d<=end){
     const iso=d.toISOString().slice(0,10);
@@ -868,12 +877,13 @@ $('rg_ok').addEventListener('click',()=>{
     }
     d.setDate(d.getDate()+1);
   }
+  if(!DB.reports.length){ DB.reports.push(blankReport(a)); }
   sortReports();
   curIdx=DB.reports.findIndex(r=>r.date===a);
-  if(curIdx<0)curIdx=DB.reports.length-1;
+  if(curIdx<0)curIdx=0;
   $('rangeDlg').style.display='none';
   renderAll(); save();
-  alert('已新增 '+n+' 筆日報'+(n<((end-new Date(a))/86400000+1)?'（既有日期已略過）':''));
+  alert('已新增 '+n+' 筆日報');
 });
 
 // 列印區間：區間內每天的日報各印一頁

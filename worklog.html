@@ -251,12 +251,12 @@ body.show-money tr.money{display:table-row}
 
   <div class="section-title">一、依施工計畫書執行按圖施工概況：</div>
   <table class="grid" id="itemTable">
-    <colgroup><col><col style="width:7%"><col style="width:10%"><col style="width:11%"><col style="width:11%">
-    <col class="money" style="width:8.5%"><col class="money" style="width:9%"><col class="money" style="width:10%"><col class="money" style="width:10%"></colgroup>
+    <colgroup><col><col style="width:6%"><col style="width:9%"><col style="width:10%"><col style="width:10%">
+    <col class="money" style="width:8%"><col class="money" style="width:8.5%"><col class="money" style="width:9%"><col class="money" style="width:9%"><col style="width:12%"></colgroup>
     <thead>
       <tr>
         <th>施工項目</th><th>單位</th><th>契約數量</th><th>本日完成數量</th><th>累計完成數量</th>
-        <th class="money">單價</th><th class="money">本日金額</th><th class="money">累計完成金額</th><th class="money">總計</th>
+        <th class="money">單價</th><th class="money">本日金額</th><th class="money">累計完成金額</th><th class="money">總計</th><th>備註</th>
       </tr>
     </thead>
     <tbody id="itemBody"></tbody>
@@ -266,6 +266,7 @@ body.show-money tr.money{display:table-row}
         <td class="num money"><span id="f_dayAmt" class="calc">0</span></td>
         <td class="num money"><span id="f_cumAmt" class="calc">0</span></td>
         <td class="num money"><span id="f_grandTotal2" class="calc">0</span></td>
+        <td class="money"></td>
       </tr>
     </tfoot>
   </table>
@@ -410,11 +411,11 @@ function daysBetween(a,b){ // inclusive: 開工日當天=第1天
 }
 function sortReports(){ DB.reports.sort((a,b)=>a.date<b.date?-1:1); }
 
-/* 累計：日期 <= 指定報表日期之所有本日數量加總 */
+/* 累計完成數量 = 所有日報的本日完成數量總和（每頁顯示同一總數，不分日期前後） */
 function cumQty(itemIdx, uptoDate){
   let s=0;
   for(const r of DB.reports){
-    if(r.date<=uptoDate) s += (+r.qty[itemIdx]||0);
+    s += (+r.qty[itemIdx]||0);
   }
   return s;
 }
@@ -452,7 +453,8 @@ function renderItems(){
       <td class="num money"><input type="text" inputmode="decimal" class="numfld" data-f="price" data-i="${i}" value="${nv(it.price)}"></td>
       <td class="num calc money">${fmt(da)}</td>
       <td class="num calc money">${fmt(ca)}</td>
-      <td class="num calc money">${fmt(total)}</td>`;
+      <td class="num calc money">${fmt(total)}</td>
+      <td><input data-f="note" data-i="${i}" value="${esc(it.note||'')}" style="text-align:left"></td>`;
     tb.appendChild(tr);
   });
 }
@@ -598,8 +600,8 @@ function renderTotals(){
   $('s_done').textContent=fmt(cumAmt);
   $('s_pct').textContent=actPct.toFixed(4); $('s_day').textContent=fmt(dayAmt);
   $('s_dayPct').textContent=dayPct.toFixed(4);
-  // 本日一式：若有「一式」單位工項，直接帶入其本日完成數量；否則 = 本日金額 ÷ 主體工程費
-  const dayUnit = hasLump ? lumpDayQty : (eff>0?dayAmt/eff:0);
+  // 本日一式：若有「式」單位工項且當天有填其本日完成數量，直接帶入；否則 = 本日金額 ÷ 主體工程費
+  const dayUnit = lumpDayQty>0 ? lumpDayQty : (eff>0?dayAmt/eff:0);
   $('s_dayUnit').textContent=dayUnit.toFixed(4);
 }
 

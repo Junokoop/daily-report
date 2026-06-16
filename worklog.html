@@ -159,6 +159,7 @@ body.show-money tr.money{display:table-row}
   </span>
   <button id="btnMoney">金額:隱藏</button>
   <button id="btnPrintRange">列印/儲存區間</button>
+  <button id="btnSaveAll" class="primary">儲存全部</button>
   <input type="file" id="importPdfFile" style="display:none">
 </div>
 
@@ -325,6 +326,7 @@ body.show-money tr.money{display:table-row}
         <tr><td class="lbl">實際進度</td><td class="num"><span id="s_pct" class="calc pct">0.0000</span> %</td></tr>
         <tr><td class="lbl">本日金額</td><td class="num"><span id="s_day" class="calc">0</span></td></tr>
         <tr><td class="lbl">本日進度</td><td class="num"><span id="s_dayPct" class="calc pct">0.0000</span> %</td></tr>
+        <tr><td class="lbl">本日一式</td><td class="num"><span id="s_dayUnit" class="calc">0.0000</span></td></tr>
       </table>
     </div>
   </div>
@@ -589,6 +591,7 @@ function renderTotals(){
   $('s_done').textContent=fmt(cumAmt);
   $('s_pct').textContent=actPct.toFixed(4); $('s_day').textContent=fmt(dayAmt);
   $('s_dayPct').textContent=dayPct.toFixed(4);
+  $('s_dayUnit').textContent=(eff>0?dayAmt/eff:0).toFixed(4);
 }
 
 function renderAll(){
@@ -724,16 +727,11 @@ if(localStorage.getItem('logShowMoney')==='1'){
   document.body.classList.add('show-money');
   $('btnMoney').textContent='金額:顯示';
 }
-// 編輯工具：預設隱藏，按「編輯」才顯現
+// 編輯工具：每次開啟一律預設隱藏（日期編輯器/紅✕/新增鈕只在按「編輯」後顯現）
 $('btnEditMode').addEventListener('click',()=>{
   const on=document.body.classList.toggle('edit-on');
   $('btnEditMode').textContent=on?'完成':'編輯';
-  try{localStorage.setItem('logEditOn',on?'1':'0');}catch(e){}
 });
-if(localStorage.getItem('logEditOn')==='1'){
-  document.body.classList.add('edit-on');
-  $('btnEditMode').textContent='完成';
-}
 
 // 材料/人員機具
 $('matTable').addEventListener('input',e=>{
@@ -1113,16 +1111,42 @@ async function buildPdf(idxs){
 }
 async function saveOrShare(bytes,filename){
   const blob=new Blob([bytes],{type:'application/pdf'});
+  // 1) 可選擇資料夾路徑的儲存對話框（桌面 Chrome / Edge 等）
+  if(window.showSaveFilePicker){
+    try{
+      const handle=await window.showSaveFilePicker({
+        suggestedName: filename,
+        types:[{description:'PDF 檔', accept:{'application/pdf':['.pdf']}}]
+      });
+      const ws=await handle.createWritable();
+      await ws.write(blob); await ws.close();
+      return;
+    }catch(e){ if(e&&e.name==='AbortError') return; /* 使用者取消 */ }
+  }
+  // 2) iOS / 行動裝置：分享面板（可儲存到「檔案」並選資料夾）
   const file=new File([blob],filename,{type:'application/pdf'});
-  // iOS：優先用分享(可儲存到「檔案」)
   if(navigator.canShare && navigator.canShare({files:[file]})){
     try{ await navigator.share({files:[file],title:filename}); return; }catch(e){ if(e&&e.name==='AbortError')return; }
   }
+  // 3) 其餘瀏覽器：直接下載到「下載」資料夾
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob); a.download=filename;
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(()=>URL.revokeObjectURL(a.href),4000);
 }
+// 儲存全部：一鍵將所有日報頁存成一份多頁 PDF（含可重新匯入資料）
+$('btnSaveAll').addEventListener('click',async()=>{
+  if(!DB.reports.length)return alert('尚無日報');
+  const btn=$('btnSaveAll'), old=btn.textContent; btn.textContent='產生中…'; btn.disabled=true;
+  try{
+    const idxs=DB.reports.map((_,i)=>i);   // 已依日期排序
+    const bytes=await buildPdf(idxs);
+    const first=DB.reports[0].date, last=DB.reports[DB.reports.length-1].date;
+    const name = first===last ? '施工日誌_'+first+'.pdf' : '施工日誌_'+first+'_'+last+'.pdf';
+    await saveOrShare(bytes,name);
+  }catch(err){ alert('儲存失敗：'+(err&&err.message||err)); }
+  finally{ btn.textContent=old; btn.disabled=false; }
+});
 // 匯入PDF：讀取先前存檔內嵌的日誌資料
 $('btnImportPdf').addEventListener('click',()=>$('importPdfFile').click());
 $('importPdfFile').addEventListener('change',async e=>{

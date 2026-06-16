@@ -145,7 +145,7 @@ body.show-money tr.money{display:table-row}
 
 <div id="toolbar">
   <span class="title">施工日誌</span>
-  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.16d</span>
+  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.16e</span>
   <span id="saveState">已儲存</span>
   <button id="btnPrev" title="前一頁">◀</button>
   <select id="daySelect" title="切換日報"></select>
@@ -793,8 +793,12 @@ if(localStorage.getItem('logShowMoney')==='1'){
 $('btnEditMode').addEventListener('click',()=>{
   const on=document.body.classList.toggle('edit-on');
   $('btnEditMode').textContent=on?'完成':'編輯';
-  // 按「完成」時，金額一併切回隱藏
-  if(!on && document.body.classList.contains('show-money')){
+  // 按「編輯」自動顯示金額；按「完成」自動隱藏金額
+  if(on && !document.body.classList.contains('show-money')){
+    document.body.classList.add('show-money');
+    $('btnMoney').textContent='金額:顯示';
+    try{localStorage.setItem('logShowMoney','1');}catch(e){}
+  }else if(!on && document.body.classList.contains('show-money')){
     document.body.classList.remove('show-money');
     $('btnMoney').textContent='金額:隱藏';
     try{localStorage.setItem('logShowMoney','0');}catch(e){}

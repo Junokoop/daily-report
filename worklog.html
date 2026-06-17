@@ -163,7 +163,7 @@ body.show-money tr.money{display:table-row}
 
 <div id="toolbar">
   <span class="title">施工日誌</span>
-  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.16q</span>
+  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.16r</span>
   <span id="saveState">已儲存</span>
   <button id="btnPrev" title="前一頁">◀</button>
   <select id="daySelect" title="切換日報"></select>
@@ -842,12 +842,7 @@ $('btnAddItem').addEventListener('click',()=>{
 $('btnMoney').addEventListener('click',()=>{
   const on=document.body.classList.toggle('show-money');
   $('btnMoney').textContent=on?'金額:顯示':'金額:隱藏';
-  try{localStorage.setItem('logShowMoney',on?'1':'0');}catch(e){}
 });
-if(localStorage.getItem('logShowMoney')==='1'){
-  document.body.classList.add('show-money');
-  $('btnMoney').textContent='金額:顯示';
-}
 // 編輯工具：每次開啟一律預設隱藏（日期編輯器/紅✕/新增鈕只在按「編輯」後顯現）
 $('btnEditMode').addEventListener('click',()=>{
   const on=document.body.classList.toggle('edit-on');
@@ -856,11 +851,9 @@ $('btnEditMode').addEventListener('click',()=>{
   if(on && !document.body.classList.contains('show-money')){
     document.body.classList.add('show-money');
     $('btnMoney').textContent='金額:顯示';
-    try{localStorage.setItem('logShowMoney','1');}catch(e){}
   }else if(!on && document.body.classList.contains('show-money')){
     document.body.classList.remove('show-money');
     $('btnMoney').textContent='金額:隱藏';
-    try{localStorage.setItem('logShowMoney','0');}catch(e){}
   }
 });
 

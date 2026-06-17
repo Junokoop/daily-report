@@ -163,7 +163,7 @@ body.show-money tr.money{display:table-row}
 
 <div id="toolbar">
   <span class="title">施工日誌</span>
-  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.16n</span>
+  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.16o</span>
   <span id="saveState">已儲存</span>
   <button id="btnPrev" title="前一頁">◀</button>
   <select id="daySelect" title="切換日報"></select>
@@ -473,6 +473,18 @@ function effDayUnit(){
   if(r && r.dayUnitManual!=null && r.dayUnitManual!=='') return +r.dayUnitManual;
   return progressData().dayProg;
 }
+function isLumpUnit(u){ return String(u||'').replace(/\s/g,'').includes('式'); }
+// 某「式」工項該頁本日完成的有效值：手動填(r.qty[i])優先，否則自動進度
+function lumpDq(i){
+  const r=curIdx>=0?DB.reports[curIdx]:null;
+  if(r && r.qty[i]!=null && r.qty[i]!=='') return +r.qty[i];
+  return progressData().dayProg;
+}
+// 本日一式(統計)：取第一個式工項的有效本日完成；無式工項則用進度
+function lumpRowValue(){
+  for(let i=0;i<DB.items.length;i++) if(isLumpUnit(DB.items[i].unit)) return lumpDq(i);
+  return progressData().dayProg;
+}
 
 function renderItems(){
   const tb=$('itemBody'); tb.innerHTML='';
@@ -480,9 +492,9 @@ function renderItems(){
   const pd = progressData();
   DB.items.forEach((it,i)=>{
     const tr=document.createElement('tr'); tr.className='item-row';
-    const isLump = String(it.unit||'').replace(/\s/g,'').includes('式');
-    // 式工項：本日完成 = 本日一式有效值（手動優先），累計 = 工程進度
-    const dq = isLump ? effDayUnit() : (r ? (+r.qty[i]||0) : 0);
+    const isLump = isLumpUnit(it.unit);
+    // 式工項：本日完成 = 手動填優先，否則自動進度；累計 = 工程進度
+    const dq = isLump ? lumpDq(i) : (r ? (+r.qty[i]||0) : 0);
     const cq = isLump ? pd.cumProg : (r ? cumQty(i, r.date) : 0);
     if(dq) tr.classList.add('has-qty');
     if(printOnlyUsed && !dq && !cq) tr.classList.add('hide-print');
@@ -493,7 +505,7 @@ function renderItems(){
       <td><button class="rowdel no-print" data-del="${i}">✕</button><input data-f="name" data-i="${i}" value="${esc(it.name)}"></td>
       <td class="ctr"><input data-f="unit" data-i="${i}" value="${esc(it.unit)}" style="text-align:center"></td>
       <td class="num"><input type="text" inputmode="decimal" class="numfld" data-f="cQty" data-i="${i}" value="${nv(it.cQty)}"></td>
-      <td class="num"><input type="text" inputmode="decimal" class="numfld" data-day="${i}" value="${nv(dq)}" placeholder="0.00" ${(r&&!isLump)?'':'disabled'}></td>
+      <td class="num"><input type="text" inputmode="decimal" class="numfld" data-day="${i}" value="${nv(dq)}" placeholder="0.00" ${r?'':'disabled'}></td>
       <td class="num calc">${fq(cq)}</td>
       <td class="num money"><input type="text" inputmode="decimal" class="numfld" data-f="price" data-i="${i}" value="${nv(it.price)}"></td>
       <td class="num calc money">${fmt(da)}</td>
@@ -645,8 +657,8 @@ function renderTotals(){
   $('s_done').textContent=fmt(cumAmt);
   $('s_pct').textContent=actPct.toFixed(4); $('s_day').textContent=fmt(dayAmt);
   $('s_dayPct').textContent=dayPct.toFixed(4);
-  // 本日一式 = 非式工項本日金額 ÷ 主體工程費（自動）
-  $('s_dayUnit').textContent=effDayUnit().toFixed(4);
+  // 本日一式 = 第一個式工項的本日完成（手動優先），無式則用進度
+  $('s_dayUnit').textContent=lumpRowValue().toFixed(4);
 }
 
 function renderAll(){
@@ -756,30 +768,35 @@ function tr_of(t){return t.closest('tr');}
 /* 更新單列計算欄：累計數量(4)、本日金額(6)、累計金額(7)、總計(8)=累計金額 */
 function updateRowCalc(tr,i,r){
   const it=DB.items[i];
+  const isLump=isLumpUnit(it.unit);
   const tds=tr.querySelectorAll('td');
-  const dq=(+r.qty[i]||0), cq=cumQty(i,r.date), p=(+it.price||0);
+  const p=(+it.price||0);
+  const pd=progressData();
+  const dq=isLump ? lumpDq(i) : (+r.qty[i]||0);
+  const cq=isLump ? pd.cumProg : cumQty(i,r.date);
   tds[4].textContent=fq(cq);
   tds[6].textContent=fmt(dq*p);
   tds[7].textContent=fmt(cq*p);
   tds[8].textContent=fmt((+it.cQty||0)*p);
   refreshLumpRows();
 }
-// 刷新「式」工項列的本日完成/累計（自動 = 工程進度），不重建表格
+// 刷新「式」工項列的本日完成/累計，不重建表格
 function refreshLumpRows(){
   const pd=progressData();
   const rows=$('itemBody').querySelectorAll('tr');
   DB.items.forEach((it,i)=>{
-    if(!String(it.unit||'').replace(/\s/g,'').includes('式')) return;
+    if(!isLumpUnit(it.unit)) return;
     const tr=rows[i]; if(!tr) return;
     const tds=tr.querySelectorAll('td');
-    const du=effDayUnit();
+    const dq=lumpDq(i);
     const dayIn=tds[3].querySelector('input');
-    if(dayIn && document.activeElement!==dayIn) dayIn.value=nv(du);
+    if(dayIn && document.activeElement!==dayIn) dayIn.value=nv(dq);
     tds[4].textContent=fq(pd.cumProg);
     const p=(+it.price||0);
-    tds[6].textContent=fmt(du*p);
+    tds[6].textContent=fmt(dq*p);
     tds[7].textContent=fmt(pd.cumProg*p);
   });
+  $('s_dayUnit').textContent=lumpRowValue().toFixed(4);
 }
 $('itemTable').addEventListener('click',e=>{
   const d=e.target.dataset.del;

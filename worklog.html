@@ -163,7 +163,7 @@ body.show-money tr.money{display:table-row}
 
 <div id="toolbar">
   <span class="title">施工日誌</span>
-  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.16o</span>
+  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.16p</span>
   <span id="saveState">已儲存</span>
   <button id="btnPrev" title="前一頁">◀</button>
   <select id="daySelect" title="切換日報"></select>
@@ -480,6 +480,22 @@ function lumpDq(i){
   if(r && r.qty[i]!=null && r.qty[i]!=='') return +r.qty[i];
   return progressData().dayProg;
 }
+// 某報表「式」本日完成有效值（手動優先，否則該報表當日自動進度）
+function lumpDayOf(r,i){
+  if(r.qty[i]!=null && r.qty[i]!=='') return +r.qty[i];
+  let grand=0,nonLumpDay=0;
+  DB.items.forEach((it,j)=>{
+    const p=(+it.price||0); grand+=(+it.cQty||0)*p;
+    if(!isLumpUnit(it.unit)) nonLumpDay+=(+r.qty[j]||0)*p;
+  });
+  return grand>0 ? nonLumpDay/grand : 0;
+}
+// 式列累計 = 各日「式」本日完成加總（與手動本日值連動）
+function cumLumpQty(i){
+  let s=0;
+  for(const r of DB.reports) s += lumpDayOf(r,i);
+  return s;
+}
 // 本日一式(統計)：取第一個式工項的有效本日完成；無式工項則用進度
 function lumpRowValue(){
   for(let i=0;i<DB.items.length;i++) if(isLumpUnit(DB.items[i].unit)) return lumpDq(i);
@@ -495,7 +511,7 @@ function renderItems(){
     const isLump = isLumpUnit(it.unit);
     // 式工項：本日完成 = 手動填優先，否則自動進度；累計 = 工程進度
     const dq = isLump ? lumpDq(i) : (r ? (+r.qty[i]||0) : 0);
-    const cq = isLump ? pd.cumProg : (r ? cumQty(i, r.date) : 0);
+    const cq = isLump ? cumLumpQty(i) : (r ? cumQty(i, r.date) : 0);
     if(dq) tr.classList.add('has-qty');
     if(printOnlyUsed && !dq && !cq) tr.classList.add('hide-print');
     const da = dq*(+it.price||0);   // 本日金額 = 本日數量 × 單價
@@ -773,7 +789,7 @@ function updateRowCalc(tr,i,r){
   const p=(+it.price||0);
   const pd=progressData();
   const dq=isLump ? lumpDq(i) : (+r.qty[i]||0);
-  const cq=isLump ? pd.cumProg : cumQty(i,r.date);
+  const cq=isLump ? cumLumpQty(i) : cumQty(i,r.date);
   tds[4].textContent=fq(cq);
   tds[6].textContent=fmt(dq*p);
   tds[7].textContent=fmt(cq*p);
@@ -788,13 +804,13 @@ function refreshLumpRows(){
     if(!isLumpUnit(it.unit)) return;
     const tr=rows[i]; if(!tr) return;
     const tds=tr.querySelectorAll('td');
-    const dq=lumpDq(i);
+    const dq=lumpDq(i), cq=cumLumpQty(i);
     const dayIn=tds[3].querySelector('input');
     if(dayIn && document.activeElement!==dayIn) dayIn.value=nv(dq);
-    tds[4].textContent=fq(pd.cumProg);
+    tds[4].textContent=fq(cq);
     const p=(+it.price||0);
     tds[6].textContent=fmt(dq*p);
-    tds[7].textContent=fmt(pd.cumProg*p);
+    tds[7].textContent=fmt(cq*p);
   });
   $('s_dayUnit').textContent=lumpRowValue().toFixed(4);
 }

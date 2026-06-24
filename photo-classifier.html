@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>工地照片施工位置分類</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F6F4EE;
+    --surface:#FFFFFF;
+    --ink:#2A2926;
+    --ink-soft:#74716A;
+    --line:#DDD7CA;
+    --accent:#1B4965;
+    --accent-soft:#E7EEF1;
+    --danger:#A8472B;
+    --warn:#C99A1E;
+    --radius:3px;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0; background:var(--bg); color:var(--ink); font-family:'Noto Sans TC', system-ui, sans-serif; -webkit-font-smoothing:antialiased;}
+  .mono{font-family:'IBM Plex Mono', monospace;}
+  header{border-bottom:1px solid var(--line); padding:22px 20px 18px; background:var(--surface);}
+  header h1{margin:0 0 4px; font-size:1.25rem; font-weight:700; letter-spacing:.01em;}
+  header p{margin:0; color:var(--ink-soft); font-size:.85rem;}
+  main{max-width:880px; margin:0 auto; padding:28px 18px 80px;}
+  .step{display:flex; gap:16px; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); margin-bottom:18px; padding:20px 20px 22px;}
+  .step-num{font-family:'IBM Plex Mono', monospace; font-size:1.6rem; font-weight:600; color:var(--accent); min-width:34px; line-height:1; padding-top:2px;}
+  .step-body{flex:1; min-width:0;}
+  .step-title{font-weight:700; font-size:1rem; margin:0 0 4px;}
+  .step-hint{color:var(--ink-soft); font-size:.82rem; margin:0 0 14px; line-height:1.5;}
+
+  .btn{border:1px solid var(--accent); background:var(--accent); color:#fff; border-radius:var(--radius); padding:9px 16px; font-size:.88rem; font-weight:500; cursor:pointer; font-family:inherit;}
+  .btn:hover{opacity:.92;}
+  .btn:disabled{background:var(--line); border-color:var(--line); color:var(--ink-soft); cursor:not-allowed;}
+  .btn:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible{outline:2px solid var(--accent); outline-offset:1px;}
+
+  .dropzone{border:2px dashed var(--line); border-radius:var(--radius); padding:30px 16px; text-align:center; color:var(--ink-soft); font-size:.88rem; cursor:pointer; transition:border-color .15s, background .15s;}
+  .dropzone.drag{border-color:var(--accent); background:var(--accent-soft); color:var(--accent);}
+  .dropzone strong{color:var(--ink); display:block; margin-bottom:3px; font-weight:600;}
+  .dropzone input{display:none;}
+
+  .status-line{font-family:'IBM Plex Mono', monospace; font-size:.78rem; color:var(--ink-soft); margin-top:12px;}
+
+  .grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(118px, 1fr)); gap:10px; margin-top:10px;}
+  .card{position:relative; border:1px solid var(--line); border-radius:var(--radius); overflow:hidden; background:var(--bg); aspect-ratio:1/1;}
+  .card img{width:100%; height:100%; object-fit:cover; display:block;}
+  .card .rm{position:absolute; top:4px; right:4px; width:20px; height:20px; border-radius:50%; background:rgba(0,0,0,.55); color:#fff; border:none; font-size:.8rem; line-height:1; cursor:pointer; z-index:2;}
+  .card .fname{position:absolute; left:0; right:0; top:0; background:linear-gradient(rgba(0,0,0,.6), transparent); color:#fff; font-size:.62rem; padding:4px 22px 12px 5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .card .spinner{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,.55);}
+  .spin{width:20px; height:20px; border-radius:50%; border:2.5px solid var(--line); border-top-color:var(--accent); animation:sp .7s linear infinite;}
+  @keyframes sp{to{transform:rotate(360deg);}}
+  .card input.item-input{position:absolute; bottom:3px; left:3px; right:3px; font-size:.6rem; font-family:'IBM Plex Mono', monospace; border:none; border-radius:2px; padding:3px 4px; background:rgba(255,255,255,.94);}
+  .card.err{border-color:var(--danger);}
+  .card.unrec{border-color:var(--warn);}
+  .tag{position:absolute; top:4px; left:4px; font-size:.58rem; padding:2px 5px; border-radius:2px; font-family:'IBM Plex Mono', monospace; color:#fff; z-index:2;}
+  .retry-btn{position:absolute; bottom:3px; right:3px; font-size:.58rem; padding:2px 5px; border-radius:2px; border:none; cursor:pointer; color:#fff; background:var(--ink-soft); z-index:2;}
+
+  .group{margin-top:22px;}
+  .group:first-child{margin-top:0;}
+  .group-head{display:flex; align-items:center; gap:8px; border-bottom:1px solid var(--line); padding-bottom:6px; margin-bottom:10px;}
+  .group-head .dot{width:11px; height:11px; border-radius:50%; flex:none;}
+  .group-head .gname{font-weight:700; font-size:.92rem; border:none; background:transparent; border-bottom:1px dashed var(--line); padding:1px 2px; font-family:inherit; color:var(--ink); min-width:60px;}
+  .group-head .gname:focus{outline:none; border-bottom-color:var(--accent);}
+  .group-head .gnote{font-size:.74rem; color:var(--ink-soft);}
+  .group-head .gcount{font-family:'IBM Plex Mono', monospace; font-size:.74rem; color:var(--ink-soft); background:var(--bg); border:1px solid var(--line); border-radius:99px; padding:1px 8px; margin-left:auto;}
+  .group-toggle{border:none; background:transparent; cursor:pointer; color:var(--ink-soft); font-size:.78rem; font-family:'IBM Plex Mono', monospace; padding:2px 6px; display:flex; align-items:center; gap:4px;}
+  .group-toggle:hover{color:var(--accent);}
+  .group-toggle .chev{display:inline-block; transition:transform .15s; font-size:.7rem;}
+  .group.collapsed .grid{display:none;}
+  .group.collapsed .group-toggle .chev{transform:rotate(-90deg);}
+
+  footer{text-align:center; color:var(--ink-soft); font-size:.7rem; padding:20px 0 36px; font-family:'IBM Plex Mono', monospace;}
+  .empty-note{color:var(--ink-soft); font-size:.82rem;}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>工地照片施工位置分類</h1>
+  <p>AI 辨識照片中拍照立牌／白板上的施工位置文字，依名稱相同自動分組</p>
+</header>
+
+<main>
+
+  <!-- STEP 1: upload + auto classify -->
+  <section class="step">
+    <div class="step-num mono">01</div>
+    <div class="step-body">
+      <p class="step-title">上傳照片，自動辨識分類</p>
+      <p class="step-hint">每張照片建議包含清楚拍到的拍照立牌或白板，上面寫有施工位置文字。拖曳或選取後會立即開始辨識，也可以之後再陸續加照片，會自動歸到對應位置。分好的位置預設只顯示名稱與張數，點「展開照片」才會列出該組縮圖</p>
+      <details id="proxyBox" style="margin-bottom:14px; border:1px solid var(--line); border-radius:var(--radius); padding:0;">
+        <summary style="cursor:pointer; padding:10px 12px; font-size:.84rem; color:var(--accent); font-weight:500;">辨識設定（部署到 GitHub Pages 必填）</summary>
+        <div style="padding:0 12px 12px;">
+          <p class="step-hint" style="margin:4px 0 8px;">把你的 Google Apps Script Web App 網址貼在這裡，辨識才會透過你自己的金鑰運作。留空時只有在 Claude.ai 對話視窗的預覽環境才能辨識，部署到 GitHub Pages 後會全部辨識失敗。</p>
+          <input type="text" id="proxyInput" placeholder="https://script.google.com/macros/s/.../exec"
+            style="width:100%; border:1px solid var(--line); border-radius:var(--radius); padding:8px 10px; font-size:.8rem; font-family:'IBM Plex Mono',monospace; background:var(--bg);">
+          <p class="status-line mono" id="proxyStatus" style="margin-top:6px;"></p>
+        </div>
+      </details>
+      <div class="dropzone" id="dropzone">
+        <strong>拖曳照片到這裡</strong>
+        點擊選取檔案（可多選，可分次加入）
+        <input type="file" id="fileInput" accept="image/*" multiple>
+      </div>
+      <p class="status-line mono" id="statusLine"></p>
+      <div id="resultsArea"></div>
+    </div>
+  </section>
+
+  <!-- STEP 2: save -->
+  <section class="step">
+    <div class="step-num mono">02</div>
+    <div class="step-body">
+      <p class="step-title">儲存結果</p>
+      <p class="step-hint">點選分類名稱可重新命名（與其他組別同名會自動合併，可用來修正辨識誤差）；未辨識到位置的照片可手動輸入或按重試</p>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+        <button class="btn" id="saveFolderBtn">直接儲存到資料夾</button>
+        <button class="btn" id="downloadBtn" style="background:transparent; color:var(--accent);">下載 ZIP</button>
+      </div>
+      <p class="step-hint" id="saveModeHint" style="margin:10px 0 0;"></p>
+    </div>
+  </section>
+
+</main>
+
+<footer>photo-classifier-by-location · v2.0.0</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script>
+(function(){
+  "use strict";
+
+  var COLOR_PALETTE = ['#3E6680','#5B8C5A','#9B5DE5','#C9A66B','#1B998B','#2D7DD2','#8E5572','#7A5230','#558B2F','#A8472B'];
+  var COLOR_PENDING = '#B8B2A4';
+  var COLOR_ERROR = '#A8472B';
+  var COLOR_UNREC = '#C99A1E';
+  var MAX_CONCURRENT = 3;
+
+  var photos = [];     // {id, file, url, status:'pending'|'processing'|'done'|'error'|'unrecognized', item}
+  var photoSeq = 0;
+  var queue = [];       // photos waiting to be sent to the AI
+  var activeCount = 0;
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+  function normalize(text){ return String(text||'').replace(/\s+/g,' ').trim(); }
+  function colorForKey(key){
+    var hash = 0;
+    for (var i=0;i<key.length;i++){ hash = (hash*31 + key.charCodeAt(i)) | 0; }
+    return COLOR_PALETTE[Math.abs(hash) % COLOR_PALETTE.length];
+  }
+
+  // ---------- GAS proxy URL (persisted, fail-safe) ----------
+  var PROXY_KEY = 'photoClassifierProxyUrl';
+  var proxyUrlMem = ''; // fallback when localStorage unavailable
+  var proxyInput = document.getElementById('proxyInput');
+  var proxyStatus = document.getElementById('proxyStatus');
+  var proxyBox = document.getElementById('proxyBox');
+
+  function getProxyUrl(){
+    if (proxyUrlMem) return proxyUrlMem;
+    try { return localStorage.getItem(PROXY_KEY) || ''; } catch(e){ return ''; }
+  }
+  function setProxyUrl(v){
+    proxyUrlMem = v;
+    try { if (v) localStorage.setItem(PROXY_KEY, v); else localStorage.removeItem(PROXY_KEY); } catch(e){}
+  }
+  function updateProxyStatus(){
+    var v = getProxyUrl();
+    proxyStatus.textContent = v ? '已設定代理，將透過你的金鑰辨識' : '未設定代理（部署後將無法辨識）';
+    proxyStatus.style.color = v ? '#5B8C5A' : 'var(--ink-soft)';
+  }
+  (function initProxy(){
+    var v = getProxyUrl();
+    if (v){ proxyInput.value = v; } else { proxyBox.open = true; }
+    updateProxyStatus();
+  })();
+  proxyInput.addEventListener('change', function(){
+    setProxyUrl(normalize(proxyInput.value));
+    updateProxyStatus();
+  });
+
+  // ---------- upload (auto-dispatches to AI on add) ----------
+  var dropzone = document.getElementById('dropzone');
+  var fileInput = document.getElementById('fileInput');
+  var statusLine = document.getElementById('statusLine');
+
+  dropzone.addEventListener('click', function(){ fileInput.click(); });
+  ['dragenter','dragover'].forEach(function(evt){
+    dropzone.addEventListener(evt, function(e){ e.preventDefault(); dropzone.classList.add('drag'); });
+  });
+  ['dragleave','drop'].forEach(function(evt){
+    dropzone.addEventListener(evt, function(e){ e.preventDefault(); dropzone.classList.remove('drag'); });
+  });
+  dropzone.addEventListener('drop', function(e){ handleFiles(e.dataTransfer.files); });
+  fileInput.addEventListener('change', function(){ handleFiles(fileInput.files); fileInput.value=''; });
+
+  function handleFiles(fileList){
+    var added = [];
+    Array.prototype.forEach.call(fileList, function(file){
+      if (!file.type || file.type.indexOf('image/')!==0) return;
+      photoSeq++;
+      var p = { id:'p'+photoSeq, file:file, url:URL.createObjectURL(file), status:'pending', item:null };
+      photos.push(p);
+      added.push(p);
+    });
+    if (!added.length) return;
+    queue = queue.concat(added);
+    renderResults();
+    pump();
+  }
+
+  function pump(){
+    while (activeCount < MAX_CONCURRENT && queue.length){
+      var p = queue.shift();
+      activeCount++;
+      processOne(p).then(function(){ activeCount--; pump(); });
+    }
+  }
+
+  // ---------- resize for API ----------
+  function resizeImage(file, maxDim, quality){
+    maxDim = maxDim || 1280; quality = quality || 0.9;
+    return new Promise(function(resolve, reject){
+      var img = new Image();
+      var url = URL.createObjectURL(file);
+      img.onload = function(){
+        var w = img.width, h = img.height;
+        if (w > h && w > maxDim){ h = Math.round(h * maxDim / w); w = maxDim; }
+        else if (h > maxDim){ w = Math.round(w * maxDim / h); h = maxDim; }
+        var canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        var ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        URL.revokeObjectURL(url);
+        resolve(canvas.toDataURL('image/jpeg', quality).split(',')[1]);
+      };
+      img.onerror = function(){
+        URL.revokeObjectURL(url);
+        reject(new Error('無法讀取圖片，可能是不支援的格式（如 HEIC）'));
+      };
+      img.src = url;
+    });
+  }
+
+  // ---------- AI location OCR ----------
+  // Two modes:
+  //  1) PROXY_URL set (透過設定填入你的 GAS Web App 網址) → POST 給代理，
+  //     金鑰存在 GAS 端，部署到 GitHub Pages 也能正常運作。用 text/plain
+  //     送出以避開 CORS preflight。
+  //  2) PROXY_URL 空 → 直接打 api.anthropic.com，只有在 Claude.ai 這個對話
+  //     視窗的預覽環境才會自動帶金鑰；部署後直打必定失敗（這就是辨識失敗
+  //     的主因）。
+  function buildRequestBody(base64, mediaType){
+    var systemPrompt = '你是工地照片施工位置辨識助手。這張工程照片中通常會有一張拍照立牌或白板，'
+      + '上面寫有「施工位置」、「位置」、「地點」、「工址」或類似欄位的文字（可能是手寫或列印）。'
+      + '請找出並判讀該欄位所寫的施工位置文字，盡量保留原始寫法（含樁號、數字等）。'
+      + '只回傳純JSON，格式為 {"item":"辨識到的文字"}；'
+      + '如果照片中找不到任何拍照立牌或白板，或文字無法判讀，回傳 {"item":null}。'
+      + '不要有任何其他文字、說明或Markdown符號。';
+    return {
+      model:'claude-sonnet-4-6',
+      max_tokens:1000,
+      system:systemPrompt,
+      messages:[{
+        role:'user',
+        content:[
+          {type:'image', source:{type:'base64', media_type:mediaType, data:base64}},
+          {type:'text', text:'請辨識這張照片中的施工位置文字。'}
+        ]
+      }]
+    };
+  }
+
+  function readWorkItem(base64, mediaType){
+    var body = buildRequestBody(base64, mediaType);
+    var proxyUrl = getProxyUrl();
+    var fetchPromise;
+    if (proxyUrl){
+      fetchPromise = fetch(proxyUrl, {
+        method:'POST',
+        headers:{'Content-Type':'text/plain;charset=utf-8'}, // 避開 CORS preflight
+        body:JSON.stringify(body)
+      });
+    } else {
+      fetchPromise = fetch('https://api.anthropic.com/v1/messages', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify(body)
+      });
+    }
+    return fetchPromise.then(function(res){
+      if (!res.ok) return res.text().then(function(t){ throw new Error('API '+res.status+' '+t.slice(0,120)); });
+      return res.json();
+    }).then(function(data){
+      var textBlock = (data.content||[]).find(function(b){ return b.type==='text'; });
+      var raw = textBlock ? textBlock.text : '{}';
+      raw = raw.replace(/```json|```/g,'').trim();
+      var parsed;
+      try { parsed = JSON.parse(raw); } catch(e){ parsed = {item:null}; }
+      var item = parsed && parsed.item ? normalize(parsed.item) : '';
+      return item || null;
+    });
+  }
+
+  function processOne(p){
+    p.status = 'processing';
+    renderResults();
+    return resizeImage(p.file).then(function(base64){
+      return readWorkItem(base64, 'image/jpeg');
+    }).then(function(item){
+      if (item){ p.item = item; p.status = 'done'; }
+      else { p.item = null; p.status = 'unrecognized'; }
+    }).catch(function(){
+      p.status = 'error';
+    }).then(function(){
+      renderResults();
+    });
+  }
+
+  // ---------- results rendering ----------
+  var resultsArea = document.getElementById('resultsArea');
+
+  // tracks which item-groups are expanded; default collapsed so uploaded
+  // photos don't all render at once. key -> true means expanded.
+  var expandedGroups = {};
+
+  function groupKey(p){
+    if (p.status==='pending' || p.status==='processing') return '__pending__';
+    if (p.status==='error') return '__error__';
+    if (p.status==='unrecognized' || !p.item) return '__unrecognized__';
+    return p.item;
+  }
+
+  function renderResults(){
+    var groups = {};
+    photos.forEach(function(p){
+      var k = groupKey(p);
+      (groups[k] = groups[k] || []).push(p);
+    });
+
+    var html = '';
+    if (groups['__pending__']) html += renderSpecialGroup('待辨識', COLOR_PENDING, groups['__pending__'], 'pending');
+    if (groups['__error__']) html += renderSpecialGroup('辨識失敗', COLOR_ERROR, groups['__error__'], 'error');
+    if (groups['__unrecognized__']) html += renderSpecialGroup('未辨識到位置', COLOR_UNREC, groups['__unrecognized__'], 'unrecognized');
+
+    var itemKeys = Object.keys(groups).filter(function(k){
+      return k!=='__pending__' && k!=='__error__' && k!=='__unrecognized__';
+    }).sort(function(a,b){ return a.localeCompare(b,'zh-Hant'); });
+
+    itemKeys.forEach(function(item){ html += renderItemGroup(item, groups[item]); });
+
+    resultsArea.innerHTML = html || '<p class="empty-note">尚未上傳照片</p>';
+    refreshDatalist();
+
+    var doneCount = photos.filter(function(p){ return p.status==='done'; }).length;
+    var busyCount = photos.filter(function(p){ return p.status==='pending'||p.status==='processing'; }).length;
+    statusLine.textContent = photos.length
+      ? ('已上傳 '+photos.length+' 張 ・ 已分類 '+doneCount+(busyCount? ' ・ 辨識中 '+busyCount:''))
+      : '';
+  }
+
+  function allItemOptionsHtml(){
+    var set = {};
+    photos.forEach(function(p){ if (p.status==='done' && p.item) set[p.item]=true; });
+    return Object.keys(set).map(function(l){ return '<option value="'+escapeHtml(l)+'">'; }).join('');
+  }
+
+  var datalistEl = document.createElement('datalist');
+  datalistEl.id = 'itemOptions';
+  document.body.appendChild(datalistEl);
+  function refreshDatalist(){ datalistEl.innerHTML = allItemOptionsHtml(); }
+
+  function renderSpecialGroup(title, color, list, kind){
+    var cardsHtml = list.map(function(p){
+      var inner = '<img src="'+p.url+'" alt="'+escapeHtml(p.file.name)+'">'
+        + '<button class="rm" data-rm="'+p.id+'" aria-label="移除">×</button>'
+        + '<span class="fname">'+escapeHtml(p.file.name)+'</span>';
+      if (kind==='pending'){
+        inner += '<span class="spinner"><span class="spin"></span></span>';
+      } else {
+        inner += '<span class="tag" style="background:'+color+'">'+(kind==='error'?'失敗':'未辨識')+'</span>'
+          + '<input class="item-input" type="text" placeholder="輸入施工位置" list="itemOptions" data-manual="'+p.id+'">'
+          + '<button class="retry-btn" data-retry="'+p.id+'">重試</button>';
+      }
+      return '<div class="card '+(kind==='error'?'err':kind==='unrecognized'?'unrec':'')+'" data-id="'+p.id+'">'+inner+'</div>';
+    }).join('');
+
+    // pending stays open (actively processing); error/unrecognized are
+    // collapsible like item groups so a big failure batch doesn't fill the
+    // screen. they default to collapsed.
+    var collapsible = (kind !== 'pending');
+    var gkey = '__'+kind+'__';
+    var isOpen = collapsible ? !!expandedGroups[gkey] : true;
+    var toggleHtml = collapsible
+      ? '<button class="group-toggle" data-toggle="'+gkey+'"><span class="chev">▾</span>'+(isOpen?'收合':'展開照片')+'</button>'
+      : '';
+
+    return '<div class="group'+(collapsible && !isOpen ? ' collapsed':'')+'">'
+      + '<div class="group-head"><span class="dot" style="background:'+color+'"></span>'
+      + '<span class="gnote">'+escapeHtml(title)+'</span>'
+      + '<span class="gcount mono">'+list.length+'</span>'
+      + toggleHtml + '</div>'
+      + '<div class="grid">'+cardsHtml+'</div>'
+      + '</div>';
+  }
+
+  function renderItemGroup(item, list){
+    var color = colorForKey(item);
+    var isOpen = !!expandedGroups[item];
+    var cardsHtml = list.map(function(p){
+      return '<div class="card" data-id="'+p.id+'">'
+        + '<img src="'+p.url+'" alt="'+escapeHtml(p.file.name)+'">'
+        + '<button class="rm" data-rm="'+p.id+'" aria-label="移除">×</button>'
+        + '<span class="fname">'+escapeHtml(p.file.name)+'</span>'
+        + '<input class="item-input" type="text" value="'+escapeHtml(p.item)+'" list="itemOptions" data-manual="'+p.id+'">'
+        + '</div>';
+    }).join('');
+
+    return '<div class="group'+(isOpen?'':' collapsed')+'" data-gkey="'+escapeHtml(item)+'">'
+      + '<div class="group-head"><span class="dot" style="background:'+color+'"></span>'
+      + '<input class="gname mono" type="text" value="'+escapeHtml(item)+'" data-rename="'+escapeHtml(item)+'">'
+      + '<span class="gcount mono">'+list.length+'</span>'
+      + '<button class="group-toggle" data-toggle="'+escapeHtml(item)+'"><span class="chev">▾</span>'+(isOpen?'收合':'展開照片')+'</button></div>'
+      + '<div class="grid">'+cardsHtml+'</div>'
+      + '</div>';
+  }
+
+  resultsArea.addEventListener('click', function(e){
+    var rm = e.target.closest('button[data-rm]');
+    if (rm){
+      var id = rm.getAttribute('data-rm');
+      photos = photos.filter(function(p){ return p.id!==id; });
+      queue = queue.filter(function(p){ return p.id!==id; });
+      renderResults();
+      return;
+    }
+    var retry = e.target.closest('button[data-retry]');
+    if (retry){
+      var rid = retry.getAttribute('data-retry');
+      var rp = photos.find(function(x){ return x.id===rid; });
+      if (rp) processOne(rp);
+      return;
+    }
+    var toggle = e.target.closest('button[data-toggle]');
+    if (toggle){
+      var key = toggle.getAttribute('data-toggle');
+      expandedGroups[key] = !expandedGroups[key];
+      renderResults();
+    }
+  });
+
+  resultsArea.addEventListener('change', function(e){
+    var manual = e.target.closest('input[data-manual]');
+    if (manual){
+      var id = manual.getAttribute('data-manual');
+      var p = photos.find(function(x){ return x.id===id; });
+      var val = normalize(manual.value);
+      if (p){
+        if (val){ p.item = val; p.status = 'done'; }
+        else { p.item = null; p.status = 'unrecognized'; }
+        renderResults();
+      }
+      return;
+    }
+    var rename = e.target.closest('input[data-rename]');
+    if (rename){
+      var oldName = rename.getAttribute('data-rename');
+      var newName = normalize(rename.value);
+      if (!newName){ renderResults(); return; }
+      photos.forEach(function(p){ if (p.status==='done' && p.item===oldName) p.item = newName; });
+      if (expandedGroups[oldName]){ expandedGroups[newName] = true; delete expandedGroups[oldName]; }
+      renderResults();
+    }
+  });
+
+  resultsArea.addEventListener('keydown', function(e){
+    if (e.key==='Enter' && (e.target.matches('input[data-rename]') || e.target.matches('input[data-manual]'))){
+      e.target.blur();
+    }
+  });
+
+  // ---------- shared: build folder -> files map ----------
+  function buildFolderMap(){
+    var doneList = photos.filter(function(p){ return p.status==='done' || p.status==='error' || p.status==='unrecognized'; });
+    var map = {};
+    var usedNames = {};
+    doneList.forEach(function(p){
+      var folder;
+      if (p.status==='done' && p.item) folder = p.item;
+      else if (p.status==='error') folder = '辨識失敗';
+      else folder = '未辨識到位置';
+      var safeFolder = folder.replace(/[\\/:*?"<>|]/g, '_');
+      var name = p.file.name || (p.id+'.jpg');
+      var key = safeFolder+'/'+name;
+      if (usedNames[key]){
+        var dot = name.lastIndexOf('.');
+        name = dot>0 ? (name.slice(0,dot)+'_'+p.id+name.slice(dot)) : (name+'_'+p.id);
+      }
+      usedNames[safeFolder+'/'+name] = true;
+      (map[safeFolder] = map[safeFolder] || []).push({name:name, file:p.file});
+    });
+    return map;
+  }
+
+  // ---------- save directly to folders (File System Access API) ----------
+  var saveFolderBtn = document.getElementById('saveFolderBtn');
+  var saveModeHint = document.getElementById('saveModeHint');
+  var supportsFsAccess = typeof window.showDirectoryPicker === 'function';
+
+  if (!supportsFsAccess){
+    saveFolderBtn.style.display = 'none';
+    saveModeHint.textContent = '此瀏覽器（如 iOS / Safari）不支援直接寫入資料夾，請用 ZIP 下載後解壓縮。';
+  } else {
+    saveModeHint.textContent = '會跳出系統視窗讓你選擇要存到哪個位置，每個施工位置會建立成一個子資料夾。若瀏覽器不支援（如 iOS / Safari），請改用 ZIP 下載。';
+  }
+
+  saveFolderBtn.addEventListener('click', function(){
+    var map = buildFolderMap();
+    if (!Object.keys(map).length){ alert('尚無已分類的照片'); return; }
+
+    window.showDirectoryPicker().then(function(rootHandle){
+      saveFolderBtn.disabled = true;
+      saveFolderBtn.textContent = '儲存中…';
+
+      var folderNames = Object.keys(map);
+      var i = 0;
+
+      function nextFolder(){
+        if (i >= folderNames.length){
+          saveFolderBtn.disabled = false;
+          saveFolderBtn.textContent = '直接儲存到資料夾';
+          alert('已儲存完成！共 '+folderNames.length+' 個資料夾。');
+          return;
+        }
+        var folderName = folderNames[i++];
+        rootHandle.getDirectoryHandle(folderName, {create:true}).then(function(dirHandle){
+          var files = map[folderName];
+          var j = 0;
+          function nextFile(){
+            if (j >= files.length){ nextFolder(); return; }
+            var item = files[j++];
+            dirHandle.getFileHandle(item.name, {create:true}).then(function(fileHandle){
+              return fileHandle.createWritable();
+            }).then(function(writable){
+              return writable.write(item.file).then(function(){ return writable.close(); });
+            }).then(nextFile).catch(function(err){
+              alert('寫入「'+folderName+'/'+item.name+'」失敗：'+err.message);
+              saveFolderBtn.disabled = false;
+              saveFolderBtn.textContent = '直接儲存到資料夾';
+            });
+          }
+          nextFile();
+        });
+      }
+      nextFolder();
+    }).catch(function(err){
+      if (err && err.name === 'AbortError') return;
+      alert('無法存取資料夾：'+err.message);
+    });
+  });
+
+  // ---------- download zip (fallback) ----------
+  var downloadBtn = document.getElementById('downloadBtn');
+
+  downloadBtn.addEventListener('click', function(){
+    var map = buildFolderMap();
+    if (!Object.keys(map).length){ alert('尚無已分類的照片'); return; }
+
+    downloadBtn.disabled = true;
+    downloadBtn.textContent = '打包中…';
+
+    var zip = new JSZip();
+    Object.keys(map).forEach(function(folderName){
+      var folder = zip.folder(folderName);
+      map[folderName].forEach(function(item){ folder.file(item.name, item.file); });
+    });
+
+    zip.generateAsync({type:'blob'}).then(function(blob){
+      var d = new Date();
+      var stamp = d.getFullYear()+(d.getMonth()+1<10?'0':'')+(d.getMonth()+1)+(d.getDate()<10?'0':'')+d.getDate();
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = '工地照片施工位置分類_'+stamp+'.zip';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      downloadBtn.disabled = false;
+      downloadBtn.textContent = '下載 ZIP';
+    }).catch(function(err){
+      alert('打包失敗：'+err.message);
+      downloadBtn.disabled = false;
+      downloadBtn.textContent = '下載 ZIP';
+    });
+  });
+
+  // ---------- init ----------
+  renderResults();
+})();
+</script>
+</body>
+</html>

@@ -163,7 +163,7 @@ body.show-money tr.money{display:table-row}
 
 <div id="toolbar">
   <span class="title">施工日誌</span>
-  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.16r</span>
+  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.16u</span>
   <span id="saveState">已儲存</span>
   <button id="btnPrev" title="前一頁">◀</button>
   <select id="daySelect" title="切換日報"></select>
@@ -342,6 +342,7 @@ body.show-money tr.money{display:table-row}
     <div style="max-width:300px" class="money">
       <table class="grid" style="border:none" id="summaryBox">
         <tr><td class="lbl">主體工程費</td><td class="num"><span id="s_total" class="calc">0</span></td></tr>
+        <tr><td class="lbl">雜項金額</td><td class="num"><span id="s_misc" class="calc">0</span></td></tr>
         <tr><td class="lbl">施作金額</td><td class="num"><span id="s_done" class="calc">0</span></td></tr>
         <tr><td class="lbl">實際進度</td><td class="num"><span id="s_pct" class="calc pct">0.0000</span> %</td></tr>
         <tr><td class="lbl">本日金額</td><td class="num"><span id="s_day" class="calc">0</span></td></tr>
@@ -453,19 +454,21 @@ function renderDaySelect(){
 
 function progressData(){
   const r = curIdx>=0 ? DB.reports[curIdx] : null;
-  let grand=0, nonLumpDay=0, nonLumpCum=0;
+  let mainTotal=0, miscTotal=0, nonLumpDay=0, nonLumpCum=0;
   DB.items.forEach((it,i)=>{
-    const p=(+it.price||0);
-    grand += (+it.cQty||0)*p;
-    const isLump=String(it.unit||'').replace(/\s/g,'').includes('式');
-    if(!isLump && r){
-      nonLumpDay += (+r.qty[i]||0)*p;
-      nonLumpCum += cumQty(i,r.date)*p;
+    const p=(+it.price||0), tot=(+it.cQty||0)*p;
+    if(isLumpUnit(it.unit)){ miscTotal += tot; }
+    else{
+      mainTotal += tot;
+      if(r){
+        nonLumpDay += (+r.qty[i]||0)*p;
+        nonLumpCum += cumQty(i,r.date)*p;
+      }
     }
   });
-  return { grand,
-    dayProg: grand>0 ? nonLumpDay/grand : 0,
-    cumProg: grand>0 ? nonLumpCum/grand : 0 };
+  return { mainTotal, miscTotal, grand: mainTotal+miscTotal, nonLumpDay, nonLumpCum,
+    dayProg: mainTotal>0 ? nonLumpDay/mainTotal : 0,
+    cumProg: mainTotal>0 ? nonLumpCum/mainTotal : 0 };
 }
 // 本日一式有效值：手動輸入優先，否則用工程進度
 function effDayUnit(){
@@ -483,12 +486,12 @@ function lumpDq(i){
 // 某報表「式」本日完成有效值（手動優先，否則該報表當日自動進度）
 function lumpDayOf(r,i){
   if(r.qty[i]!=null && r.qty[i]!=='') return +r.qty[i];
-  let grand=0,nonLumpDay=0;
+  let mainTotal=0,nonLumpDay=0;
   DB.items.forEach((it,j)=>{
-    const p=(+it.price||0); grand+=(+it.cQty||0)*p;
-    if(!isLumpUnit(it.unit)) nonLumpDay+=(+r.qty[j]||0)*p;
+    const p=(+it.price||0);
+    if(!isLumpUnit(it.unit)){ mainTotal+=(+it.cQty||0)*p; nonLumpDay+=(+r.qty[j]||0)*p; }
   });
-  return grand>0 ? nonLumpDay/grand : 0;
+  return mainTotal>0 ? nonLumpDay/mainTotal : 0;
 }
 // 式列累計 = 各日「式」本日完成加總（與手動本日值連動）
 function cumLumpQty(i){
@@ -642,35 +645,32 @@ function renderHeader(){
 
 function renderTotals(){
   const r=curIdx>=0?DB.reports[curIdx]:null;
-  let grand=0, dayAmt=0, cumAmt=0;
-  let cQtySum=0, cumQtySum=0, dayQtySum=0;
-  let lumpDayQty=0, hasLump=false;   // 單位=一式 之本日完成數量
+  let mainTotal=0, miscTotal=0, dayAmt=0, cumAmt=0, grandAll=0;
+  let cQtySum=0;
   DB.items.forEach((it,i)=>{
-    grand += (+it.cQty||0)*(+it.price||0);
+    const p=(+it.price||0), tot=(+it.cQty||0)*p;
+    grandAll += tot;
     cQtySum += (+it.cQty||0);
-    const isLump = isLumpUnit(it.unit);
-    if(isLump) hasLump=true;
-    if(r){
-      const p=(+it.price||0);
-      // 式工項：本日/累計數量採 lumpDq/cumLumpQty（與表列、本日一式一致）
-      const dq = isLump ? lumpDq(i) : (+r.qty[i]||0);
-      const cq = isLump ? cumLumpQty(i) : cumQty(i,r.date);
-      dayAmt += dq*p;
-      cumAmt += cq*p;
-      dayQtySum += dq; cumQtySum += cq;
-      if(isLump) lumpDayQty += dq;
+    const isLump=isLumpUnit(it.unit);
+    if(isLump) miscTotal += tot;        // 雜項金額 = 所有「式」工項金額總計
+    else{
+      mainTotal += tot;                 // 主體工程費 = 非式工項金額總計
+      if(r){
+        // 施作金額只計主體（非式）工項，不含雜項
+        const dq=(+r.qty[i]||0), cq=cumQty(i,r.date);
+        dayAmt += dq*p; cumAmt += cq*p;
+      }
     }
   });
-  // 主體工程費 = Σ總計（契約數量 × 單價 加總）
-  const eff = grand;
-  // 實際進度 = 施作金額(累計完成金額) ÷ 主體工程費 × 100；本日進度 = 本日金額 ÷ 主體工程費 × 100
-  let actPct, dayPct;
-  if(eff>0){ actPct=cumAmt/eff*100; dayPct=dayAmt/eff*100; }
-  else if(cQtySum>0){ actPct=cumQtySum/cQtySum*100; dayPct=dayQtySum/cQtySum*100; }
-  else { actPct=0; dayPct=0; }
+  // 主體工程費 = 總額扣除雜項；實際進度分母用 主體+雜項 = Σ契約金額
+  const eff = mainTotal;
+  const denom = mainTotal + miscTotal;   // = grandAll
+  let actPct = denom>0 ? cumAmt/denom*100 : 0;
+  let dayPct = denom>0 ? dayAmt/denom*100 : 0;
   $('s_total').textContent=fmt(eff);
+  $('s_misc').textContent=fmt(miscTotal);
   $('f_effTotal').textContent=fmt(eff);
-  $('f_grandTotal').textContent=fmt(grand); $('f_grandTotal2').textContent=fmt(grand);
+  $('f_grandTotal').textContent=fmt(grandAll); $('f_grandTotal2').textContent=fmt(grandAll);
   $('f_dayAmt').textContent=fmt(dayAmt); $('f_cumAmt').textContent=fmt(cumAmt);
   $('f_actPct').textContent=actPct.toFixed(2);
   $('s_done').textContent=fmt(cumAmt);

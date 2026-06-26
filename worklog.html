@@ -163,7 +163,7 @@ body.show-money tr.money{display:table-row}
 
 <div id="toolbar">
   <span class="title">施工日誌</span>
-  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.16w</span>
+  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.16y</span>
   <span id="saveState">已儲存</span>
   <button id="btnPrev" title="前一頁">◀</button>
   <select id="daySelect" title="切換日報"></select>
@@ -343,10 +343,9 @@ body.show-money tr.money{display:table-row}
       <table class="grid" style="border:none" id="summaryBox">
         <tr><td class="lbl">主體工程費</td><td class="num"><span id="s_total" class="calc">0</span></td></tr>
         <tr><td class="lbl">雜項工程費</td><td class="num"><span id="s_misc" class="calc">0</span></td></tr>
-        <tr><td class="lbl">施作金額</td><td class="num"><span id="s_done" class="calc">0</span></td></tr>
+        <tr><td class="lbl">累計施作金額</td><td class="num"><span id="s_done" class="calc">0</span></td></tr>
         <tr><td class="lbl">實際進度</td><td class="num"><span id="s_pct" class="calc pct">0.0000</span> %</td></tr>
         <tr><td class="lbl">本日金額</td><td class="num"><span id="s_day" class="calc">0</span></td></tr>
-        <tr><td class="lbl">本日進度</td><td class="num"><span id="s_dayPct" class="calc pct">0.0000</span> %</td></tr>
         <tr><td class="lbl">本日一式</td><td class="num"><span id="s_dayUnit" class="calc">0.0000</span></td></tr>
       </table>
     </div>
@@ -653,22 +652,21 @@ function renderTotals(){
     cQtySum += (+it.cQty||0);
     const isLump=isLumpUnit(it.unit);
     if(isLump){
-      miscTotal += tot;                 // 雜項金額 = 所有「式」工項金額總計
-      if(r) dayAmt += lumpDq(i)*p;       // 本日金額：計入雜項(式)當日完成
+      miscTotal += tot;                 // 雜項工程費 = 所有「式」工項金額總計
+      if(r) cumAmt += cumLumpQty(i)*p;   // 累計施作金額：計入雜項累計完成
     }else{
       mainTotal += tot;                 // 主體工程費 = 非式工項金額總計
       if(r){
         const dq=(+r.qty[i]||0), cq=cumQty(i,r.date);
-        dayAmt += dq*p;                  // 本日金額：主體當日完成
-        cumAmt += cq*p;                  // 施作金額：只計主體累計
+        dayAmt += dq*p;                  // 本日金額：只計主體當日完成
+        cumAmt += cq*p;                  // 累計施作金額：主體累計完成
       }
     }
   });
-  // 主體工程費 = 總額扣除雜項；實際/本日進度分母用 主體+雜項 = Σ契約金額
+  // 主體工程費 = 總額扣除雜項；實際進度分母用 主體+雜項 = Σ契約金額
   const eff = mainTotal;
   const denom = mainTotal + miscTotal;   // = grandAll
   let actPct = denom>0 ? cumAmt/denom*100 : 0;
-  let dayPct = denom>0 ? dayAmt/denom*100 : 0;
   $('s_total').textContent=fmt(eff);
   $('s_misc').textContent=fmt(miscTotal);
   $('f_effTotal').textContent=fmt(eff);
@@ -677,7 +675,6 @@ function renderTotals(){
   $('f_actPct').textContent=actPct.toFixed(2);
   $('s_done').textContent=fmt(cumAmt);
   $('s_pct').textContent=actPct.toFixed(4); $('s_day').textContent=fmt(dayAmt);
-  $('s_dayPct').textContent=dayPct.toFixed(4);
   // 本日一式 = 第一個式工項的本日完成（手動優先），無式則用進度
   $('s_dayUnit').textContent=lumpRowValue().toFixed(4);
 }

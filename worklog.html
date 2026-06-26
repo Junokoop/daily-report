@@ -163,7 +163,7 @@ body.show-money tr.money{display:table-row}
 
 <div id="toolbar">
   <span class="title">施工日誌</span>
-  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.17c</span>
+  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.17d</span>
   <span id="saveState">已儲存</span>
   <button id="btnPrev" title="前一頁">◀</button>
   <select id="daySelect" title="切換日報"></select>
@@ -971,8 +971,8 @@ $('rg_ok').addEventListener('click',()=>{
   const a=$('rg_from').value, b=$('rg_to').value;
   if(!a||!b||a>b){alert('日期區間不正確');return;}
   const tpl=DB.reports[DB.reports.length-1];
-  // 只移除「沒有日期」的初始空白起始頁；任何有日期的舊報表一律保留，不覆蓋
-  DB.reports=DB.reports.filter(r=> r.date || !isBlankReport(r));
+  // 清掉「未設定日期」的起始頁；任何有日期的舊報表一律保留
+  DB.reports=DB.reports.filter(r=> !!r.date);
   const existing=new Set(DB.reports.map(r=>r.date));
   let d=new Date(a), end=new Date(b), n=0;
   while(d<=end){

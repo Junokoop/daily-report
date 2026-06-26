@@ -163,7 +163,7 @@ body.show-money tr.money{display:table-row}
 
 <div id="toolbar">
   <span class="title">施工日誌</span>
-  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.16y</span>
+  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.17b</span>
   <span id="saveState">已儲存</span>
   <button id="btnPrev" title="前一頁">◀</button>
   <select id="daySelect" title="切換日報"></select>
@@ -434,7 +434,7 @@ function sortReports(){ DB.reports.sort((a,b)=>a.date<b.date?-1:1); }
 function cumQty(itemIdx, uptoDate){
   let s=0;
   for(const r of DB.reports){
-    s += (+r.qty[itemIdx]||0);
+    if(uptoDate && r.date && r.date<=uptoDate) s += (+r.qty[itemIdx]||0);
   }
   return s;
 }
@@ -494,8 +494,12 @@ function lumpDayOf(r,i){
 }
 // 式列累計 = 各日「式」本日完成加總（與手動本日值連動）
 function cumLumpQty(i){
+  const cur=curIdx>=0?DB.reports[curIdx]:null;
+  const upto=cur?cur.date:null;
   let s=0;
-  for(const r of DB.reports) s += lumpDayOf(r,i);
+  for(const r of DB.reports){
+    if(upto && r.date && r.date<=upto) s += lumpDayOf(r,i);
+  }
   return s;
 }
 // 本日一式(統計)：取第一個式工項的有效本日完成；無式工項則用進度
@@ -644,7 +648,7 @@ function renderHeader(){
 
 function renderTotals(){
   const r=curIdx>=0?DB.reports[curIdx]:null;
-  let mainTotal=0, miscTotal=0, dayAmt=0, cumAmt=0, grandAll=0;
+  let mainTotal=0, miscTotal=0, dayAmt=0, cumAmt=0, grandAll=0, dayMisc=0;
   let cQtySum=0;
   DB.items.forEach((it,i)=>{
     const p=(+it.price||0), tot=(+it.cQty||0)*p;
@@ -653,7 +657,7 @@ function renderTotals(){
     const isLump=isLumpUnit(it.unit);
     if(isLump){
       miscTotal += tot;                 // 雜項工程費 = 所有「式」工項金額總計
-      if(r) cumAmt += cumLumpQty(i)*p;   // 累計施作金額：計入雜項累計完成
+      if(r){ cumAmt += cumLumpQty(i)*p; dayMisc += lumpDq(i)*p; }
     }else{
       mainTotal += tot;                 // 主體工程費 = 非式工項金額總計
       if(r){
@@ -663,7 +667,7 @@ function renderTotals(){
       }
     }
   });
-  // 主體工程費 = 總額扣除雜項；實際進度分母用 主體+雜項 = Σ契約金額
+  // 主體工程費 = 總額扣除雜項；分母用 主體+雜項 = Σ契約金額
   const eff = mainTotal;
   const denom = mainTotal + miscTotal;   // = grandAll
   let actPct = denom>0 ? cumAmt/denom*100 : 0;

@@ -163,7 +163,7 @@ body.show-money tr.money{display:table-row}
 
 <div id="toolbar">
   <span class="title">施工日誌</span>
-  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.17d</span>
+  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.17e</span>
   <span id="saveState">已儲存</span>
   <button id="btnPrev" title="前一頁">◀</button>
   <select id="daySelect" title="切換日報"></select>
@@ -397,6 +397,10 @@ if(!DB._v || DB._v<3){
   DB._v=3;
 }
 DB.project.manualTotal=null; // 主體工程費一律自動計算
+// 載入時若已有任何「有日期」的報表，清掉殘留的未設定日期起始頁
+if(DB.reports.some(r=>r.date)){
+  DB.reports = DB.reports.filter(r=>r.date);
+}
 let curIdx = DB.reports.length ? DB.reports.length-1 : -1;
 
 function load(){

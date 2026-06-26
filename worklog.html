@@ -91,6 +91,18 @@ body:not(.edit-on) #sheet input[type=checkbox],
 body:not(.edit-on) #sheet input[type=radio]{
   pointer-events:none;
 }
+/* 未新增任何區間報表時：報表內容一律唯讀（即使按了編輯），須先區間新增 */
+body.no-reports #sheet input,
+body.no-reports #sheet textarea,
+body.no-reports #sheet select{
+  pointer-events:none;
+}
+body.no-reports #sheet::before{
+  content:"請先按「＋區間新增」設定日期，才能編輯日報";
+  display:block;text-align:center;color:var(--accent-2);
+  font-weight:700;padding:10px;font-size:14px;
+}
+@media print{ body.no-reports #sheet::before{display:none} }
 
 /* 金額欄位：預設隱藏，可切換顯示編輯 */
 .money{display:none}
@@ -163,7 +175,7 @@ body.show-money tr.money{display:table-row}
 
 <div id="toolbar">
   <span class="title">施工日誌</span>
-  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.17g</span>
+  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.17i</span>
   <span id="saveState">已儲存</span>
   <button id="btnPrev" title="前一頁">◀</button>
   <select id="daySelect" title="切換日報"></select>
@@ -688,6 +700,9 @@ function renderTotals(){
 }
 
 function renderAll(){
+  // 尚未新增任何「真實」報表（僅起始/種子佔位頁）時鎖定編輯
+  const hasReal = DB.reports.some(r=>!isSeedPlaceholder(r));
+  document.body.classList.toggle('no-reports', !hasReal);
   renderDaySelect(); renderHeader(); renderItems(); renderSubTables(); renderTotals();
 }
 
@@ -939,9 +954,8 @@ $('btnClearAll').addEventListener('click',()=>{
   if(!confirm('清除全部資料？\n所有日報、工項與工程資訊將永久刪除，無法復原。'))return;
   if(!confirm('再次確認：確定要清除全部資料嗎？'))return;
   DB=defaultData();
-  DB.reports.push(blankReport(new Date().toISOString().slice(0,10)));
-  DB.reports[0].s1='y'; DB.reports[0].s2='x'; DB.reports[0].s3='y'; DB.reports[0].tech='no';
-  DB.reports[0]._seed=true;
+  const seed=blankReport(''); seed._seed=true;   // 未設定日期佔位頁，待區間新增才產生報表
+  DB.reports.push(seed);
   DB._v=3; DB.project.manualTotal=null;
   curIdx=0;
   renderAll(); save();
@@ -1357,10 +1371,12 @@ document.addEventListener('focusin',e=>{
   }
 });
 
-// 瀏覽頁（未按編輯）攔截報表內的鍵盤輸入，徹底鎖定數值
+// 攔截報表內的鍵盤輸入：未按編輯、或尚未新增區間報表時，徹底鎖定數值
 ['beforeinput','keydown','paste'].forEach(ev=>{
   document.addEventListener(ev,e=>{
-    if(document.body.classList.contains('edit-on'))return;
+    const locked = !document.body.classList.contains('edit-on')
+                 || document.body.classList.contains('no-reports');
+    if(!locked)return;
     const t=e.target;
     if(t && t.closest && t.closest('#sheet') && (t.tagName==='INPUT'||t.tagName==='TEXTAREA'||t.tagName==='SELECT')){
       if(ev==='keydown'){

@@ -163,7 +163,7 @@ body.show-money tr.money{display:table-row}
 
 <div id="toolbar">
   <span class="title">施工日誌</span>
-  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.17e</span>
+  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.17g</span>
   <span id="saveState">已儲存</span>
   <button id="btnPrev" title="前一頁">◀</button>
   <select id="daySelect" title="切換日報"></select>
@@ -397,9 +397,9 @@ if(!DB._v || DB._v<3){
   DB._v=3;
 }
 DB.project.manualTotal=null; // 主體工程費一律自動計算
-// 載入時若已有任何「有日期」的報表，清掉殘留的未設定日期起始頁
-if(DB.reports.some(r=>r.date)){
-  DB.reports = DB.reports.filter(r=>r.date);
+// 載入時：若已有任何非起始頁的報表，清掉殘留的起始/種子頁
+if(DB.reports.some(r=>!isSeedPlaceholder(r))){
+  DB.reports = DB.reports.filter(r=>!isSeedPlaceholder(r));
 }
 let curIdx = DB.reports.length ? DB.reports.length-1 : -1;
 
@@ -941,6 +941,7 @@ $('btnClearAll').addEventListener('click',()=>{
   DB=defaultData();
   DB.reports.push(blankReport(new Date().toISOString().slice(0,10)));
   DB.reports[0].s1='y'; DB.reports[0].s2='x'; DB.reports[0].s3='y'; DB.reports[0].tech='no';
+  DB.reports[0]._seed=true;
   DB._v=3; DB.project.manualTotal=null;
   curIdx=0;
   renderAll(); save();
@@ -971,12 +972,18 @@ function isBlankReport(r){
     && !(r.machines||[]).some(m=>+m.dQty)
     && !r.sign && !r.important && !r.safetyOther && !r.sampling && !r.subNotice;
 }
+// 是否為「起始頁/種子頁」：空白 且 (標記_seed 或 未設定日期)。
+// 不再用安全項(s1/s2/s3/tech)特徵判斷，避免誤刪真實報表。
+function isSeedPlaceholder(r){
+  if(!isBlankReport(r)) return false;          // 填過資料的一律不算
+  return r._seed===true || !r.date;
+}
 $('rg_ok').addEventListener('click',()=>{
   const a=$('rg_from').value, b=$('rg_to').value;
   if(!a||!b||a>b){alert('日期區間不正確');return;}
   const tpl=DB.reports[DB.reports.length-1];
-  // 清掉「未設定日期」的起始頁；任何有日期的舊報表一律保留
-  DB.reports=DB.reports.filter(r=> !!r.date);
+  // 清掉起始/種子頁；任何填過資料的報表一律保留
+  DB.reports=DB.reports.filter(r=> !isSeedPlaceholder(r));
   const existing=new Set(DB.reports.map(r=>r.date));
   let d=new Date(a), end=new Date(b), n=0;
   while(d<=end){
@@ -1338,7 +1345,8 @@ $('importPdfFile').addEventListener('change',async e=>{
 
 /* ════════ 啟動 ════════ */
 if(curIdx<0){ // 首次：建立一張未設定日期的空白報表，待「區間新增」才開始記錄日期
-  DB.reports.push(blankReport(''));
+  const seed=blankReport(''); seed._seed=true;
+  DB.reports.push(seed);
   curIdx=0;
 }
 // 點擊數字輸入框自動全選，輸入即覆蓋原值

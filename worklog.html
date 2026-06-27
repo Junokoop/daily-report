@@ -175,7 +175,7 @@ body.show-money tr.money{display:table-row}
 
 <div id="toolbar">
   <span class="title">施工日誌</span>
-  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.17i</span>
+  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.17j</span>
   <span id="saveState">已儲存</span>
   <button id="btnPrev" title="前一頁">◀</button>
   <select id="daySelect" title="切換日報"></select>
@@ -1392,10 +1392,14 @@ document.addEventListener('focusin',e=>{
 sortReports();
 renderAll();
 
-// PWA：註冊 service worker（離線可用）
+// PWA：註冊 service worker（離線可用，HTML 走 network-first 拿最新版）
 if('serviceWorker' in navigator){
   window.addEventListener('load',()=>{
-    navigator.serviceWorker.register('sw.js').catch(()=>{});
+    navigator.serviceWorker.register('sw.js').then(reg=>{ try{reg.update();}catch(_){} }).catch(()=>{});
+  });
+  let _refreshing=false;
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{
+    if(_refreshing)return; _refreshing=true; location.reload();
   });
 }
 </script>

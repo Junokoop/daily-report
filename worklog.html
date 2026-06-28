@@ -74,6 +74,9 @@ tr.item-row.has-qty td{background:#fff}
 /* 編輯態才顯示的報表內工具：紅色✕、新增列鈕、日期輸入 */
 .rowdel{display:none;color:var(--warn);cursor:pointer;border:none;background:none;font-size:13px;padding:0 2px}
 .addrow-btn{display:none}
+/* 主體/雜項 選單：僅編輯模式顯示 */
+.kindSel{display:none;margin-left:6px;font-size:12px;padding:1px 2px;border:1px solid var(--line);border-radius:4px;vertical-align:middle}
+body.edit-on .kindSel{display:inline-block}
 body.edit-on .rowdel{display:inline}
 body.edit-on .addrow-btn{display:inline-block}
 .date-edit{display:none}
@@ -98,9 +101,10 @@ body.no-reports #sheet select{
   pointer-events:none;
 }
 body.no-reports #sheet::before{
-  content:"請先按「＋區間新增」設定日期，才能編輯日報";
-  display:block;text-align:center;color:var(--accent-2);
-  font-weight:700;padding:10px;font-size:14px;
+  content:"⚠ 尚未建立日報：請先按上方「＋區間新增」設定日期，才能編輯日誌內容";
+  display:block;text-align:center;color:#8a5a00;background:#fff6db;
+  border:1px solid #f0c14b;border-radius:6px;
+  font-weight:700;padding:12px 14px;font-size:15px;margin:0 0 10px;
 }
 @media print{ body.no-reports #sheet::before{display:none} }
 
@@ -175,7 +179,7 @@ body.show-money tr.money{display:table-row}
 
 <div id="toolbar">
   <span class="title">施工日誌</span>
-  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.17j</span>
+  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.17m</span>
   <span id="saveState">已儲存</span>
   <button id="btnPrev" title="前一頁">◀</button>
   <select id="daySelect" title="切換日報"></select>
@@ -472,7 +476,7 @@ function progressData(){
   let mainTotal=0, miscTotal=0, nonLumpDay=0, nonLumpCum=0;
   DB.items.forEach((it,i)=>{
     const p=(+it.price||0), tot=(+it.cQty||0)*p;
-    if(isLumpUnit(it.unit)){ miscTotal += tot; }
+    if(isMisc(it)){ miscTotal += tot; }
     else{
       mainTotal += tot;
       if(r){
@@ -492,6 +496,13 @@ function effDayUnit(){
   return progressData().dayProg;
 }
 function isLumpUnit(u){ return String(u||'').replace(/\s/g,'').includes('式'); }
+// 工項分類：手動 kind('main'/'misc') 優先；未設定時，式單位預設雜項、其餘預設主體
+function isMisc(it){
+  if(it && (it.kind==='misc'||it.kind==='main')) return it.kind==='misc';
+  return isLumpUnit(it ? it.unit : '');
+}
+// 是否套用「本日一式」自動進度行為：雜項 且 單位是「式」
+function isLumpRow(it){ return isMisc(it) && isLumpUnit(it ? it.unit : ''); }
 // 某「式」工項該頁本日完成的有效值：手動填(r.qty[i])優先，否則自動進度
 function lumpDq(i){
   const r=curIdx>=0?DB.reports[curIdx]:null;
@@ -504,7 +515,7 @@ function lumpDayOf(r,i){
   let mainTotal=0,nonLumpDay=0;
   DB.items.forEach((it,j)=>{
     const p=(+it.price||0);
-    if(!isLumpUnit(it.unit)){ mainTotal+=(+it.cQty||0)*p; nonLumpDay+=(+r.qty[j]||0)*p; }
+    if(!isMisc(it)){ mainTotal+=(+it.cQty||0)*p; nonLumpDay+=(+r.qty[j]||0)*p; }
   });
   return mainTotal>0 ? nonLumpDay/mainTotal : 0;
 }
@@ -520,7 +531,7 @@ function cumLumpQty(i){
 }
 // 本日一式(統計)：取第一個式工項的有效本日完成；無式工項則用進度
 function lumpRowValue(){
-  for(let i=0;i<DB.items.length;i++) if(isLumpUnit(DB.items[i].unit)) return lumpDq(i);
+  for(let i=0;i<DB.items.length;i++) if(isLumpRow(DB.items[i])) return lumpDq(i);
   return progressData().dayProg;
 }
 
@@ -530,8 +541,8 @@ function renderItems(){
   const pd = progressData();
   DB.items.forEach((it,i)=>{
     const tr=document.createElement('tr'); tr.className='item-row';
-    const isLump = isLumpUnit(it.unit);
-    // 式工項：本日完成 = 手動填優先，否則自動進度；累計 = 工程進度
+    const isLump = isLumpRow(it);
+    // 一式行為（雜項+式）：本日完成 = 手動填優先，否則自動進度；累計 = 工程進度
     const dq = isLump ? lumpDq(i) : (r ? (+r.qty[i]||0) : 0);
     const cq = isLump ? cumLumpQty(i) : (r ? cumQty(i, r.date) : 0);
     if(dq) tr.classList.add('has-qty');
@@ -540,7 +551,7 @@ function renderItems(){
     const ca = cq*(+it.price||0);   // 累計完成金額 = 累計數量 × 單價
     const total = (+it.cQty||0)*(+it.price||0); // 總計 = 契約數量 × 單價
     tr.innerHTML=`
-      <td><button class="rowdel no-print" data-del="${i}">✕</button><input data-f="name" data-i="${i}" value="${esc(it.name)}"></td>
+      <td><button class="rowdel no-print" data-del="${i}">✕</button><input data-f="name" data-i="${i}" value="${esc(it.name)}"><select class="kindSel no-print" data-kind="${i}"><option value="main"${isMisc(it)?'':' selected'}>主體</option><option value="misc"${isMisc(it)?' selected':''}>雜項</option></select></td>
       <td class="ctr"><input data-f="unit" data-i="${i}" value="${esc(it.unit)}" style="text-align:center"></td>
       <td class="num"><input type="text" inputmode="decimal" class="numfld" data-f="cQty" data-i="${i}" value="${nv(it.cQty)}"></td>
       <td class="num"><input type="text" inputmode="decimal" class="numfld" data-day="${i}" value="${nv(dq)}" placeholder="0.00" ${r?'':'disabled'}></td>
@@ -664,22 +675,24 @@ function renderHeader(){
 
 function renderTotals(){
   const r=curIdx>=0?DB.reports[curIdx]:null;
-  let mainTotal=0, miscTotal=0, dayAmt=0, cumAmt=0, grandAll=0, dayMisc=0;
+  let mainTotal=0, miscTotal=0, dayAmt=0, cumAmt=0, grandAll=0;
   let cQtySum=0;
   DB.items.forEach((it,i)=>{
     const p=(+it.price||0), tot=(+it.cQty||0)*p;
     grandAll += tot;
     cQtySum += (+it.cQty||0);
-    const isLump=isLumpUnit(it.unit);
-    if(isLump){
-      miscTotal += tot;                 // 雜項工程費 = 所有「式」工項金額總計
-      if(r){ cumAmt += cumLumpQty(i)*p; dayMisc += lumpDq(i)*p; }
-    }else{
-      mainTotal += tot;                 // 主體工程費 = 非式工項金額總計
-      if(r){
-        const dq=(+r.qty[i]||0), cq=cumQty(i,r.date);
-        dayAmt += dq*p;                  // 本日金額：只計主體當日完成
-        cumAmt += cq*p;                  // 累計施作金額：主體累計完成
+    const misc=isMisc(it), lumpRow=isLumpRow(it);
+    if(misc) miscTotal += tot;            // 雜項工程費 = 所有雜項工項金額總計
+    else     mainTotal += tot;            // 主體工程費 = 所有主體工項金額總計
+    if(r){
+      // 一式（雜項+式）用自動進度；其餘用實際數量
+      const dq = lumpRow ? lumpDq(i) : (+r.qty[i]||0);
+      const cq = lumpRow ? cumLumpQty(i) : cumQty(i,r.date);
+      if(misc){
+        cumAmt += cq*p;                    // 累計施作金額：含雜項累計完成
+      }else{
+        dayAmt += dq*p;                    // 本日金額：只計主體當日完成
+        cumAmt += cq*p;                    // 累計施作金額：主體累計完成
       }
     }
   });
@@ -792,10 +805,23 @@ $('itemTable').addEventListener('input',e=>{
     }
     if(f==='cQty'||f==='price'||f==='unit'){
       const r=curIdx>=0?DB.reports[curIdx]:null;
+      if(f==='unit'){
+        const sel=tr.querySelector('select[data-kind]');
+        if(sel) sel.value = isMisc(DB.items[i]) ? 'misc' : 'main';
+      }
       if(r) updateRowCalc(tr,i,r);
       else tr.querySelectorAll('td')[8].textContent=fmt((+DB.items[i].cQty||0)*(+DB.items[i].price||0));
     }
     renderTotals(); save();
+  }
+});
+// 主體/雜項 分類選單
+$('itemTable').addEventListener('change',e=>{
+  const t=e.target;
+  if(t.dataset.kind!==undefined){
+    const i=+t.dataset.kind;
+    DB.items[i].kind = t.value;          // 'main' 或 'misc'
+    renderItems(); renderTotals(); save();
   }
 });
 // 數值欄離開時補成兩位小數
@@ -809,7 +835,7 @@ function tr_of(t){return t.closest('tr');}
 /* 更新單列計算欄：累計數量(4)、本日金額(6)、累計金額(7)、總計(8)=累計金額 */
 function updateRowCalc(tr,i,r){
   const it=DB.items[i];
-  const isLump=isLumpUnit(it.unit);
+  const isLump=isLumpRow(it);
   const tds=tr.querySelectorAll('td');
   const p=(+it.price||0);
   const pd=progressData();
@@ -826,7 +852,7 @@ function refreshLumpRows(){
   const pd=progressData();
   const rows=$('itemBody').querySelectorAll('tr');
   DB.items.forEach((it,i)=>{
-    if(!isLumpUnit(it.unit)) return;
+    if(!isLumpRow(it)) return;
     const tr=rows[i]; if(!tr) return;
     const tds=tr.querySelectorAll('td');
     const dq=lumpDq(i), cq=cumLumpQty(i);
@@ -869,6 +895,10 @@ $('btnMoney').addEventListener('click',()=>{
 $('btnEditMode').addEventListener('click',()=>{
   const on=document.body.classList.toggle('edit-on');
   $('btnEditMode').textContent=on?'完成':'編輯';
+  // 尚未建立日報就按編輯：文字提醒先用「＋區間新增」設定日期
+  if(on && document.body.classList.contains('no-reports')){
+    alert('尚未建立日報，無法編輯內容。\n請先按上方「＋區間新增」設定日期，產生日報後再編輯。');
+  }
   // 按「編輯」自動顯示金額；按「完成」自動隱藏金額
   if(on && !document.body.classList.contains('show-money')){
     document.body.classList.add('show-money');

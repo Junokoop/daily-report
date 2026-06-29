@@ -179,7 +179,7 @@ body.show-money tr.money{display:table-row}
 
 <div id="toolbar">
   <span class="title">施工日誌</span>
-  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.17m</span>
+  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.17q</span>
   <span id="saveState">已儲存</span>
   <button id="btnPrev" title="前一頁">◀</button>
   <select id="daySelect" title="切換日報"></select>
@@ -256,9 +256,9 @@ body.show-money tr.money{display:table-row}
     </tr>
     <tr>
       <td class="lbl">工程名稱</td>
-      <td colspan="4"><input id="f_projName"></td>
+      <td colspan="4"><input id="f_projName" class="autofit"></td>
       <td class="lbl">承攬廠商名稱</td>
-      <td colspan="2"><input id="f_contractor"></td>
+      <td colspan="2"><input id="f_contractor" class="autofit"></td>
     </tr>
     <tr>
       <td class="lbl">核定工期</td>
@@ -439,6 +439,30 @@ const fmt=n=>{ if(!isFinite(n)) return '0.00'; return n.toLocaleString('zh-TW',{
 const fq=n=>{ if(!isFinite(n)) n=0; return (+n).toLocaleString('zh-TW',{minimumFractionDigits:2,maximumFractionDigits:2}); };
 // 輸入框值：兩位小數（0 或空白顯示空字串，由 placeholder 帶 0.00）
 const nv=x=>{ const n=+x; return (x===''||x==null||!isFinite(n)||n===0)?'':n.toFixed(2); };
+// 式列：四捨五入到 2 位，讓「數量(2位) × 單價 = 金額」對得起來
+const r2=n=>{ n=+n; return isFinite(n)?Math.round(n*100)/100:0; };
+// 文字過長時自動縮小字級以塞進格子（.autofit）
+function autofit(el){
+  if(!el) return;
+  el.style.fontSize='';
+  let size=parseFloat(getComputedStyle(el).fontSize)||14;
+  const max=size, min=7;
+  el.style.fontSize=size+'px';
+  let guard=0;
+  while(el.scrollWidth>el.clientWidth+1 && size>min && guard<80){
+    size-=0.5; el.style.fontSize=size+'px'; guard++;
+  }
+  if(size!==max && el.scrollWidth<=el.clientWidth) { /* 已縮到剛好 */ }
+}
+function autofitAll(){
+  try{
+    document.querySelectorAll('#sheet input, #sheet textarea').forEach(el=>{
+      const t=(el.getAttribute('type')||'text').toLowerCase();
+      if(t==='checkbox'||t==='radio'||t==='date') return; // 勾選/日期欄不縮放
+      autofit(el);
+    });
+  }catch(_){}
+}
 const pnum=v=>{ if(v==='')return 0; const n=parseFloat(String(v).replace(/,/g,'')); return isFinite(n)?n:0; };
 function rocDate(iso){
   if(!iso) return '';
@@ -543,15 +567,16 @@ function renderItems(){
     const tr=document.createElement('tr'); tr.className='item-row';
     const isLump = isLumpRow(it);
     // 一式行為（雜項+式）：本日完成 = 手動填優先，否則自動進度；累計 = 工程進度
-    const dq = isLump ? lumpDq(i) : (r ? (+r.qty[i]||0) : 0);
-    const cq = isLump ? cumLumpQty(i) : (r ? cumQty(i, r.date) : 0);
+    let dq = isLump ? lumpDq(i) : (r ? (+r.qty[i]||0) : 0);
+    let cq = isLump ? cumLumpQty(i) : (r ? cumQty(i, r.date) : 0);
+    if(isLump){ dq=r2(dq); cq=r2(cq); }   // 式列四捨五入到2位，金額才對得起來
     if(dq) tr.classList.add('has-qty');
     if(printOnlyUsed && !dq && !cq) tr.classList.add('hide-print');
     const da = dq*(+it.price||0);   // 本日金額 = 本日數量 × 單價
     const ca = cq*(+it.price||0);   // 累計完成金額 = 累計數量 × 單價
     const total = (+it.cQty||0)*(+it.price||0); // 總計 = 契約數量 × 單價
     tr.innerHTML=`
-      <td><button class="rowdel no-print" data-del="${i}">✕</button><input data-f="name" data-i="${i}" value="${esc(it.name)}"><select class="kindSel no-print" data-kind="${i}"><option value="main"${isMisc(it)?'':' selected'}>主體</option><option value="misc"${isMisc(it)?' selected':''}>雜項</option></select></td>
+      <td><button class="rowdel no-print" data-del="${i}">✕</button><input data-f="name" data-i="${i}" class="autofit" value="${esc(it.name)}"><select class="kindSel no-print" data-kind="${i}"><option value="main"${isMisc(it)?'':' selected'}>主體</option><option value="misc"${isMisc(it)?' selected':''}>雜項</option></select></td>
       <td class="ctr"><input data-f="unit" data-i="${i}" value="${esc(it.unit)}" style="text-align:center"></td>
       <td class="num"><input type="text" inputmode="decimal" class="numfld" data-f="cQty" data-i="${i}" value="${nv(it.cQty)}"></td>
       <td class="num"><input type="text" inputmode="decimal" class="numfld" data-day="${i}" value="${nv(dq)}" placeholder="0.00" ${r?'':'disabled'}></td>
@@ -685,9 +710,9 @@ function renderTotals(){
     if(misc) miscTotal += tot;            // 雜項工程費 = 所有雜項工項金額總計
     else     mainTotal += tot;            // 主體工程費 = 所有主體工項金額總計
     if(r){
-      // 一式（雜項+式）用自動進度；其餘用實際數量
-      const dq = lumpRow ? lumpDq(i) : (+r.qty[i]||0);
-      const cq = lumpRow ? cumLumpQty(i) : cumQty(i,r.date);
+      // 一式（雜項+式）用自動進度（四捨五入到2位，與列顯示一致）；其餘用實際數量
+      const dq = lumpRow ? r2(lumpDq(i)) : (+r.qty[i]||0);
+      const cq = lumpRow ? r2(cumLumpQty(i)) : cumQty(i,r.date);
       if(misc){
         cumAmt += cq*p;                    // 累計施作金額：含雜項累計完成
       }else{
@@ -717,6 +742,7 @@ function renderAll(){
   const hasReal = DB.reports.some(r=>!isSeedPlaceholder(r));
   document.body.classList.toggle('no-reports', !hasReal);
   renderDaySelect(); renderHeader(); renderItems(); renderSubTables(); renderTotals();
+  if(typeof requestAnimationFrame==='function') requestAnimationFrame(autofitAll); else autofitAll();
 }
 
 /* ════════ 事件 ════════ */
@@ -839,8 +865,9 @@ function updateRowCalc(tr,i,r){
   const tds=tr.querySelectorAll('td');
   const p=(+it.price||0);
   const pd=progressData();
-  const dq=isLump ? lumpDq(i) : (+r.qty[i]||0);
-  const cq=isLump ? cumLumpQty(i) : cumQty(i,r.date);
+  let dq=isLump ? lumpDq(i) : (+r.qty[i]||0);
+  let cq=isLump ? cumLumpQty(i) : cumQty(i,r.date);
+  if(isLump){ dq=r2(dq); cq=r2(cq); }
   tds[4].textContent=fq(cq);
   tds[6].textContent=fmt(dq*p);
   tds[7].textContent=fmt(cq*p);
@@ -855,7 +882,7 @@ function refreshLumpRows(){
     if(!isLumpRow(it)) return;
     const tr=rows[i]; if(!tr) return;
     const tds=tr.querySelectorAll('td');
-    const dq=lumpDq(i), cq=cumLumpQty(i);
+    const dq=r2(lumpDq(i)), cq=r2(cumLumpQty(i));
     const dayIn=tds[3].querySelector('input');
     if(dayIn && document.activeElement!==dayIn) dayIn.value=nv(dq);
     tds[4].textContent=fq(cq);
@@ -1418,6 +1445,18 @@ document.addEventListener('focusin',e=>{
     }
   },true);
 });
+
+// 輸入或視窗大小改變時，自動調整報表內所有文字/數字欄位字級
+document.addEventListener('input',e=>{
+  const el=e.target;
+  if(!el || !el.closest || !el.closest('#sheet')) return;
+  if(el.tagName==='INPUT'||el.tagName==='TEXTAREA'){
+    const t=(el.getAttribute('type')||'text').toLowerCase();
+    if(t==='checkbox'||t==='radio'||t==='date') return;
+    autofit(el);
+  }
+},true);
+window.addEventListener('resize',()=>autofitAll());
 
 sortReports();
 renderAll();

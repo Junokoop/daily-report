@@ -2129,7 +2129,7 @@ function buildCard(rpt, isAdminView) {
     '本日接收公款：<strong style="color:var(--ac)">$' + Number(settlToday).toLocaleString() + '</strong><br>' +
     '現金支出：<strong style="color:var(--red)">$' + Number(rpt.totalCash || 0).toLocaleString() + '</strong>　刷卡：<strong>$' + Number(rpt.totalCard || 0).toLocaleString() + '</strong><br>' +
     '<div style="border-top:1px solid var(--br);margin-top:2px;padding-top:4px"><strong style="color:' + (Number(rpt.remaining||0) < 0 ? 'var(--red)' : 'var(--grn)') + ';font-size:15px">現金剩餘：$' + Number(rpt.remaining || 0).toLocaleString() + '</strong></div>' +
-    (rpt.receiptNote ? '<div style="color:var(--mu);font-size:12px">備考：' + esc(rpt.receiptNote) + '</div>' : '') +
+    (rpt.receiptNote ? '<div style="color:#000;font-size:12px">備考：' + esc(rpt.receiptNote) + '</div>' : '') +
     '</div>';
   body.appendChild(settlDiv);
   var timeDiv = document.createElement('div');
@@ -2779,7 +2779,7 @@ function refreshCardInPlace(patchData) {
     '本日接收公款：<strong style="color:var(--ac)">$' + Number(settlToday).toLocaleString() + '</strong><br>' +
     '現金支出：<strong style="color:var(--red)">$' + Number(patchData.totalCash||0).toLocaleString() + '</strong>　刷卡：<strong>$' + Number(patchData.totalCard||0).toLocaleString() + '</strong><br>' +
     '<div style="border-top:1px solid var(--br);margin-top:2px;padding-top:4px"><strong style="color:' + (Number(patchData.remaining||0)<0?'var(--red)':'var(--grn)') + ';font-size:15px">現金剩餘：$' + Number(patchData.remaining||0).toLocaleString() + '</strong></div>' +
-    (patchData.receiptNote ? '<div style="color:var(--mu);font-size:12px">備考：' + esc(patchData.receiptNote) + '</div>' : '') +
+    (patchData.receiptNote ? '<div style="color:#000;font-size:12px">備考：' + esc(patchData.receiptNote) + '</div>' : '') +
     '</div>';
   body.appendChild(ss);
 

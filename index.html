@@ -63,6 +63,8 @@ input.ti{flex:1;min-width:0;height:44px;border:1.5px solid var(--br);border-radi
 .rr{display:flex;align-items:center;gap:8px}
 .rr .rl{font-size:14px;white-space:nowrap;min-width:54px}
 .rr input{flex:1;height:44px;min-width:0;border:1.5px solid var(--br);border-radius:6px;background:var(--ib);font-size:15px;padding:0 10px;color:var(--tx);outline:none}
+.signbtn{flex:0 0 auto;width:44px;height:44px;border:1.5px solid var(--br);border-radius:6px;background:var(--ib);color:var(--tx);font-size:20px;font-weight:700;line-height:1;cursor:pointer;padding:0}
+.signbtn.neg{color:var(--red);border-color:var(--red)}
 table.st{width:100%;border-collapse:collapse;border-top:1.5px solid var(--bd)}
 .st td{padding:13px 14px;border-bottom:1px solid var(--br);vertical-align:middle}
 .st tr:last-child td{border-bottom:none;border-top:1.5px solid var(--bd)}
@@ -240,7 +242,7 @@ table.st{width:100%;border-collapse:collapse;border-top:1.5px solid var(--bd)}
     <div class="sh">本日接收公款</div>
     <div class="rb">
       <div class="rr"><span class="rl">上筆結餘公款</span><input id="rc" type="number" placeholder="0" min="0" inputmode="numeric" readonly style="background:#f5f5f5;color:var(--mu)"><span style="font-size:14px">元</span></div>
-      <div class="rr"><span class="rl">本日接收公款</span><input id="rc2" type="number" placeholder="0" min="0" inputmode="numeric" oninput="calc()"><span style="font-size:14px">元</span></div>
+      <div class="rr"><span class="rl">本日接收公款</span><input id="rc2" type="number" placeholder="0" inputmode="numeric" oninput="calc()"><button type="button" id="rc2Sign" class="signbtn" onclick="toggleRc2Sign()" title="正負切換">±</button><span style="font-size:14px">元</span></div>
       <div class="rr"><span class="rl">備考</span><input id="rn" type="text"></div>
     </div>
     <table class="st">
@@ -1091,6 +1093,15 @@ function renderInvPhotos(row, idx) {
   });
 }
 
+function toggleRc2Sign() {
+  var el = document.getElementById('rc2');
+  if (!el) return;
+  var v = parseFloat(el.value);
+  if (isNaN(v)) return;
+  el.value = String(-v);
+  calc();
+}
+
 function calc() {
   var cash = 0, card = 0;
   document.querySelectorAll('.cc').forEach(function(el) { cash += parseFloat(el.value) || 0; });
@@ -1098,6 +1109,8 @@ function calc() {
   var rc0 = parseFloat(document.getElementById('rc').value) || 0;
   var rc2El = document.getElementById('rc2');
   var rc2 = rc2El ? (parseFloat(rc2El.value) || 0) : 0;
+  var rc2SignBtn = document.getElementById('rc2Sign');
+  if (rc2SignBtn) rc2SignBtn.classList.toggle('neg', rc2 < 0);
   var totalRc = rc0 + rc2;
   var remaining = totalRc - cash;
   document.getElementById('tca').textContent = '$' + cash.toLocaleString();
@@ -2119,9 +2132,8 @@ function buildCard(rpt, isAdminView) {
   var settlPrev = prevRpt2 ? (parseFloat(prevRpt2.remaining) || 0) : 0;
   // receiptCash = 上筆結餘 + 本日接收，若不符則直接用 remaining + totalCash 反推
   var rcTotal = parseFloat(rpt.receiptCash) || 0;
+  // receiptCash 已是總額（上筆結餘 + 本日接收），直接反推，本日接收可為負數
   var settlToday = rcTotal - settlPrev;
-  // 若反推出負數，可能 receiptCash 只存了本日接收，直接用它
-  if (settlToday < 0) { settlToday = rcTotal; }
 
   settlDiv.innerHTML = '<div class="rbl">公款結算</div>' +
     '<div style="font-size:13px;line-height:2.2">' +
@@ -2369,7 +2381,7 @@ function doOpenEditModal(rpt) {
       '</div>' +
       '<div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;margin-bottom:6px">' +
         '<span style="color:var(--mu)">本日接收公款</span>' +
-        '<input id="editRcToday" type="number" inputmode="numeric" value="' + (rpt.todayReceived||0) + '" oninput="updateEditTotal()" style="width:120px;text-align:right;border:1px solid var(--br);border-radius:6px;padding:4px 8px;font-size:13px;font-weight:700;color:var(--ac)">' +
+        '<input id="editRcToday" type="number" inputmode="numeric" value="' + (rpt.todayReceived||0) + '" oninput="updateEditTotal()" style="width:120px;text-align:right;border:1px solid var(--br);border-radius:6px;padding:4px 8px;font-size:13px;font-weight:700;color:var(--ac)"><button type="button" onclick="toggleEditRcSign()" title="正負切換" style="width:34px;height:30px;margin-left:6px;border:1px solid var(--br);border-radius:6px;background:var(--ib);color:var(--tx);font-size:16px;font-weight:700;cursor:pointer;padding:0">±</button>' +
       '</div>' +
       '<div style="display:flex;gap:12px;font-size:13px;margin-bottom:6px">' +
         '<span style="color:var(--mu)">現金支出：<strong id="editShowCash" style="color:var(--red)">$' + (parseFloat(rpt.totalCash)||0).toLocaleString() + '</strong></span>' +
@@ -2603,6 +2615,15 @@ function addEditExp() {
   if (ci2) _bindEditFileInput(ci2, epIdx);
 }
 
+function toggleEditRcSign() {
+  var el = document.getElementById('editRcToday');
+  if (!el) return;
+  var v = parseFloat(el.value);
+  if (isNaN(v)) return;
+  el.value = String(-v);
+  if (typeof updateEditTotal === 'function') updateEditTotal();
+}
+
 function updateEditTotal() {
   var prev = window._editPrevRemaining || 0;
   var today = parseFloat(document.getElementById('editRcToday') ? document.getElementById('editRcToday').value : 0) || 0;
@@ -2772,7 +2793,6 @@ function refreshCardInPlace(patchData) {
   var settlPrev = patchData.prevRemaining || 0;
   var rcTotal = parseFloat(patchData.receiptCash) || 0;
   var settlToday = rcTotal - settlPrev;
-  if (settlToday < 0) settlToday = rcTotal;
   ss.innerHTML = '<div class="rbl">公款結算</div>' +
     '<div style="font-size:13px;line-height:2.2">' +
     '上筆結餘：<strong style="color:var(--grn)">$' + Number(settlPrev).toLocaleString() + '</strong><br>' +

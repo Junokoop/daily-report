@@ -775,6 +775,35 @@ function getReporters() {
 }
 function saveReporters(arr) {
   localStorage.setItem(REPORTERS_KEY, JSON.stringify(arr));
+  // 同步到雲端（GAS），讓其他裝置也看得到
+  try {
+    var form = new FormData();
+    form.append('payload', JSON.stringify({ action: 'setreporters', data: arr }));
+    fetch(API, { method: 'POST', body: form, mode: 'no-cors' }).catch(function(){});
+  } catch(e) {}
+}
+
+// 從雲端拉取填報者名單，成功才覆蓋本地快取並重繪
+function syncReportersFromServer() {
+  return fetch(API + '?action=getreporters&t=' + Date.now(), { redirect: 'follow', cache: 'no-store' })
+    .then(function(r) { return r.text(); })
+    .then(function(text) {
+      if (!text || !text.trim()) return;
+      var res;
+      try { res = JSON.parse(text); } catch(e) {
+        var m = text.match(/\{"ok":true.*\}/);
+        if (m) { try { res = JSON.parse(m[0]); } catch(e2) { return; } } else return;
+      }
+      if (!res || !res.ok || !Array.isArray(res.data)) return;
+      // 僅在與本地不同時才更新，避免無謂重繪
+      var local = JSON.stringify(getReporters());
+      if (JSON.stringify(res.data) === local) return;
+      localStorage.setItem(REPORTERS_KEY, JSON.stringify(res.data));
+      try { renderSelectPage(); } catch(e) {}
+      try { renderReporterMgmt(); } catch(e) {}
+      try { updateFilterDropdown(); } catch(e) {}
+    })
+    .catch(function(){});
 }
 
 function renderSelectPage(){
@@ -897,7 +926,7 @@ function showPage(p) {
   }
   if (p === 'form') { showRawPage('pageForm'); document.getElementById('navForm').classList.add('active'); }
   else if (p === 'history') { showRawPage('pageHistory'); document.getElementById('navHistory').classList.add('active'); _reportCache = null; loadHistory(); startHistoryRefresh(); }
-  else if (p === 'admin') { showRawPage('pageAdmin'); document.getElementById('navAdmin').classList.add('active'); loadAllReports(); renderReporterMgmt(); }
+  else if (p === 'admin') { showRawPage('pageAdmin'); document.getElementById('navAdmin').classList.add('active'); loadAllReports(); renderReporterMgmt(); syncReportersFromServer(); }
 }
 
 // 後端檢測：確認 App 連到的後端是否為含修正的新版 Code.gs
@@ -931,6 +960,7 @@ function checkPw() {
     showRawPage('pageAdmin');
     loadAllReports();
     renderReporterMgmt();
+    syncReportersFromServer();
     startAdminRefresh();
   } else {
     showToast('密碼錯誤');
@@ -3135,6 +3165,7 @@ function saveEdit() {
 // 頁面初始化
 (function init() {
   renderSelectPage();
+  syncReportersFromServer();
   showRawPage('pageSelect');
   setNavMode('none');
   // 點選其他地方關閉自製下拉

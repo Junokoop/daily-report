@@ -1,6 +1,6 @@
 // 施工日誌 service worker
 // v2：HTML 改為 network-first（永遠抓最新版，離線才用快取），解決多台裝置看到舊版的問題
-const CACHE = 'rizhi-v2';
+const CACHE = 'rizhi-v3';
 const ASSETS = [
   './',
   './index.html',

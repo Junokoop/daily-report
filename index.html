@@ -808,12 +808,8 @@ function getReporters() {
 }
 function saveReporters(arr) {
   localStorage.setItem(REPORTERS_KEY, JSON.stringify(arr));
-  // 同步到雲端（GAS），讓其他裝置也看得到
-  try {
-    var form = new FormData();
-    form.append('payload', JSON.stringify({ action: 'setreporters', data: arr }));
-    fetch(API, { method: 'POST', body: form, mode: 'no-cors' }).catch(function(){});
-  } catch(e) {}
+  // 雲端同步改由呼叫端使用 targeted endpoint（addReporter / removeReporter），
+  // 避免在此處用 setreporters 整份覆寫 → 慢，會搶鎖卡住 addReport（新報表無法上傳）
 }
 
 // 從雲端拉取填報者名單，成功才覆蓋本地快取並重繪
@@ -1332,10 +1328,12 @@ function submitReport() {
 }
 
 // 把 UI 更新邏輯抽出，讓 loadHistory 和 pollNewReport 共用同一套
-function _updateHistoryUI(allData) {
+// skipList=true：只更新頂端的公款彙總數字，不重建下方報表列表
+// （用在編輯儲存後：那張報表已由 refreshCardInPlace 就地更新，重建會抹掉其他卡片的展開/收合狀態）
+function _updateHistoryUI(allData, skipList) {
   var listEl = document.getElementById('historyList');
   if (!listEl) return;
-  _lastHistorySig = _dataSig(allData); // 同步基準，避免首次自動刷新多閃一次
+  if (!skipList) _lastHistorySig = _dataSig(allData); // 同步基準，避免首次自動刷新多閃一次
   try {
     var data = (allData || []).filter(function(r) { return r.reporter === currentReporter; });
     data.sort(function(a, b) { return Number(b.id) - Number(a.id); });
@@ -1361,11 +1359,12 @@ function _updateHistoryUI(allData) {
       document.getElementById('historyAccum').textContent = '$0';
       document.getElementById('historyAccum').style.color = 'var(--grn)';
     }
+    if (skipList) return;
     if (!data.length) { listEl.innerHTML = '<div class="empty"><div class="ei">📭</div><p>尚無填報紀錄</p></div>'; return; }
     listEl.innerHTML = '';
     renderSimpleView(data, listEl, false);
   } catch(e) {
-    listEl.innerHTML = '<div class="empty"><div class="ei">❌</div><p>載入失敗，請重新整理頁面</p></div>';
+    if (!skipList) listEl.innerHTML = '<div class="empty"><div class="ei">❌</div><p>載入失敗，請重新整理頁面</p></div>';
   }
 }
 
@@ -1984,6 +1983,12 @@ function renderReporterMgmt() {
       btn.onclick = function() {
         if (!confirm('確定移除填報者「' + r + '」？')) return;
         var arr = getReporters(); arr.splice(idx, 1); saveReporters(arr);
+        // 雲端 targeted 同步：一筆刪除
+        try {
+          var form = new FormData();
+          form.append('payload', JSON.stringify({ action: 'removeReporter', name: r }));
+          fetch(API, { method: 'POST', body: form, mode: 'no-cors' }).catch(function(){});
+        } catch(e) {}
         renderReporterMgmt(); renderSelectPage(); updateFilterDropdown();
       };
       row.appendChild(btn); el.appendChild(row);
@@ -1997,6 +2002,12 @@ function addReporter() {
   var arr = getReporters();
   if (arr.indexOf(name) >= 0) { showToast('填報者已存在'); return; }
   arr.push(name); saveReporters(arr);
+  // 雲端 targeted 同步：一筆新增（比整份 setreporters 快很多，避免搶鎖）
+  try {
+    var form = new FormData();
+    form.append('payload', JSON.stringify({ action: 'addReporter', name: name }));
+    fetch(API, { method: 'POST', body: form, mode: 'no-cors' }).catch(function(){});
+  } catch(e) {}
   document.getElementById('newReporterInput').value = '';
   renderReporterMgmt(); renderSelectPage(); updateFilterDropdown();
   showToast('已新增：' + name);
@@ -3141,7 +3152,20 @@ function saveEdit() {
     // 立即重算最上面的總額／公款總覽，不必等背景輪詢（修正「總額未更新」）
     try { renderSummaryTable(allReports); } catch(e) {}
     try { renderNotifyList(allReports); } catch(e) {}
-    if (currentReporter) { try { _updateHistoryUI(allReports); } catch(e) {} }
+    if (currentReporter) { try { _updateHistoryUI(allReports, true); } catch(e) {} }
+
+    // 編輯後把整份列表的卡片重新展開（維持這些頁面「預設全部展開」的 UX）：
+    // - 填報者歷史頁：#historyList
+    // - 管理者填報者詳情頁：#reporterDetailList
+    // 只操作 class，不重建 DOM，避免抹掉修正的那張已經就地更新的內容
+    setTimeout(function(){
+      ['historyList','reporterDetailList'].forEach(function(id){
+        var host = document.getElementById(id);
+        if (!host) return;
+        host.querySelectorAll('.report-body').forEach(function(b){ b.classList.add('open'); });
+        host.querySelectorAll('.report-arrow').forEach(function(a){ a.classList.add('open'); });
+      });
+    }, 0);
 
     // 背景輪詢確認 GAS 已寫入，最多等 30 秒，確認後才刷新
     (function pollUntilUpdated(retries) {

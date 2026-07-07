@@ -184,6 +184,39 @@ table.st{width:100%;border-collapse:collapse;border-top:1.5px solid var(--bd)}
 .print-sum{margin-top:8px;border:1px solid #6b7280;border-collapse:collapse;width:100%}
 .print-sum td{padding:8px 12px;border-bottom:1px solid #b0a99a;font-size:14px}
 .print-sum td:first-child{background:#e5e7eb;font-weight:700;width:130px}
+/* iOS-style stacked notifications */
+.notify-stack { position: relative; transition: padding-bottom .35s cubic-bezier(.4,0,.2,1); }
+.notify-stack.collapsed { padding-bottom: 22px; }
+.notify-toolbar { display:flex; align-items:center; justify-content:space-between; padding:4px 0 10px; font-size:12px; color:#856404; }
+.notify-toolbar .np { font-weight:700 }
+.notify-toolbar .nt { background:#fff3cd; border:1px solid #ffc107; color:#856404; border-radius:6px; padding:4px 10px; font-size:12px; font-weight:600; cursor:pointer }
+.notify-card {
+  background: #fff;
+  border: 1px solid var(--br);
+  border-radius: 10px;
+  padding: 10px 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  transition: transform .35s cubic-bezier(.4,0,.2,1),
+              opacity .3s ease,
+              top .35s cubic-bezier(.4,0,.2,1),
+              margin .3s ease,
+              max-height .35s ease;
+  cursor: pointer;
+}
+.notify-stack.collapsed .notify-card {
+  max-height: 140px; overflow: hidden;
+  transform-origin: top center;
+}
+.notify-stack.collapsed .notify-card:nth-child(n+2) {
+  position: absolute; left: 0; right: 0;
+}
+.notify-stack.collapsed .notify-card:nth-child(1) { position: relative; z-index: 30; }
+.notify-stack.collapsed .notify-card:nth-child(2) { top: 8px;  z-index: 29; transform: scale(0.965); }
+.notify-stack.collapsed .notify-card:nth-child(3) { top: 16px; z-index: 28; transform: scale(0.93); }
+.notify-stack.collapsed .notify-card:nth-child(n+4) { top: 16px; z-index: 27; transform: scale(0.93); opacity: 0; pointer-events: none; }
+.notify-stack:not(.collapsed) .notify-card { position: relative; margin-bottom: 10px; }
+.notify-stack:not(.collapsed) .notify-card:last-child { margin-bottom: 0 }
+.notify-empty { padding:4px 0; color:var(--mu); }
 </style>
 </head>
 <body>
@@ -1546,34 +1579,73 @@ function renderNotifyList(data) {
   }
   _lastNotifyAt = latestEditedAt;
   if (!edited.length) {
-    el.innerHTML = '<div style="padding:4px 0;color:var(--mu)">目前無更新通知</div>';
+    el.innerHTML = '<div class="notify-empty">目前無更新通知</div>';
     return;
   }
+
+  // 記住展開/收合狀態，重繪時保留
+  var wasExpanded = false;
+  var prevStack = el.querySelector('.notify-stack');
+  if (prevStack && !prevStack.classList.contains('collapsed')) wasExpanded = true;
+
   el.innerHTML = '';
+
+  // 頂端工具列：筆數 + 展開/收合
+  var bar = document.createElement('div');
+  bar.className = 'notify-toolbar';
+  var np = document.createElement('span');
+  np.className = 'np';
+  np.textContent = '共 ' + edited.length + ' 筆修正';
+  var nt = document.createElement('button');
+  nt.type = 'button';
+  nt.className = 'nt';
+  nt.textContent = wasExpanded ? '收合' : '展開全部';
+  if (edited.length <= 1) nt.style.visibility = 'hidden';
+  bar.appendChild(np);
+  bar.appendChild(nt);
+  el.appendChild(bar);
+
+  // 堆疊容器
+  var stack = document.createElement('div');
+  stack.className = 'notify-stack' + (wasExpanded ? '' : ' collapsed');
+  el.appendChild(stack);
+
+  function toggleStack() {
+    var collapsed = stack.classList.toggle('collapsed');
+    nt.textContent = collapsed ? '展開全部' : '收合';
+  }
+  nt.onclick = function(e){ e.stopPropagation(); toggleStack(); };
+
   edited.forEach(function(r) {
     var row = document.createElement('div');
-    row.style.cssText = 'display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--br);cursor:pointer;transition:background .15s';
-    row.onmouseenter = function() { row.style.background = '#fffbe6'; };
-    row.onmouseleave = function() { row.style.background = ''; };
+    row.className = 'notify-card';
     row.innerHTML =
-      '<span style="font-size:20px;flex-shrink:0">✏️</span>' +
-      '<div style="flex:1;min-width:0">' +
-        '<div style="font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(r.project) + '</div>' +
-        '<div style="font-size:12px;color:var(--mu);margin-top:2px">' + esc(r.date) + ' ｜ ' + esc(r.reporter) + '</div>' +
-        '<div style="font-size:12px;color:#856404;margin-top:3px;background:#fff3cd;padding:3px 8px;border-radius:4px;display:inline-block">' +
-          '修正者：' + esc(r.editedBy) + '　' + esc(r.editedAt) +
+      '<div style="display:flex;align-items:flex-start;gap:10px">' +
+        '<span style="font-size:20px;flex-shrink:0;line-height:1.2">✏️</span>' +
+        '<div style="flex:1;min-width:0">' +
+          '<div style="font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(r.project) + '</div>' +
+          '<div style="font-size:12px;color:var(--mu);margin-top:2px">' + esc(r.date) + ' ｜ ' + esc(r.reporter) + '</div>' +
+          '<div style="font-size:12px;color:#856404;margin-top:3px;background:#fff3cd;padding:3px 8px;border-radius:4px;display:inline-block">' +
+            '修正者：' + esc(r.editedBy) + '　' + esc(r.editedAt) +
+          '</div>' +
+          '<div style="font-size:12px;color:#374151;margin-top:4px;font-weight:600">修正項目：</div>' +
+          '<div style="font-size:11px;color:#374151;margin-top:2px;white-space:pre-line;background:#f9fafb;border-radius:4px;padding:4px 8px">' + esc(r.editedNote || '內容已修正') + '</div>' +
         '</div>' +
-        '<div style="font-size:12px;color:#374151;margin-top:4px;font-weight:600">修正項目：</div>' +
-        '<div style="font-size:11px;color:#374151;margin-top:2px;white-space:pre-line;background:#f9fafb;border-radius:4px;padding:4px 8px">' + esc(r.editedNote || '內容已修正') + '</div>' +
-      '</div>' +
-      '<span style="color:var(--mu);font-size:18px;align-self:center;flex-shrink:0">›</span>';
+        '<span style="color:var(--mu);font-size:18px;align-self:center;flex-shrink:0">›</span>' +
+      '</div>';
+
+    // 收合時點卡片 → 展開；展開時 → 開報表
     row.onclick = (function(rpt) {
-      return function() { openViewModal(rpt); };
+      return function() {
+        if (stack.classList.contains('collapsed')) { toggleStack(); return; }
+        openViewModal(rpt);
+      };
     })(r);
+
     // 刪除按鈕
     var delBtn = document.createElement('button');
     delBtn.textContent = '✕';
-    delBtn.style.cssText = 'flex-shrink:0;background:#9b2226;color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:13px;cursor:pointer;margin-left:4px';
+    delBtn.style.cssText = 'position:absolute;top:8px;right:8px;background:#9b2226;color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:13px;cursor:pointer;z-index:2';
     delBtn.onclick = (function(rpt) {
       return function(e) {
         e.stopPropagation();
@@ -1603,7 +1675,7 @@ function renderNotifyList(data) {
       };
     })(r);
     row.appendChild(delBtn);
-    el.appendChild(row);
+    stack.appendChild(row);
   });
 }
 

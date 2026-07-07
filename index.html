@@ -2883,6 +2883,9 @@ function refreshCardInPlace(patchData) {
   pcWrap.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;margin-top:4px';
   pcWrap.dataset.rptId = _pcRptId;
   pcWrap.dataset.loaded = '0';
+  // 先算 inline photos（給下方 photoCount 用；原本宣告在後面會 TypeError）
+  var _inlinePhotos = [];
+  (patchData.expenses||[]).forEach(function(e){ (e.photos||[]).forEach(function(p){ if(p) _inlinePhotos.push(p); }); });
   var _pcTotalPC = (patchData.expenses||[]).reduce(function(s,e){
     return s + (e.photoCount||0) + (e.photos&&e.photos.length?e.photos.length:0);
   }, 0);
@@ -2893,8 +2896,6 @@ function refreshCardInPlace(patchData) {
     return function(e) { e.stopPropagation(); wrap.dataset.loaded = '0'; loadPhotos(rid, wrap); };
   })(_pcRptId, pcWrap);
   // 若 patchData.expenses 裡有 inline photos，先放進 _photoCache
-  var _inlinePhotos = [];
-  (patchData.expenses||[]).forEach(function(e){ (e.photos||[]).forEach(function(p){ if(p) _inlinePhotos.push(p); }); });
   if (_inlinePhotos.length) {
     _photoCache[_pcRptId] = _inlinePhotos;
   }

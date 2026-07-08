@@ -586,6 +586,13 @@ function loadFiles(files) {
   $('file-input').value = '';
 }
 
+function clearPhotos() {
+  state.photos = [];
+  state.current = 0;
+  $('file-input').value = '';
+  rebuildThumbs();
+}
+
 function rebuildThumbs() {
   const has = state.photos.length > 0;
   $('thumb-section').style.display = has ? '' : 'none';
@@ -703,7 +710,8 @@ async function downloadAll() {
       setTimeout(() => URL.revokeObjectURL(url), 1000);
       await new Promise(r => setTimeout(r, 400));
     }
-    status.textContent = `已觸發 ${total} 張下載`;
+    status.textContent = `已觸發 ${total} 張下載，已清空清單`;
+    clearPhotos();
   } catch (e) {
     status.textContent = '下載失敗：' + e.message;
   } finally {
@@ -742,7 +750,8 @@ async function confirmZip() {
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 3000);
 
-    status.textContent = `完成！共 ${total} 張已打包 ✓`;
+    status.textContent = `完成！共 ${total} 張已打包 ✓，已清空清單`;
+    clearPhotos();
     setTimeout(() => { status.textContent = ''; }, 5000);
   } catch(e) {
     status.textContent = '失敗：' + e.message;

@@ -170,7 +170,7 @@ table.st{width:100%;border-collapse:collapse;border-top:1.5px solid var(--bd)}
 @media print{
   @page{margin:10mm;size:A4 portrait}
   body{background:#fff!important;padding:0!important}
-  .nav,.bottom-bar,.ab,.db,.action-wrap,.admin-header,.report-head,.page,.modal-overlay,.filter-bar{display:none!important}
+  .nav,.bottom-bar,.ab,.db,.action-wrap,.admin-header,.report-head,.page,.modal-overlay,.filter-bar,.toast{display:none!important}
   #printArea{display:block!important}
   *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
 }
@@ -687,8 +687,6 @@ function printReportDirect(rpt) {
   } else {
     photoReady = Promise.resolve([]);
   }
-
-  showToast('準備列印中…');
 
   photoReady.then(function(photos) {
     photos = (photos || []).filter(function(p){ return !!p; });

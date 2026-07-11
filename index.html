@@ -1312,6 +1312,7 @@ function doReset() {
   document.getElementById('M').value = d.getMonth() + 1;
   document.getElementById('D').value = d.getDate();
   if (attList) { while (attList.firstChild) attList.removeChild(attList.firstChild); attList.appendChild(addAttBtn); addAtt(); addAtt(); addAtt(); addAtt(); }
+  if (eqList) { while (eqList.firstChild) eqList.removeChild(eqList.firstChild); eqList.appendChild(addEqBtn); addEq(); addEq(); }
   if (expList) { while (expList.firstChild) expList.removeChild(expList.firstChild); expList.appendChild(addExpBtn); addExp(); addExp(); addExp(); addExp(); }
   calc();
 }

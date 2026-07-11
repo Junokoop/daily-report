@@ -6,7 +6,7 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>施工日報表 v3.10</title>
+<title>施工日報表 v3.11</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{--bd:#6b7280;--hbg:#f3f4f6;--ac:#374151;--tx:#111827;--mu:#9ca3af;--ib:#ffffff;--st:#f9fafb;--br:#e5e7eb;--grn:#2d6a4f;--red:#9b2226}
@@ -271,6 +271,8 @@ table.st{width:100%;border-collapse:collapse;border-top:1.5px solid var(--bd)}
     <div class="wa"><textarea id="witem" placeholder="請填寫今日施工項目內容…"></textarea></div>
     <div class="sh">出工人數及人員簽到表</div>
     <div class="awrap" id="attList"></div>
+    <div class="sh">車輛機具出工紀錄表</div>
+    <div class="awrap" id="eqList"></div>
     <div class="sh">公款支出每日明細表</div>
     <div class="ewrap" id="expList"></div>
     <div class="sh">本日接收公款</div>
@@ -585,6 +587,22 @@ function _buildAndSavePdf(rpt, photos, money) {
     h += '</table>';
   }
 
+  var eq = rpt.equipment || [];
+  if (eq.length) {
+    h += sh('車輛機具出工紀錄') + '<table style="width:100%;border-collapse:collapse;font-size:14px"><tr>' +
+         '<th style="background:#e5e7eb;border:1px solid #b0a99a;padding:6px">車輛/機具</th>' +
+         '<th style="background:#e5e7eb;border:1px solid #b0a99a;padding:6px">上午</th>' +
+         '<th style="background:#e5e7eb;border:1px solid #b0a99a;padding:6px">下午</th>' +
+         '<th style="background:#e5e7eb;border:1px solid #b0a99a;padding:6px">加班(時)</th></tr>';
+    eq.forEach(function(a){
+      h += '<tr><td style="border:1px solid #b0a99a;padding:6px;text-align:center">' + esc(a.name||'') +
+           '</td><td style="border:1px solid #b0a99a;padding:6px;text-align:center">' + (a.am?'✓':'') +
+           '</td><td style="border:1px solid #b0a99a;padding:6px;text-align:center">' + (a.pm?'✓':'') +
+           '</td><td style="border:1px solid #b0a99a;padding:6px;text-align:center">' + (a.ot||0) + '</td></tr>';
+    });
+    h += '</table>';
+  }
+
   var exp = rpt.expenses || [];
   if (exp.length) {
     h += sh('公款支出') + '<table style="width:100%;border-collapse:collapse;font-size:14px"><tr>' +
@@ -708,6 +726,15 @@ function printReportDirect(rpt) {
       h += '</table>';
     }
 
+    var eq = rpt.equipment || [];
+    if (eq.length) {
+      h += sh('車輛機具出工紀錄') + '<table class="print-table"><tr><th>車輛/機具</th><th>上午</th><th>下午</th><th>加班(時)</th></tr>';
+      eq.forEach(function(a){
+        h += '<tr><td>' + esc(a.name||'') + '</td><td>' + (a.am?'✓':'') + '</td><td>' + (a.pm?'✓':'') + '</td><td>' + (a.ot||0) + '</td></tr>';
+      });
+      h += '</table>';
+    }
+
     var exp = rpt.expenses || [];
     if (exp.length) {
       h += sh('公款支出') + '<table class="print-table"><tr><th>項目</th><th>現金</th><th>刷卡</th><th>發票</th></tr>';
@@ -801,8 +828,10 @@ var editingId = null;
 var expPhotoMap = {};
 var addAttBtn = null;
 var addExpBtn = null;
+var addEqBtn = null;
 var attList = null;
 var expList = null;
+var eqList = null;
 var _reportCache = null;
 var _reportCacheTime = 0;
 var CACHE_TTL = 10000; // 60秒快取
@@ -1040,7 +1069,7 @@ function checkBackend() {
     .then(function(res){
       if (res && res.ok && res.version) {
         el.style.color = 'var(--grn)';
-        el.innerHTML = '✅ 後端為最新版 (' + esc(String(res.version)) + ')<br>App 版本 v3.10 ｜ 網址 ' + esc(shortUrl);
+        el.innerHTML = '✅ 後端為最新版 (' + esc(String(res.version)) + ')<br>App 版本 v3.11 ｜ 網址 ' + esc(shortUrl);
       } else {
         el.style.color = 'var(--red)';
         el.innerHTML = '⚠️ 後端是「舊版程式」，編輯不會儲存。<br>請到 Apps Script：部署 → 管理部署作業 → 編輯現有部署 → 版本選「新版本」→ 部署。<br>網址 ' + esc(shortUrl);
@@ -1071,12 +1100,19 @@ function checkPw() {
 function initForm() {
   attList = document.getElementById('attList');
   expList = document.getElementById('expList');
+  eqList = document.getElementById('eqList');
   expPhotoMap = {};
   if (!addAttBtn) {
     addAttBtn = document.createElement('button');
     addAttBtn.className = 'ab'; addAttBtn.type = 'button';
     addAttBtn.textContent = '＋ 新增人員';
     addAttBtn.onclick = addAtt;
+  }
+  if (!addEqBtn) {
+    addEqBtn = document.createElement('button');
+    addEqBtn.className = 'ab'; addEqBtn.type = 'button';
+    addEqBtn.textContent = '＋ 新增車輛機具';
+    addEqBtn.onclick = addEq;
   }
   if (!addExpBtn) {
     addExpBtn = document.createElement('button');
@@ -1096,6 +1132,9 @@ function initForm() {
   while (attList.firstChild) attList.removeChild(attList.firstChild);
   attList.appendChild(addAttBtn);
   addAtt(); addAtt(); addAtt(); addAtt();
+  while (eqList.firstChild) eqList.removeChild(eqList.firstChild);
+  eqList.appendChild(addEqBtn);
+  addEq(); addEq();
   while (expList.firstChild) expList.removeChild(expList.firstChild);
   expList.appendChild(addExpBtn);
   addExp(); addExp(); addExp(); addExp();
@@ -1156,6 +1195,15 @@ function addAtt() {
   c.innerHTML = '<div class="atop"><span class="no">人員 ' + n + '</span><input type="text" placeholder="請輸入姓名"><button class="db" type="button">&#x2715;</button></div><div class="achks"><label class="ci"><input type="checkbox"><span>上午</span></label><label class="ci"><input type="checkbox"><span>下午</span></label><div class="ci-ot"><span>加班(時)</span><input type="number" class="ot-input" min="0" max="24" step="0.5" placeholder="0"></div></div>';
   c.querySelector('.db').onclick = function() { attList.removeChild(c); };
   attList.insertBefore(c, addAttBtn);
+}
+
+function addEq() {
+  if (!eqList) return;
+  var n = eqList.querySelectorAll('.ac').length + 1;
+  var c = document.createElement('div'); c.className = 'ac';
+  c.innerHTML = '<div class="atop"><span class="no">車輛/機具 ' + n + '</span><input type="text" placeholder="請輸入車輛/機具名稱"><button class="db" type="button">&#x2715;</button></div><div class="achks"><label class="ci"><input type="checkbox"><span>上午</span></label><label class="ci"><input type="checkbox"><span>下午</span></label><div class="ci-ot"><span>加班(時)</span><input type="number" class="ot-input" min="0" max="24" step="0.5" placeholder="0"></div></div>';
+  c.querySelector('.db').onclick = function() { eqList.removeChild(c); };
+  eqList.insertBefore(c, addEqBtn);
 }
 
 function addExp() {
@@ -1292,6 +1340,21 @@ function submitReport() {
     });
   });
 
+  // 車輛機具出工紀錄
+  var eq = [];
+  document.getElementById('eqList').querySelectorAll('.ac').forEach(function(c) {
+    var nameEl = c.querySelector('input[type="text"]');
+    if (!nameEl || !nameEl.value.trim()) return;
+    var cbs = c.querySelectorAll('input[type="checkbox"]');
+    var otEl = c.querySelector('.ot-input');
+    eq.push({
+      name: nameEl.value.trim(),
+      am: cbs[0] ? cbs[0].checked : false,
+      pm: cbs[1] ? cbs[1].checked : false,
+      ot: otEl ? (parseFloat(otEl.value)||0) : 0
+    });
+  });
+
   // 公款支出
   var exps = [];
   document.getElementById('expList').querySelectorAll('.ec').forEach(function(c) {
@@ -1324,6 +1387,7 @@ function submitReport() {
     project: document.getElementById('pname').value.trim(),
     workItems: document.getElementById('witem').value.trim(),
     attendance: att,
+    equipment: eq,
     expenses: exps,
     receiptCash: rc,
     totalCash: totalCash,
@@ -2260,6 +2324,11 @@ function buildCard(rpt, isAdminView) {
     rpt.attendance.forEach(function(a) { h += '<tr><td>' + esc(a.name) + '</td><td>' + (a.am ? '✔' : '—') + '</td><td>' + (a.pm ? '✔' : '—') + '</td><td>' + (a.ot ? a.ot + 'h' : '—') + '</td></tr>'; });
     body.innerHTML += h + '</table></div>';
   }
+  if (rpt.equipment && rpt.equipment.length) {
+    var heq = '<div class="rbs"><div class="rbl">車輛機具出工紀錄</div><table class="rbt"><tr><th>車輛/機具</th><th>上午</th><th>下午</th><th>加班(時)</th></tr>';
+    rpt.equipment.forEach(function(a) { heq += '<tr><td>' + esc(a.name) + '</td><td>' + (a.am ? '✔' : '—') + '</td><td>' + (a.pm ? '✔' : '—') + '</td><td>' + (a.ot ? a.ot + 'h' : '—') + '</td></tr>'; });
+    body.innerHTML += heq + '</table></div>';
+  }
   if (rpt.expenses && rpt.expenses.length) {
     var h2 = '<div class="rbs"><div class="rbl">公款支出</div><table class="rbt"><tr><th>項目</th><th>發票</th><th>現金</th><th>刷卡</th></tr>';
     rpt.expenses.forEach(function(e) {
@@ -2502,6 +2571,7 @@ function openEditModal(rpt) {
 function doOpenEditModal(rpt) {
   editingId = rpt.id;
   var att = rpt.attendance || [];
+  var eq = rpt.equipment || [];
   var exp = rpt.expenses || [];
   window._editExpPhotoMap = {};
 
@@ -2535,6 +2605,12 @@ function doOpenEditModal(rpt) {
     attHtml += '<div class="ec" style="margin-bottom:6px"><div class="er"><span class="el">姓名</span><input type="text" class="edit-att-name" value="' + esc(a.name) + '"><button class="db" type="button" onclick="this.closest(\'.ec\').remove()">✕</button></div><div class="achks"><label class="ci"><input type="checkbox" class="edit-att-am"' + (a.am ? ' checked' : '') + '><span>上午</span></label><label class="ci"><input type="checkbox" class="edit-att-pm"' + (a.pm ? ' checked' : '') + '><span>下午</span></label><div class="ci-ot"><span>加班(時)</span><input type="number" class="edit-att-ot" value="' + (a.ot || 0) + '" min="0" step="0.5" inputmode="numeric"></div></div></div>';
   });
 
+  // 建立車輛機具 HTML
+  var eqHtml = '';
+  eq.forEach(function(a) {
+    eqHtml += '<div class="ec" style="margin-bottom:6px"><div class="er"><span class="el">名稱</span><input type="text" class="edit-eq-name" value="' + esc(a.name) + '"><button class="db" type="button" onclick="this.closest(\'.ec\').remove()">✕</button></div><div class="achks"><label class="ci"><input type="checkbox" class="edit-eq-am"' + (a.am ? ' checked' : '') + '><span>上午</span></label><label class="ci"><input type="checkbox" class="edit-eq-pm"' + (a.pm ? ' checked' : '') + '><span>下午</span></label><div class="ci-ot"><span>加班(時)</span><input type="number" class="edit-eq-ot" value="' + (a.ot || 0) + '" min="0" step="0.5" inputmode="numeric"></div></div></div>';
+  });
+
   // 建立支出 HTML
   var expHtml = '';
   exp.forEach(function(ex, ei) {
@@ -2559,6 +2635,7 @@ function doOpenEditModal(rpt) {
     '<div class="mrow"><span class="mlbl">工程名稱</span><input id="editPname" class="mi" value="' + esc(rpt.project) + '"></div>' +
     '<div class="mrow"><span class="mlbl">施工項目</span><textarea id="editWitem" class="mi" rows="3" style="resize:vertical">' + esc(rpt.workItems) + '</textarea></div>' +
     '<div><div class="mlbl" style="margin-bottom:6px">出工人員</div><div id="editAttList">' + attHtml + '</div><button type="button" class="ab" onclick="addEditAtt()" style="margin-top:6px">＋ 新增人員</button></div>' +
+    '<div><div class="mlbl" style="margin-bottom:6px">車輛機具出工紀錄</div><div id="editEqList">' + eqHtml + '</div><button type="button" class="ab" onclick="addEditEq()" style="margin-top:6px">＋ 新增車輛機具</button></div>' +
     '<div><div class="mlbl" style="margin-bottom:6px">公款支出</div><div id="editExpList">' + expHtml + '</div><button type="button" class="ab" onclick="addEditExp()" style="margin-top:6px">＋ 新增支出項目</button></div>' +
     '<div style="background:#eaf4ec;border-radius:8px;padding:12px;margin-top:4px">' +
       '<div style="font-weight:700;font-size:13px;margin-bottom:8px;color:var(--ac)">公款結算</div>' +
@@ -2777,6 +2854,12 @@ function addEditAtt() {
   document.getElementById('editAttList').appendChild(div);
 }
 
+function addEditEq() {
+  var div = document.createElement('div'); div.className = 'ec'; div.style.marginBottom = '6px';
+  div.innerHTML = '<div class="er"><span class="el">名稱</span><input type="text" class="edit-eq-name" placeholder="車輛/機具名稱"><button class="db" type="button" onclick="this.closest(\'.ec\').remove()">✕</button></div><div class="achks"><label class="ci"><input type="checkbox" class="edit-eq-am"><span>上午</span></label><label class="ci"><input type="checkbox" class="edit-eq-pm"><span>下午</span></label><div class="ci-ot"><span>加班(時)</span><input type="number" class="edit-eq-ot" min="0" max="24" step="0.5" placeholder="0"></div></div>';
+  document.getElementById('editEqList').appendChild(div);
+}
+
 function addEditExp() {
   var epIdx = 'ep' + Date.now();
   if (!window._editExpPhotoMap) window._editExpPhotoMap = {};
@@ -2867,6 +2950,16 @@ function getEditedNote(orig, newData) {
     if (origHrs !== newHrs) changes.push('出工時段已修改');
   }
 
+  var origEqNames = (orig.equipment||[]).map(function(a){return a.name;}).sort().join('、');
+  var newEqNames = (newData.equipment||[]).map(function(a){return a.name;}).sort().join('、');
+  if (origEqNames !== newEqNames) {
+    changes.push('車輛機具：' + (origEqNames||'—') + ' → ' + (newEqNames||'—'));
+  } else {
+    var origEqHrs = (orig.equipment||[]).map(function(a){return (a.am?'1':'0')+(a.pm?'1':'0')+(a.ot||0);}).join(',');
+    var newEqHrs = (newData.equipment||[]).map(function(a){return (a.am?'1':'0')+(a.pm?'1':'0')+(a.ot||0);}).join(',');
+    if (origEqHrs !== newEqHrs) changes.push('車輛機具時段已修改');
+  }
+
   var origItems = (orig.expenses||[]).map(function(e){return String(e.item||'');}).join('、');
   var newItems = (newData.expenses||[]).map(function(e){return String(e.item||'');}).join('、');
   if (origItems !== newItems)
@@ -2925,6 +3018,17 @@ function refreshCardInPlace(patchData) {
     });
     as.innerHTML = ah + '</table>';
     body.appendChild(as);
+  }
+
+  // 車輛機具出工紀錄
+  if (patchData.equipment && patchData.equipment.length) {
+    var eqs = document.createElement('div'); eqs.className = 'rbs';
+    var eqh = '<div class="rbl">車輛機具出工紀錄</div><table class="rbt"><tr><th>車輛/機具</th><th>上午</th><th>下午</th><th>加班(時)</th></tr>';
+    patchData.equipment.forEach(function(a) {
+      eqh += '<tr><td>' + esc(a.name) + '</td><td>' + (a.am?'✔':'—') + '</td><td>' + (a.pm?'✔':'—') + '</td><td>' + (a.ot?a.ot+'h':'—') + '</td></tr>';
+    });
+    eqs.innerHTML = eqh + '</table>';
+    body.appendChild(eqs);
   }
 
   // 公款支出
@@ -3087,6 +3191,13 @@ function saveEdit() {
     att.push({name:name, am:c.querySelector('.edit-att-am').checked, pm:c.querySelector('.edit-att-pm').checked, ot:parseFloat(c.querySelector('.edit-att-ot').value)||0});
   });
 
+  var eq = [];
+  document.getElementById('editEqList').querySelectorAll('.ec').forEach(function(c) {
+    var name = c.querySelector('.edit-eq-name').value.trim();
+    if (!name) return;
+    eq.push({name:name, am:c.querySelector('.edit-eq-am').checked, pm:c.querySelector('.edit-eq-pm').checked, ot:parseFloat(c.querySelector('.edit-eq-ot').value)||0});
+  });
+
   var exp = [];
   document.getElementById('editExpList').querySelectorAll('.ec').forEach(function(c) {
     var item = c.querySelector('.edit-exp-item').value.trim();
@@ -3122,6 +3233,7 @@ function saveEdit() {
     project: document.getElementById('editPname').value.trim(),
     workItems: document.getElementById('editWitem').value.trim(),
     attendance: att,
+    equipment: eq,
     expenses: exp,
     receiptCash: rc,
     totalCash: totalCash,
@@ -3146,6 +3258,7 @@ function saveEdit() {
     project: patchData.project, workItems: patchData.workItems,
     receiptCash: patchData.receiptCash, totalCash: patchData.totalCash,
     totalCard: patchData.totalCard, attendance: patchData.attendance,
+    equipment: patchData.equipment,
     expenses: patchData.expenses, receiptNote: patchData.receiptNote, date: patchData.date
   });
   if (_diffNote) {

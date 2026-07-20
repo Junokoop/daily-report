@@ -185,7 +185,7 @@ body.show-money tr.money{display:table-row}
 
 <div id="toolbar">
   <span class="title">施工日誌</span>
-  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.17x</span>
+  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.17z</span>
   <span id="saveState">已儲存</span>
   <button id="btnPrev" title="前一頁">◀</button>
   <select id="daySelect" title="切換日報"></select>
@@ -1169,11 +1169,13 @@ $('rp_pdf').addEventListener('click',async()=>{
   const handle=await pickSaveHandle(name);   // 點擊當下先選資料夾
   if(handle==='cancel')return;
   $('printRangeDlg').style.display='none';
-  const btn=$('rp_pdf'), old=btn.textContent; btn.textContent='產生中…'; btn.disabled=true;
+  const btn=$('rp_pdf'), old=btn.textContent; btn.disabled=true;
+  let pages=0; showPdfProgress(0,idxs.length,0);
   try{
-    const bytes=await buildPdf(idxs,(done,total)=>{ btn.textContent='產生中 '+done+'/'+total; });
+    const bytes=await buildPdf(idxs,(done,total,p)=>{ pages=p; showPdfProgress(done,total,p); });
     await writeOut(handle,bytes,name);
-  }catch(err){ alert('存檔失敗：'+(err&&err.message||err)); }
+    donePdfProgress(pages,name);
+  }catch(err){ hidePdfProgress(); alert('存檔失敗：'+(err&&err.message||err)); }
   finally{ btn.textContent=old; btn.disabled=false; }
 });
 
@@ -1341,6 +1343,35 @@ function loadPDFLib(){
     'https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js'
   ]).then(()=>{ if(!window.PDFLib) throw new Error('PDF 元件未就緒'); });
 }
+// ── PDF 進度浮層與完成提醒 ──
+function pdfProgressUI(){
+  let el=document.getElementById('pdfProg');
+  if(!el){
+    el=document.createElement('div'); el.id='pdfProg'; el.className='no-print';
+    el.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;display:flex;align-items:center;justify-content:center';
+    el.innerHTML='<div style="background:#fff;border-radius:10px;padding:22px 26px;width:290px;font-family:sans-serif;text-align:center;box-shadow:0 8px 30px rgba(0,0,0,.25)">'
+      +'<div id="pdfProgTitle" style="font-weight:700;font-size:15px;margin-bottom:12px;color:#1c2733">產生 PDF 中…</div>'
+      +'<div style="background:#eef1f4;border-radius:6px;height:12px;overflow:hidden"><div id="pdfProgBar" style="height:100%;width:0%;background:#0d7a4f;transition:width .2s"></div></div>'
+      +'<div id="pdfProgText" style="margin-top:10px;font-size:13px;color:#4a5a67">準備中…</div></div>';
+    document.body.appendChild(el);
+  }
+  return el;
+}
+function showPdfProgress(done,total,pages){
+  pdfProgressUI().style.display='flex';
+  const pct=total?Math.round(done/total*100):0;
+  const bar=document.getElementById('pdfProgBar'); bar.style.width=pct+'%'; bar.style.background='#0d7a4f';
+  document.getElementById('pdfProgTitle').textContent='產生 PDF 中… '+pct+'%';
+  document.getElementById('pdfProgText').textContent='第 '+done+' / '+total+' 張報表'+(pages?'（已產生 '+pages+' 頁）':'');
+}
+function donePdfProgress(pages,filename){
+  pdfProgressUI().style.display='flex';
+  document.getElementById('pdfProgBar').style.width='100%';
+  document.getElementById('pdfProgTitle').textContent='✅ 輸出完成';
+  document.getElementById('pdfProgText').textContent='共 '+(pages||0)+' 頁'+(filename?'　'+filename:'');
+  setTimeout(hidePdfProgress,3000);
+}
+function hidePdfProgress(){ const el=document.getElementById('pdfProg'); if(el) el.style.display='none'; }
 async function buildPdf(idxs, onProgress){
   await loadHtml2Canvas(); await loadPDFLib();
   const {PDFDocument}=PDFLib;
@@ -1351,7 +1382,7 @@ async function buildPdf(idxs, onProgress){
   document.body.appendChild(holder);
   const keep=curIdx;
   try{
-    let n=0;
+    let n=0, pageCount=0;
     for(const idx of idxs){
       // 每頁只渲染表單本身（略過 daySelect 重建，省下逐頁掃全部日報）
       curIdx=idx; renderHeader(); renderItems(); renderSubTables(); renderTotals();
@@ -1364,16 +1395,17 @@ async function buildPdf(idxs, onProgress){
         if(t==='checkbox'||t==='radio'||t==='date') return;
         autofit(el);
       });
-      // 倍率 1.0 + PNG：以最快速度輸出，維持純白底（截圖成本 ∝ 倍率²，降倍率最有感）
-      const canvas=await html2canvas(clone,{scale:1.0,backgroundColor:'#ffffff',useCORS:false,logging:false,imageTimeout:0,removeContainer:true});
+      // 倍率 2.0 讓文字清晰銳利；JPEG 0.95 編碼快、檔小；白底已由移除陰影確保
+      const canvas=await html2canvas(clone,{scale:2.0,backgroundColor:'#ffffff',useCORS:false,logging:false,imageTimeout:0,removeContainer:true});
       const maxW=A4W-2*M, maxH=A4H-2*M;
       const fullH=maxW*canvas.height/canvas.width;   // 以原始比例填滿版面寬度時的高度
       if(fullH<=maxH){
         // 一頁裝得下：原始比例輸出
-        const blob=await new Promise(res=>canvas.toBlob(res,'image/png'));
-        const img=await doc.embedPng(new Uint8Array(await blob.arrayBuffer()));
+        const blob=await new Promise(res=>canvas.toBlob(res,'image/jpeg',0.95));
+        const img=await doc.embedJpg(new Uint8Array(await blob.arrayBuffer()));
         const page=doc.addPage([A4W,A4H]);
         page.drawImage(img,{x:M,y:A4H-M-fullH,width:maxW,height:fullH});
+        pageCount++;
       }else{
         // 過長：維持原始比例逐頁裁切，但只在「列/區塊」邊界切，避免把欄位從中切斷
         const sf=canvas.height/clone.offsetHeight;            // DOM px → canvas px（垂直）
@@ -1396,15 +1428,16 @@ async function buildPdf(idxs, onProgress){
           const c2=document.createElement('canvas');
           c2.width=canvas.width; c2.height=h;
           c2.getContext('2d').drawImage(canvas,0,sy,canvas.width,h,0,0,canvas.width,h);
-          const sblob=await new Promise(res=>c2.toBlob(res,'image/png'));
-          const simg=await doc.embedPng(new Uint8Array(await sblob.arrayBuffer()));
+          const sblob=await new Promise(res=>c2.toBlob(res,'image/jpeg',0.95));
+          const simg=await doc.embedJpg(new Uint8Array(await sblob.arrayBuffer()));
           const drawH=maxW*h/canvas.width;
           const page=doc.addPage([A4W,A4H]);
           page.drawImage(simg,{x:M,y:A4H-M-drawH,width:maxW,height:drawH});
+          pageCount++;
           sy=cut;
         }
       }
-      if(onProgress) onProgress(++n, idxs.length);
+      if(onProgress) onProgress(++n, idxs.length, pageCount);
     }
   }finally{
     curIdx=keep; renderAll(); holder.remove();
@@ -1456,12 +1489,15 @@ $('btnSaveAll').addEventListener('click',async()=>{
   // 先在點擊當下取得存檔位置（避免產生 PDF 後授權過期）
   const handle=await pickSaveHandle(name);
   if(handle==='cancel')return;
-  const btn=$('btnSaveAll'), old=btn.textContent; btn.textContent='產生中…'; btn.disabled=true;
+  const btn=$('btnSaveAll'), old=btn.textContent; btn.disabled=true;
+  let pages=0; 
   try{
     const idxs=DB.reports.map((_,i)=>i);   // 已依日期排序
-    const bytes=await buildPdf(idxs,(done,total)=>{ btn.textContent='產生中 '+done+'/'+total; });
+    showPdfProgress(0,idxs.length,0);
+    const bytes=await buildPdf(idxs,(done,total,p)=>{ pages=p; showPdfProgress(done,total,p); });
     await writeOut(handle,bytes,name);
-  }catch(err){ alert('儲存失敗：'+(err&&err.message||err)); }
+    donePdfProgress(pages,name);
+  }catch(err){ hidePdfProgress(); alert('儲存失敗：'+(err&&err.message||err)); }
   finally{ btn.textContent=old; btn.disabled=false; }
 });
 // 匯入PDF：讀取先前存檔內嵌的日誌資料

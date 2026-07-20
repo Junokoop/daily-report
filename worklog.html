@@ -51,7 +51,11 @@ h1.doc-title{text-align:center;font-size:24px;letter-spacing:14px;font-weight:70
 .report-no{display:flex;justify-content:space-between;font-size:14px;margin-bottom:2px}
 .report-no input{width:120px;border-bottom:1px solid var(--line)}
 
-table.grid{width:100%;border-collapse:collapse;table-layout:fixed}
+table.grid{width:100%;border-collapse:collapse;table-layout:auto}
+#sheet table.grid input,#sheet table.grid textarea{min-width:2.4em}
+#sheet input[data-f="name"]{min-width:9em}
+#sheet input[data-f="note"]{min-width:5em}
+#sheet #f_projName,#sheet #f_contractor{min-width:16em}
 table.grid th,table.grid td{border:1px solid var(--line-dark);padding:3px 5px;font-size:14px;vertical-align:middle;line-height:1.35;overflow-wrap:break-word}
 table.grid th{background:#fff;font-weight:700;text-align:center}
 td.lbl{background:#fff;font-weight:700;text-align:center}
@@ -181,7 +185,7 @@ body.show-money tr.money{display:table-row}
 
 <div id="toolbar">
   <span class="title">施工日誌</span>
-  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.17s</span>
+  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.17t</span>
   <span id="saveState">已儲存</span>
   <button id="btnPrev" title="前一頁">◀</button>
   <select id="daySelect" title="切換日報"></select>
@@ -443,14 +447,24 @@ const fq=n=>{ if(!isFinite(n)) n=0; return (+n).toLocaleString('zh-TW',{minimumF
 const nv=x=>{ const n=+x; return (x===''||x==null||!isFinite(n)||n===0)?'':n.toFixed(2); };
 // 式列：四捨五入到 2 位，讓「數量(2位) × 單價 = 金額」對得起來
 const r2=n=>{ n=+n; return isFinite(n)?Math.round(n*100)/100:0; };
-// 讓格子配合文字：文字維持正常大小，多行欄位(textarea)自動長高以容納內容，不縮小字級
+// 讓格子配合文字：文字維持正常大小；textarea 自動長高、input 依內容變寬（欄寬隨文字變寬），不縮字
 function autofit(el){
   if(!el) return;
-  el.style.fontSize=''; // 還原先前縮小的字級，文字回到正常大小
+  el.style.fontSize='';
   if(el.tagName==='TEXTAREA'){
     el.style.height='auto';
-    el.style.height=el.scrollHeight+'px'; // 依內容長高，格子符合文字
+    el.style.height=el.scrollHeight+'px'; // 依內容長高
     el.style.overflow='hidden';
+  }else if(el.tagName==='INPUT'){
+    const t=(el.getAttribute('type')||'text').toLowerCase();
+    if(t==='checkbox'||t==='radio'||t==='date') return;
+    // 用隱藏量測元素算出內容寬度，設定欄位寬 → 搭配 table-layout:auto，欄寬會隨文字變寬（iOS 亦適用）
+    const m=autofit._m||(autofit._m=(()=>{const s=document.createElement('span');s.style.cssText='position:absolute;left:-9999px;top:-9999px;white-space:pre;visibility:hidden';document.body.appendChild(s);return s;})());
+    const cs=getComputedStyle(el);
+    m.style.font=cs.font; m.style.letterSpacing=cs.letterSpacing;
+    m.textContent=el.value||el.placeholder||'';
+    const pad=(parseFloat(cs.paddingLeft)||0)+(parseFloat(cs.paddingRight)||0)+4;
+    el.style.width=Math.ceil(m.offsetWidth+pad)+'px';
   }
 }
 function autofitAll(){
@@ -1337,14 +1351,14 @@ async function buildPdf(idxs, onProgress){
       const clone=cloneSheetWithValues(idx);
       clone.style.cssText='width:1080px;background:#fff;padding:20px';
       holder.innerHTML=''; holder.appendChild(clone);
-      // 截圖倍率 1.1 + JPEG 0.9：更快、檔更小，黑白表單仍清晰
-      const canvas=await html2canvas(clone,{scale:1.1,backgroundColor:'#ffffff',useCORS:false,logging:false,imageTimeout:0});
+      // 截圖倍率 1.3 + PNG 無損：純白底、線條清晰、無 JPEG 灰斑
+      const canvas=await html2canvas(clone,{scale:1.3,backgroundColor:'#ffffff',useCORS:false,logging:false,imageTimeout:0});
       const maxW=A4W-2*M, maxH=A4H-2*M;
       const fullH=maxW*canvas.height/canvas.width;   // 以原始比例填滿版面寬度時的高度
       if(fullH<=maxH){
         // 一頁裝得下：原始比例輸出
-        const blob=await new Promise(res=>canvas.toBlob(res,'image/jpeg',0.9));
-        const img=await doc.embedJpg(new Uint8Array(await blob.arrayBuffer()));
+        const blob=await new Promise(res=>canvas.toBlob(res,'image/png'));
+        const img=await doc.embedPng(new Uint8Array(await blob.arrayBuffer()));
         const page=doc.addPage([A4W,A4H]);
         page.drawImage(img,{x:M,y:A4H-M-fullH,width:maxW,height:fullH});
       }else{
@@ -1355,8 +1369,8 @@ async function buildPdf(idxs, onProgress){
           const c2=document.createElement('canvas');
           c2.width=canvas.width; c2.height=h;
           c2.getContext('2d').drawImage(canvas,0,sy,canvas.width,h,0,0,canvas.width,h);
-          const sblob=await new Promise(res=>c2.toBlob(res,'image/jpeg',0.9));
-          const simg=await doc.embedJpg(new Uint8Array(await sblob.arrayBuffer()));
+          const sblob=await new Promise(res=>c2.toBlob(res,'image/png'));
+          const simg=await doc.embedPng(new Uint8Array(await sblob.arrayBuffer()));
           const drawH=maxW*h/canvas.width;
           const page=doc.addPage([A4W,A4H]);
           page.drawImage(simg,{x:M,y:A4H-M-drawH,width:maxW,height:drawH});

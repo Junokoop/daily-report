@@ -185,7 +185,7 @@ body.show-money tr.money{display:table-row}
 
 <div id="toolbar">
   <span class="title">施工日誌</span>
-  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.17z</span>
+  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.17aa</span>
   <span id="saveState">已儲存</span>
   <button id="btnPrev" title="前一頁">◀</button>
   <select id="daySelect" title="切換日報"></select>
@@ -258,7 +258,8 @@ body.show-money tr.money{display:table-row}
     <tr>
       <td colspan="5">本日天氣：上午 <input id="f_wxAM" style="width:48px;border-bottom:1px solid var(--line);text-align:center">　下午 <input id="f_wxPM" style="width:48px;border-bottom:1px solid var(--line);text-align:center"></td>
       <td class="lbl">填報日期</td>
-      <td colspan="2"><span id="f_rocDate" class="calc" style="font-size:15px"></span></td>
+      <td><span id="f_rocDate" class="calc" style="font-size:15px"></span></td>
+      <td class="lbl"><span id="f_weekday"></span></td>
     </tr>
     <tr>
       <td class="lbl">工程名稱</td>
@@ -482,6 +483,12 @@ function rocDate(iso){
   const [y,m,d]=iso.split('-').map(Number);
   return `${y-1911}年${m}月${d}日`;
 }
+function weekdayZh(iso){
+  if(!iso) return '';
+  const [y,m,d]=iso.split('-').map(Number);
+  const dt=new Date(y,m-1,d);
+  return isNaN(dt)?'':('星期'+'日一二三四五六'[dt.getDay()]);
+}
 function daysBetween(a,b){ // inclusive: 開工日當天=第1天
   return Math.floor((new Date(b)-new Date(a))/86400000)+1;
 }
@@ -690,6 +697,7 @@ function renderHeader(){
     $('f_no').placeholder = String(curIdx+1);
     $('f_wxAM').value=r.wxAM; $('f_wxPM').value=r.wxPM;
     $('f_rocDate').textContent=rocDate(r.date);
+    $('f_weekday').textContent = r.date ? weekdayZh(r.date) : '';
     $('f_techYes').checked=r.tech==='yes'; $('f_techNo').checked=r.tech!=='yes';
     $('f_s1y').checked=r.s1==='y'; $('f_s1n').checked=r.s1==='n';
     $('f_s2y').checked=r.s2==='y'; $('f_s2n').checked=r.s2==='n'; $('f_s2x').checked=r.s2==='x';

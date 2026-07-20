@@ -185,7 +185,7 @@ body.show-money tr.money{display:table-row}
 
 <div id="toolbar">
   <span class="title">施工日誌</span>
-  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.17t</span>
+  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.17u</span>
   <span id="saveState">已儲存</span>
   <button id="btnPrev" title="前一頁">◀</button>
   <select id="daySelect" title="切換日報"></select>
@@ -647,7 +647,7 @@ function renderSubTables(){
       <td class="ctr"><input data-mf="unit" data-mr="${ri}" value="${esc(m.unit||'')}" style="text-align:center"></td>
       <td class="num"><input type="number" step="any" data-mf="cQty" data-mr="${ri}" value="${m.cQty??''}"></td>
       <td class="num"><input type="number" step="any" data-mf="dQty" data-mr="${ri}" value="${m.dQty??''}"></td>
-      <td class="num calc">${fq(cumMat(m.name,r.date))}</td>
+      <td class="num calc" data-mcalc="${ri}">${fq(cumMat(m.name,r.date))}</td>
       <td><input data-mf="note" data-mr="${ri}" value="${esc(m.note||'')}"></td>`;
     mb.appendChild(tr);
   });
@@ -661,12 +661,12 @@ function renderSubTables(){
     tr.innerHTML=
       (c?`<td><button class="rowdel" data-cdel="${i}">✕</button><input data-cf="name" data-cr="${i}" value="${esc(c.name)}"></td>
           <td class="num"><input type="number" step="any" data-cf="dQty" data-cr="${i}" value="${c.dQty??''}"></td>
-          <td class="num calc">${fq(cumCrew('crews',c.name,r.date))}</td>`
+          <td class="num calc" data-ccalc="${i}">${fq(cumCrew('crews',c.name,r.date))}</td>`
         :'<td></td><td></td><td></td>')
       +`<td style="border-top:none;border-bottom:none"></td>`
       +(m?`<td><button class="rowdel" data-kdel="${i}">✕</button><input data-kf="name" data-kr="${i}" value="${esc(m.name)}"></td>
           <td class="num"><input type="number" step="any" data-kf="dQty" data-kr="${i}" value="${m.dQty??''}"></td>
-          <td class="num calc">${fq(cumCrew('machines',m.name,r.date))}</td>`
+          <td class="num calc" data-kcalc="${i}">${fq(cumCrew('machines',m.name,r.date))}</td>`
         :'<td></td><td></td><td></td>');
     cb.appendChild(tr);
   }
@@ -971,7 +971,10 @@ $('matTable').addEventListener('input',e=>{
   const t=e.target; if(t.dataset.mf===undefined||curIdx<0)return;
   const m=DB.reports[curIdx].materials[+t.dataset.mr];
   m[t.dataset.mf]=(t.type==='number')?(t.value===''?0:+t.value):t.value;
-  if(t.dataset.mf==='dQty'||t.dataset.mf==='name'){renderSubTables();}
+  if(t.dataset.mf==='dQty'||t.dataset.mf==='name'){
+    const cell=$('matBody').querySelector('[data-mcalc="'+t.dataset.mr+'"]'); // 只更新累計欄，避免打字/注音中被重建
+    if(cell) cell.textContent=fq(cumMat(m.name,DB.reports[curIdx].date));
+  }
   save();
 });
 $('matTable').addEventListener('click',e=>{
@@ -987,14 +990,18 @@ $('btnAddMat').addEventListener('click',()=>{
 });
 $('crewTable').addEventListener('input',e=>{
   const t=e.target; if(curIdx<0)return;
+  const r=DB.reports[curIdx];
   if(t.dataset.cf!==undefined){
-    const c=DB.reports[curIdx].crews[+t.dataset.cr];
+    const c=r.crews[+t.dataset.cr];
     c[t.dataset.cf]=(t.type==='number')?(t.value===''?0:+t.value):t.value;
+    const cell=$('crewBody').querySelector('[data-ccalc="'+t.dataset.cr+'"]'); // 只更新累計欄
+    if(cell) cell.textContent=fq(cumCrew('crews',c.name,r.date));
   }else if(t.dataset.kf!==undefined){
-    const m=DB.reports[curIdx].machines[+t.dataset.kr];
+    const m=r.machines[+t.dataset.kr];
     m[t.dataset.kf]=(t.type==='number')?(t.value===''?0:+t.value):t.value;
+    const cell=$('crewBody').querySelector('[data-kcalc="'+t.dataset.kr+'"]');
+    if(cell) cell.textContent=fq(cumCrew('machines',m.name,r.date));
   }else return;
-  if(t.type==='number'||true){renderSubTables();}
   save();
 });
 $('crewTable').addEventListener('click',e=>{
@@ -1351,8 +1358,8 @@ async function buildPdf(idxs, onProgress){
       const clone=cloneSheetWithValues(idx);
       clone.style.cssText='width:1080px;background:#fff;padding:20px';
       holder.innerHTML=''; holder.appendChild(clone);
-      // 截圖倍率 1.3 + PNG 無損：純白底、線條清晰、無 JPEG 灰斑
-      const canvas=await html2canvas(clone,{scale:1.3,backgroundColor:'#ffffff',useCORS:false,logging:false,imageTimeout:0});
+      // 截圖倍率 1.2 + PNG 無損：純白底、線條清晰、無 JPEG 灰斑
+      const canvas=await html2canvas(clone,{scale:1.2,backgroundColor:'#ffffff',useCORS:false,logging:false,imageTimeout:0});
       const maxW=A4W-2*M, maxH=A4H-2*M;
       const fullH=maxW*canvas.height/canvas.width;   // 以原始比例填滿版面寬度時的高度
       if(fullH<=maxH){
@@ -1362,10 +1369,24 @@ async function buildPdf(idxs, onProgress){
         const page=doc.addPage([A4W,A4H]);
         page.drawImage(img,{x:M,y:A4H-M-fullH,width:maxW,height:fullH});
       }else{
-        // 過長：維持原始比例，逐頁垂直裁切（不縮小）
-        const sliceCanvasH=Math.floor(canvas.width*maxH/maxW); // 每頁對應的原圖像素高
-        for(let sy=0; sy<canvas.height; sy+=sliceCanvasH){
-          const h=Math.min(sliceCanvasH, canvas.height-sy);
+        // 過長：維持原始比例逐頁裁切，但只在「列/區塊」邊界切，避免把欄位從中切斷
+        const sf=canvas.height/clone.offsetHeight;            // DOM px → canvas px（垂直）
+        const top=clone.getBoundingClientRect().top;
+        const breaks=[];
+        clone.querySelectorAll('tr,.section-title,.free-text,.sign-row').forEach(el=>{
+          const b=Math.round((el.getBoundingClientRect().bottom-top)*sf);
+          if(b>0&&b<canvas.height) breaks.push(b);
+        });
+        const sliceCanvasH=Math.floor(canvas.width*maxH/maxW); // 每頁最大原圖像素高
+        let sy=0;
+        while(sy<canvas.height-1){
+          let cut;
+          if(sy+sliceCanvasH>=canvas.height){ cut=canvas.height; }
+          else{
+            const cand=breaks.filter(b=>b>sy+20 && b<=sy+sliceCanvasH);
+            cut = cand.length ? Math.max.apply(null,cand) : (sy+sliceCanvasH); // 無安全邊界才硬切（單列高於一頁）
+          }
+          const h=cut-sy;
           const c2=document.createElement('canvas');
           c2.width=canvas.width; c2.height=h;
           c2.getContext('2d').drawImage(canvas,0,sy,canvas.width,h,0,0,canvas.width,h);
@@ -1374,6 +1395,7 @@ async function buildPdf(idxs, onProgress){
           const drawH=maxW*h/canvas.width;
           const page=doc.addPage([A4W,A4H]);
           page.drawImage(simg,{x:M,y:A4H-M-drawH,width:maxW,height:drawH});
+          sy=cut;
         }
       }
       if(onProgress) onProgress(++n, idxs.length);

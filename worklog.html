@@ -185,7 +185,7 @@ body.show-money tr.money{display:table-row}
 
 <div id="toolbar">
   <span class="title">施工日誌</span>
-  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.17u</span>
+  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.17x</span>
   <span id="saveState">已儲存</span>
   <button id="btnPrev" title="前一頁">◀</button>
   <select id="daySelect" title="切換日報"></select>
@@ -1356,10 +1356,16 @@ async function buildPdf(idxs, onProgress){
       // 每頁只渲染表單本身（略過 daySelect 重建，省下逐頁掃全部日報）
       curIdx=idx; renderHeader(); renderItems(); renderSubTables(); renderTotals();
       const clone=cloneSheetWithValues(idx);
-      clone.style.cssText='width:1080px;background:#fff;padding:20px';
+      clone.style.cssText='width:1080px;background:#fff;padding:20px;box-shadow:none';
       holder.innerHTML=''; holder.appendChild(clone);
-      // 截圖倍率 1.2 + PNG 無損：純白底、線條清晰、無 JPEG 灰斑
-      const canvas=await html2canvas(clone,{scale:1.2,backgroundColor:'#ffffff',useCORS:false,logging:false,imageTimeout:0});
+      // 在 clone 的實際版面(1080px)對欄位做自動調整：input 依內容變寬、textarea 依內容長高
+      clone.querySelectorAll('input,textarea').forEach(el=>{
+        const t=(el.getAttribute('type')||'text').toLowerCase();
+        if(t==='checkbox'||t==='radio'||t==='date') return;
+        autofit(el);
+      });
+      // 倍率 1.0 + PNG：以最快速度輸出，維持純白底（截圖成本 ∝ 倍率²，降倍率最有感）
+      const canvas=await html2canvas(clone,{scale:1.0,backgroundColor:'#ffffff',useCORS:false,logging:false,imageTimeout:0,removeContainer:true});
       const maxW=A4W-2*M, maxH=A4H-2*M;
       const fullH=maxW*canvas.height/canvas.width;   // 以原始比例填滿版面寬度時的高度
       if(fullH<=maxH){

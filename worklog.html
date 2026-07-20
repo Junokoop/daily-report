@@ -73,6 +73,8 @@ td.ctr{text-align:center}
 tr.item-row.has-qty td{background:#fff}
 /* 編輯態才顯示的報表內工具：紅色✕、新增列鈕、日期輸入 */
 .rowdel{display:none;color:var(--warn);cursor:pointer;border:none;background:none;font-size:13px;padding:0 2px}
+.insrow{display:none;color:var(--accent-2);cursor:pointer;border:none;background:none;font-size:14px;font-weight:700;padding:0 2px}
+body.edit-on .insrow{display:inline}
 .addrow-btn{display:none}
 /* 主體/雜項 選單：僅編輯模式顯示 */
 .kindSel{display:none;margin-left:6px;font-size:12px;padding:1px 2px;border:1px solid var(--line);border-radius:4px;vertical-align:middle}
@@ -179,7 +181,7 @@ body.show-money tr.money{display:table-row}
 
 <div id="toolbar">
   <span class="title">施工日誌</span>
-  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.17q</span>
+  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.17s</span>
   <span id="saveState">已儲存</span>
   <button id="btnPrev" title="前一頁">◀</button>
   <select id="daySelect" title="切換日報"></select>
@@ -441,18 +443,15 @@ const fq=n=>{ if(!isFinite(n)) n=0; return (+n).toLocaleString('zh-TW',{minimumF
 const nv=x=>{ const n=+x; return (x===''||x==null||!isFinite(n)||n===0)?'':n.toFixed(2); };
 // 式列：四捨五入到 2 位，讓「數量(2位) × 單價 = 金額」對得起來
 const r2=n=>{ n=+n; return isFinite(n)?Math.round(n*100)/100:0; };
-// 文字過長時自動縮小字級以塞進格子（.autofit）
+// 讓格子配合文字：文字維持正常大小，多行欄位(textarea)自動長高以容納內容，不縮小字級
 function autofit(el){
   if(!el) return;
-  el.style.fontSize='';
-  let size=parseFloat(getComputedStyle(el).fontSize)||14;
-  const max=size, min=7;
-  el.style.fontSize=size+'px';
-  let guard=0;
-  while(el.scrollWidth>el.clientWidth+1 && size>min && guard<80){
-    size-=0.5; el.style.fontSize=size+'px'; guard++;
+  el.style.fontSize=''; // 還原先前縮小的字級，文字回到正常大小
+  if(el.tagName==='TEXTAREA'){
+    el.style.height='auto';
+    el.style.height=el.scrollHeight+'px'; // 依內容長高，格子符合文字
+    el.style.overflow='hidden';
   }
-  if(size!==max && el.scrollWidth<=el.clientWidth) { /* 已縮到剛好 */ }
 }
 function autofitAll(){
   try{
@@ -576,7 +575,7 @@ function renderItems(){
     const ca = cq*(+it.price||0);   // 累計完成金額 = 累計數量 × 單價
     const total = (+it.cQty||0)*(+it.price||0); // 總計 = 契約數量 × 單價
     tr.innerHTML=`
-      <td><button class="rowdel no-print" data-del="${i}">✕</button><input data-f="name" data-i="${i}" class="autofit" value="${esc(it.name)}"><select class="kindSel no-print" data-kind="${i}"><option value="main"${isMisc(it)?'':' selected'}>主體</option><option value="misc"${isMisc(it)?' selected':''}>雜項</option></select></td>
+      <td><button class="rowdel no-print" data-del="${i}">✕</button><button class="insrow no-print" data-ins="${i}" title="在此列下方插入工項">＋</button><input data-f="name" data-i="${i}" class="autofit" value="${esc(it.name)}"><select class="kindSel no-print" data-kind="${i}"><option value="main"${isMisc(it)?'':' selected'}>主體</option><option value="misc"${isMisc(it)?' selected':''}>雜項</option></select></td>
       <td class="ctr"><input data-f="unit" data-i="${i}" value="${esc(it.unit)}" style="text-align:center"></td>
       <td class="num"><input type="text" inputmode="decimal" class="numfld" data-f="cQty" data-i="${i}" value="${nv(it.cQty)}"></td>
       <td class="num"><input type="text" inputmode="decimal" class="numfld" data-day="${i}" value="${nv(dq)}" placeholder="0.00" ${r?'':'disabled'}></td>
@@ -893,6 +892,23 @@ function refreshLumpRows(){
   $('s_dayUnit').textContent=lumpRowValue().toFixed(4);
 }
 $('itemTable').addEventListener('click',e=>{
+  const ins=e.target.dataset.ins;
+  if(ins!==undefined){
+    const at=+ins+1;                       // 在該列下方插入
+    DB.items.splice(at,0,{name:'',unit:'',cQty:0,price:0});
+    DB.reports.forEach(r=>{                 // 重編數量索引：>=at 的往後移一位
+      const nq={};
+      Object.keys(r.qty).forEach(k=>{
+        const ki=+k;
+        nq[ki<at?ki:ki+1]=r.qty[k];
+      });
+      r.qty=nq;
+    });
+    renderItems(); renderTotals(); save();
+    const rows=$('itemBody').querySelectorAll('tr');
+    if(rows[at]) rows[at].querySelector('input[data-f="name"]').focus();
+    return;
+  }
   const d=e.target.dataset.del;
   if(d!==undefined && confirm('刪除工項「'+(DB.items[+d].name||'(空白)')+'」？所有日報之該項數量將一併移除。')){
     const idx=+d;
@@ -1321,16 +1337,31 @@ async function buildPdf(idxs, onProgress){
       const clone=cloneSheetWithValues(idx);
       clone.style.cssText='width:1080px;background:#fff;padding:20px';
       holder.innerHTML=''; holder.appendChild(clone);
-      // 截圖倍率 1.4 + JPEG 0.9：更快、檔更小，黑白表單仍清晰
-      const canvas=await html2canvas(clone,{scale:1.4,backgroundColor:'#ffffff',useCORS:false,logging:false,imageTimeout:0});
-      const blob=await new Promise(res=>canvas.toBlob(res,'image/jpeg',0.9));
-      const bytes=new Uint8Array(await blob.arrayBuffer());
-      const img=await doc.embedJpg(bytes);
-      const page=doc.addPage([A4W,A4H]);
+      // 截圖倍率 1.1 + JPEG 0.9：更快、檔更小，黑白表單仍清晰
+      const canvas=await html2canvas(clone,{scale:1.1,backgroundColor:'#ffffff',useCORS:false,logging:false,imageTimeout:0});
       const maxW=A4W-2*M, maxH=A4H-2*M;
-      let w=maxW, h=w*canvas.height/canvas.width;
-      if(h>maxH){ h=maxH; w=h*canvas.width/canvas.height; }
-      page.drawImage(img,{x:(A4W-w)/2,y:A4H-M-h,width:w,height:h});
+      const fullH=maxW*canvas.height/canvas.width;   // 以原始比例填滿版面寬度時的高度
+      if(fullH<=maxH){
+        // 一頁裝得下：原始比例輸出
+        const blob=await new Promise(res=>canvas.toBlob(res,'image/jpeg',0.9));
+        const img=await doc.embedJpg(new Uint8Array(await blob.arrayBuffer()));
+        const page=doc.addPage([A4W,A4H]);
+        page.drawImage(img,{x:M,y:A4H-M-fullH,width:maxW,height:fullH});
+      }else{
+        // 過長：維持原始比例，逐頁垂直裁切（不縮小）
+        const sliceCanvasH=Math.floor(canvas.width*maxH/maxW); // 每頁對應的原圖像素高
+        for(let sy=0; sy<canvas.height; sy+=sliceCanvasH){
+          const h=Math.min(sliceCanvasH, canvas.height-sy);
+          const c2=document.createElement('canvas');
+          c2.width=canvas.width; c2.height=h;
+          c2.getContext('2d').drawImage(canvas,0,sy,canvas.width,h,0,0,canvas.width,h);
+          const sblob=await new Promise(res=>c2.toBlob(res,'image/jpeg',0.9));
+          const simg=await doc.embedJpg(new Uint8Array(await sblob.arrayBuffer()));
+          const drawH=maxW*h/canvas.width;
+          const page=doc.addPage([A4W,A4H]);
+          page.drawImage(simg,{x:M,y:A4H-M-drawH,width:maxW,height:drawH});
+        }
+      }
       if(onProgress) onProgress(++n, idxs.length);
     }
   }finally{

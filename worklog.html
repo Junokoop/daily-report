@@ -185,7 +185,7 @@ body.show-money tr.money{display:table-row}
 
 <div id="toolbar">
   <span class="title">施工日誌</span>
-  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.17af</span>
+  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.17ag</span>
   <span id="saveState">已儲存</span>
   <button id="btnPrev" title="前一頁">◀</button>
   <select id="daySelect" title="切換日報"></select>
@@ -1491,13 +1491,16 @@ async function buildPdf(idxs, onProgress){
         const sf=canvas.height/clone.offsetHeight;            // DOM px → canvas px（垂直）
         const top=clone.getBoundingClientRect().top;
         const breaks=[];
-        clone.querySelectorAll('tr,.section-title,.free-text,.sign-row,.chkline,.note,textarea').forEach(el=>{
+        // 換頁安全邊界：只在內容列/行/區塊底部，避免落在「區塊標題」後造成標題孤兒
+        clone.querySelectorAll('tr,.free-text,.sign-row,.chkline,.note,textarea').forEach(el=>{
           const b=Math.round((el.getBoundingClientRect().bottom-top)*sf);
           if(b>0&&b<canvas.height) breaks.push(b);
         });
         const sliceCanvasH=Math.floor(canvas.width*maxH/maxW); // 每頁最大原圖像素高
+        const line=PDFLib.rgb(0,0,0);
         let sy=0;
         while(sy<canvas.height-1){
+          const isCont=sy>0;                                   // 這頁頂端是接續（上一頁切下來的）
           let cut;
           if(sy+sliceCanvasH>=canvas.height){ cut=canvas.height; }
           else{
@@ -1512,7 +1515,11 @@ async function buildPdf(idxs, onProgress){
           const simg=await doc.embedJpg(new Uint8Array(await sblob.arrayBuffer()));
           const drawH=maxW*h/canvas.width;
           const page=doc.addPage([A4W,A4H]);
-          page.drawImage(simg,{x:M,y:A4H-M-drawH,width:maxW,height:drawH});
+          const topY=A4H-M, botY=A4H-M-drawH;
+          page.drawImage(simg,{x:M,y:botY,width:maxW,height:drawH});
+          // 切口補收邊線，讓被切開的儲存格封口
+          if(cut<canvas.height) page.drawLine({start:{x:M,y:botY},end:{x:M+maxW,y:botY},thickness:0.8,color:line}); // 本頁底部切口
+          if(isCont) page.drawLine({start:{x:M,y:topY},end:{x:M+maxW,y:topY},thickness:0.8,color:line});           // 本頁頂端接續處
           pageCount++;
           sy=cut;
         }

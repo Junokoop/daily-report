@@ -185,7 +185,7 @@ body.show-money tr.money{display:table-row}
 
 <div id="toolbar">
   <span class="title">施工日誌</span>
-  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.17ae</span>
+  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.17af</span>
   <span id="saveState">已儲存</span>
   <button id="btnPrev" title="前一頁">◀</button>
   <select id="daySelect" title="切換日報"></select>
@@ -1491,7 +1491,7 @@ async function buildPdf(idxs, onProgress){
         const sf=canvas.height/clone.offsetHeight;            // DOM px → canvas px（垂直）
         const top=clone.getBoundingClientRect().top;
         const breaks=[];
-        clone.querySelectorAll('tr,.section-title,.free-text,.sign-row').forEach(el=>{
+        clone.querySelectorAll('tr,.section-title,.free-text,.sign-row,.chkline,.note,textarea').forEach(el=>{
           const b=Math.round((el.getBoundingClientRect().bottom-top)*sf);
           if(b>0&&b<canvas.height) breaks.push(b);
         });

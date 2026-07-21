@@ -51,11 +51,7 @@ h1.doc-title{text-align:center;font-size:24px;letter-spacing:14px;font-weight:70
 .report-no{display:flex;justify-content:space-between;font-size:14px;margin-bottom:2px}
 .report-no input{width:120px;border-bottom:1px solid var(--line)}
 
-table.grid{width:100%;border-collapse:collapse;table-layout:auto}
-#sheet table.grid input,#sheet table.grid textarea{min-width:2.4em}
-#sheet input[data-f="name"]{min-width:9em}
-#sheet input[data-f="note"]{min-width:5em}
-#sheet #f_projName,#sheet #f_contractor{min-width:16em}
+table.grid{width:100%;border-collapse:collapse;table-layout:fixed}
 table.grid th,table.grid td{border:1px solid var(--line-dark);padding:3px 5px;font-size:14px;vertical-align:middle;line-height:1.35;overflow-wrap:break-word}
 table.grid th{background:#fff;font-weight:700;text-align:center}
 td.lbl{background:#fff;font-weight:700;text-align:center}
@@ -185,7 +181,7 @@ body.show-money tr.money{display:table-row}
 
 <div id="toolbar">
   <span class="title">施工日誌</span>
-  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.17ag</span>
+  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.17ah</span>
   <span id="saveState">已儲存</span>
   <button id="btnPrev" title="前一頁">◀</button>
   <select id="daySelect" title="切換日報"></select>
@@ -448,7 +444,7 @@ const fq=n=>{ if(!isFinite(n)) n=0; return (+n).toLocaleString('zh-TW',{minimumF
 const nv=x=>{ const n=+x; return (x===''||x==null||!isFinite(n)||n===0)?'':n.toFixed(2); };
 // 式列：四捨五入到 2 位，讓「數量(2位) × 單價 = 金額」對得起來
 const r2=n=>{ n=+n; return isFinite(n)?Math.round(n*100)/100:0; };
-// 讓格子配合文字：文字維持正常大小；textarea 自動長高、input 依內容變寬（欄寬隨文字變寬），不縮字
+// 螢幕用：只長高 textarea，不改 input 寬度（固定欄寬 → 編輯時不跳動）
 function autofit(el){
   if(!el) return;
   el.style.fontSize='';
@@ -456,17 +452,19 @@ function autofit(el){
     el.style.height='auto';
     el.style.height=el.scrollHeight+'px'; // 依內容長高
     el.style.overflow='hidden';
-  }else if(el.tagName==='INPUT'){
-    const t=(el.getAttribute('type')||'text').toLowerCase();
-    if(t==='checkbox'||t==='radio'||t==='date') return;
-    // 用隱藏量測元素算出內容寬度，設定欄位寬 → 搭配 table-layout:auto，欄寬會隨文字變寬（iOS 亦適用）
-    const m=autofit._m||(autofit._m=(()=>{const s=document.createElement('span');s.style.cssText='position:absolute;left:-9999px;top:-9999px;white-space:pre;visibility:hidden';document.body.appendChild(s);return s;})());
-    const cs=getComputedStyle(el);
-    m.style.font=cs.font; m.style.letterSpacing=cs.letterSpacing;
-    m.textContent=el.value||el.placeholder||'';
-    const pad=(parseFloat(cs.paddingLeft)||0)+(parseFloat(cs.paddingRight)||0)+4;
-    el.style.width=Math.ceil(m.offsetWidth+pad)+'px';
   }
+}
+// 輸出 PDF 用：input 依內容變寬（搭配 clone 的 table-layout:auto，欄寬隨文字變寬）
+function autofitWidth(el){
+  if(!el||el.tagName!=='INPUT') return;
+  const t=(el.getAttribute('type')||'text').toLowerCase();
+  if(t==='checkbox'||t==='radio'||t==='date') return;
+  const m=autofitWidth._m||(autofitWidth._m=(()=>{const s=document.createElement('span');s.style.cssText='position:absolute;left:-9999px;top:-9999px;white-space:pre;visibility:hidden';document.body.appendChild(s);return s;})());
+  const cs=getComputedStyle(el);
+  m.style.font=cs.font; m.style.letterSpacing=cs.letterSpacing;
+  m.textContent=el.value||el.placeholder||'';
+  const pad=(parseFloat(cs.paddingLeft)||0)+(parseFloat(cs.paddingRight)||0)+4;
+  el.style.width=Math.ceil(m.offsetWidth+pad)+'px';
 }
 function autofitAll(){
   try{
@@ -1469,11 +1467,12 @@ async function buildPdf(idxs, onProgress){
       const clone=cloneSheetWithValues(idx);
       clone.style.cssText='width:1080px;background:#fff;padding:20px;box-shadow:none';
       holder.innerHTML=''; holder.appendChild(clone);
-      // 在 clone 的實際版面(1080px)對欄位做自動調整：input 依內容變寬、textarea 依內容長高
+      // 僅在輸出 PDF 的 clone 上讓欄寬隨內容變寬（螢幕維持固定欄寬、不跳動）
+      clone.querySelectorAll('table.grid').forEach(t=>t.style.tableLayout='auto');
       clone.querySelectorAll('input,textarea').forEach(el=>{
         const t=(el.getAttribute('type')||'text').toLowerCase();
         if(t==='checkbox'||t==='radio'||t==='date') return;
-        autofit(el);
+        autofit(el); autofitWidth(el);   // textarea 長高 + input 依內容變寬
       });
       // 倍率 2.0 讓文字清晰銳利；JPEG 0.95 編碼快、檔小；白底已由移除陰影確保
       const canvas=await html2canvas(clone,{scale:2.0,backgroundColor:'#ffffff',useCORS:false,logging:false,imageTimeout:0,removeContainer:true});
@@ -1498,6 +1497,8 @@ async function buildPdf(idxs, onProgress){
         });
         const sliceCanvasH=Math.floor(canvas.width*maxH/maxW); // 每頁最大原圖像素高
         const line=PDFLib.rgb(0,0,0);
+        const padX=20*maxW/(clone.offsetWidth||1080);          // clone 內距換算到 PDF，讓收邊線對齊表格左右框
+        const x0=M+padX, x1=M+maxW-padX;
         let sy=0;
         while(sy<canvas.height-1){
           const isCont=sy>0;                                   // 這頁頂端是接續（上一頁切下來的）
@@ -1517,9 +1518,9 @@ async function buildPdf(idxs, onProgress){
           const page=doc.addPage([A4W,A4H]);
           const topY=A4H-M, botY=A4H-M-drawH;
           page.drawImage(simg,{x:M,y:botY,width:maxW,height:drawH});
-          // 切口補收邊線，讓被切開的儲存格封口
-          if(cut<canvas.height) page.drawLine({start:{x:M,y:botY},end:{x:M+maxW,y:botY},thickness:0.8,color:line}); // 本頁底部切口
-          if(isCont) page.drawLine({start:{x:M,y:topY},end:{x:M+maxW,y:topY},thickness:0.8,color:line});           // 本頁頂端接續處
+          // 切口補收邊線（對齊表格左右框），讓被切開的儲存格封口
+          if(cut<canvas.height) page.drawLine({start:{x:x0,y:botY},end:{x:x1,y:botY},thickness:0.8,color:line}); // 本頁底部切口
+          if(isCont) page.drawLine({start:{x:x0,y:topY},end:{x:x1,y:topY},thickness:0.8,color:line});           // 本頁頂端接續處
           pageCount++;
           sy=cut;
         }

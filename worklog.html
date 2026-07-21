@@ -70,6 +70,7 @@ td.ctr{text-align:center}
 /* 工項表 */
 #itemTable td:first-child{font-size:13px}
 #itemTable input[type=number]{padding-right:2px}
+#itemTable td textarea.gridwrap{resize:none;line-height:1.3;overflow:hidden;white-space:pre-wrap;word-break:break-word;min-height:1.5em;display:block;padding:1px 3px}
 tr.item-row.has-qty td{background:#fff}
 /* 編輯態才顯示的報表內工具：紅色✕、新增列鈕、日期輸入 */
 .rowdel{display:none;color:var(--warn);cursor:pointer;border:none;background:none;font-size:13px;padding:0 2px}
@@ -181,7 +182,7 @@ body.show-money tr.money{display:table-row}
 
 <div id="toolbar">
   <span class="title">施工日誌</span>
-  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.17ah</span>
+  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.17ai</span>
   <span id="saveState">已儲存</span>
   <button id="btnPrev" title="前一頁">◀</button>
   <select id="daySelect" title="切換日報"></select>
@@ -595,7 +596,7 @@ function renderItems(){
     const ca = cq*(+it.price||0);   // 累計完成金額 = 累計數量 × 單價
     const total = (+it.cQty||0)*(+it.price||0); // 總計 = 契約數量 × 單價
     tr.innerHTML=`
-      <td><button class="rowdel no-print" data-del="${i}">✕</button><button class="insrow no-print" data-ins="${i}" title="在此列下方插入工項">＋</button><input data-f="name" data-i="${i}" class="autofit" value="${esc(it.name)}"><select class="kindSel no-print" data-kind="${i}"><option value="main"${isMisc(it)?'':' selected'}>主體</option><option value="misc"${isMisc(it)?' selected':''}>雜項</option></select></td>
+      <td><button class="rowdel no-print" data-del="${i}">✕</button><button class="insrow no-print" data-ins="${i}" title="在此列下方插入工項">＋</button><textarea data-f="name" data-i="${i}" class="autofit gridwrap" rows="1">${esc(it.name)}</textarea><select class="kindSel no-print" data-kind="${i}"><option value="main"${isMisc(it)?'':' selected'}>主體</option><option value="misc"${isMisc(it)?' selected':''}>雜項</option></select></td>
       <td class="ctr"><input data-f="unit" data-i="${i}" value="${esc(it.unit)}" style="text-align:center"></td>
       <td class="num"><input type="text" inputmode="decimal" class="numfld" data-f="cQty" data-i="${i}" value="${nv(it.cQty)}"></td>
       <td class="num"><input type="text" inputmode="decimal" class="numfld" data-day="${i}" value="${nv(dq)}" placeholder="0.00" ${r?'':'disabled'}></td>
@@ -604,7 +605,7 @@ function renderItems(){
       <td class="num calc money">${fmt(da)}</td>
       <td class="num calc money">${fmt(ca)}</td>
       <td class="num calc money">${fmt(total)}</td>
-      <td><input data-f="note" data-i="${i}" value="${esc(it.note||'')}" style="text-align:left"></td>`;
+      <td><textarea data-f="note" data-i="${i}" class="gridwrap" rows="1" style="text-align:left">${esc(it.note||'')}</textarea></td>`;
     tb.appendChild(tr);
   });
 }
@@ -1467,13 +1468,8 @@ async function buildPdf(idxs, onProgress){
       const clone=cloneSheetWithValues(idx);
       clone.style.cssText='width:1080px;background:#fff;padding:20px;box-shadow:none';
       holder.innerHTML=''; holder.appendChild(clone);
-      // 僅在輸出 PDF 的 clone 上讓欄寬隨內容變寬（螢幕維持固定欄寬、不跳動）
-      clone.querySelectorAll('table.grid').forEach(t=>t.style.tableLayout='auto');
-      clone.querySelectorAll('input,textarea').forEach(el=>{
-        const t=(el.getAttribute('type')||'text').toLowerCase();
-        if(t==='checkbox'||t==='radio'||t==='date') return;
-        autofit(el); autofitWidth(el);   // textarea 長高 + input 依內容變寬
-      });
+      // 固定欄寬（與螢幕一致）；名稱/備註等 textarea 依內容換行長高，文字完整不截斷
+      clone.querySelectorAll('textarea').forEach(el=>autofit(el));
       // 倍率 2.0 讓文字清晰銳利；JPEG 0.95 編碼快、檔小；白底已由移除陰影確保
       const canvas=await html2canvas(clone,{scale:2.0,backgroundColor:'#ffffff',useCORS:false,logging:false,imageTimeout:0,removeContainer:true});
       const maxW=A4W-2*M, maxH=A4H-2*M;

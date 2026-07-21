@@ -185,7 +185,7 @@ body.show-money tr.money{display:table-row}
 
 <div id="toolbar">
   <span class="title">施工日誌</span>
-  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.17aa</span>
+  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.17ae</span>
   <span id="saveState">已儲存</span>
   <button id="btnPrev" title="前一頁">◀</button>
   <select id="daySelect" title="切換日報"></select>
@@ -504,11 +504,12 @@ function cumQty(itemIdx, uptoDate){
 }
 
 /* ════════ 渲染 ════════ */
+function hasDayQty(r){ return !!(r && r.qty && Object.keys(r.qty).some(k=>(+r.qty[k]||0)>0)); }
 function renderDaySelect(){
   const sel=$('daySelect'); sel.innerHTML='';
   DB.reports.forEach((r,i)=>{
     const o=document.createElement('option');
-    o.value=i; o.textContent=`#${i+1}　${r.date?rocDate(r.date):'未設定日期'}`;
+    o.value=i; o.textContent=`#${i+1}　${r.date?rocDate(r.date):'未設定日期'}${hasDayQty(r)?'　✔':''}`;
     sel.appendChild(o);
   });
   if(curIdx>=0) sel.value=curIdx;
@@ -839,6 +840,8 @@ $('itemTable').addEventListener('input',e=>{
     const r=DB.reports[curIdx];
     tr.classList.toggle('has-qty',!!v);
     updateRowCalc(tr,i,r);
+    const sel=$('daySelect'), opt=sel&&sel.options[curIdx];
+    if(opt) opt.textContent=`#${curIdx+1}　${r.date?rocDate(r.date):'未設定日期'}${hasDayQty(r)?'　✔':''}`;
     renderTotals(); save();
   }else if(t.dataset.f){
     const i=+t.dataset.i, f=t.dataset.f;
@@ -862,6 +865,90 @@ $('itemTable').addEventListener('input',e=>{
     renderTotals(); save();
   }
 });
+// ── Excel 式鍵盤：方向鍵/Enter 在儲存格間移動；Ctrl/⌘+D 向下填滿複製 ──
+(function(){
+  const TABLES=['itemTable','matTable','crewTable'];
+  const focusable='input:not([disabled]):not([type=checkbox]):not([type=radio]),textarea:not([disabled])';
+  function inpAt(row,ci){ const c=row&&row.cells[ci]; return c?c.querySelector(focusable):null; }
+  function sideInp(row,ci,dir){ for(let i=ci+dir;i>=0&&i<row.cells.length;i+=dir){ const inp=row.cells[i]&&row.cells[i].querySelector(focusable); if(inp)return inp; } return null; }
+  function moveTo(inp,e){ if(inp){ e.preventDefault(); inp.focus(); try{inp.select&&inp.select();}catch(_){}} return !!inp; }
+  document.addEventListener('keydown',e=>{
+    if(!document.body.classList.contains('edit-on'))return;      // 只在編輯模式
+    const el=e.target;
+    if(!el||(el.tagName!=='INPUT'&&el.tagName!=='TEXTAREA'))return;
+    const tbl=el.closest('table'); if(!tbl||TABLES.indexOf(tbl.id)<0)return;
+    const td=el.closest('td'), tr=el.closest('tr'); if(!td||!tr)return;
+    const ci=td.cellIndex, k=e.key;
+    let atStart=true, atEnd=true;
+    try{ const len=(el.value||'').length; atStart=el.selectionStart===0&&el.selectionEnd===0; atEnd=el.selectionStart===len&&el.selectionEnd===len; }catch(_){}
+    if(k==='ArrowDown'||k==='Enter'){ if(moveTo(inpAt(tr.nextElementSibling,ci),e))return; }
+    else if(k==='ArrowUp'){ if(moveTo(inpAt(tr.previousElementSibling,ci),e))return; }
+    else if(k==='ArrowRight'&&atEnd){ if(moveTo(sideInp(tr,ci,1),e))return; }
+    else if(k==='ArrowLeft'&&atStart){ if(moveTo(sideInp(tr,ci,-1),e))return; }
+  });
+})();
+// ── Google 表格式：填滿控點（拖曳複製）＋ 右鍵/長按選單（插入/刪除列）──
+(function(){
+  const TABLES=['itemTable','matTable','crewTable'];
+  const focusable='input:not([disabled]):not([type=checkbox]):not([type=radio]),textarea:not([disabled])';
+  const edit=()=>document.body.classList.contains('edit-on');
+  // 填滿控點
+  const handle=document.createElement('div'); handle.id='gsHandle'; handle.className='no-print';
+  handle.style.cssText='position:fixed;width:10px;height:10px;background:#1a73e8;border:1px solid #fff;cursor:crosshair;display:none;z-index:150;touch-action:none';
+  document.body.appendChild(handle);
+  let srcInput=null, srcTd=null;
+  function place(){
+    if(!srcInput||!document.body.contains(srcInput)||!edit()){ handle.style.display='none'; return; }
+    const r=srcInput.getBoundingClientRect();
+    handle.style.left=(r.right-6)+'px'; handle.style.top=(r.bottom-6)+'px'; handle.style.display='block';
+  }
+  document.addEventListener('focusin',e=>{
+    const el=e.target;
+    if(el&&(el.tagName==='INPUT'||el.tagName==='TEXTAREA')){
+      const tbl=el.closest('table');
+      if(tbl&&TABLES.indexOf(tbl.id)>=0&&el.matches(focusable)&&edit()){ srcInput=el; srcTd=el.closest('td'); place(); return; }
+    }
+  });
+  window.addEventListener('scroll',()=>{ if(srcInput) place(); }, true);
+  window.addEventListener('resize',place);
+  let dragging=false, tbody=null, srcRowIdx=-1, colIdx=-1, hi=[];
+  const rowsOf=()=>tbody?[].slice.call(tbody.children):[];
+  function clearHi(){ hi.forEach(tr=>tr.style.outline=''); hi=[]; }
+  function pointerRowIdx(y){ const rows=rowsOf(); for(let i=0;i<rows.length;i++){ if(y<rows[i].getBoundingClientRect().bottom) return i; } return rows.length-1; }
+  function startDrag(y){ if(!srcInput||!srcTd)return; const tr=srcInput.closest('tr'); tbody=tr.parentElement; srcRowIdx=[].indexOf.call(tbody.children,tr); colIdx=srcTd.cellIndex; dragging=true; document.body.style.userSelect='none'; }
+  function moveDrag(y){ if(!dragging)return; clearHi(); const rows=rowsOf(); const end=pointerRowIdx(y); const a=Math.min(srcRowIdx,end),b=Math.max(srcRowIdx,end); for(let i=a;i<=b;i++){ if(i!==srcRowIdx){ rows[i].style.outline='2px solid #1a73e8'; hi.push(rows[i]); } } }
+  function endDrag(y){ if(!dragging)return; dragging=false; document.body.style.userSelect=''; const rows=rowsOf(); const end=pointerRowIdx(y); const a=Math.min(srcRowIdx,end),b=Math.max(srcRowIdx,end); const val=srcInput.value; for(let i=a;i<=b;i++){ if(i===srcRowIdx)continue; const c=rows[i].cells[colIdx]; const inp=c&&c.querySelector(focusable); if(inp){ inp.value=val; inp.dispatchEvent(new Event('input',{bubbles:true})); } } clearHi(); place(); }
+  handle.addEventListener('mousedown',e=>{ e.preventDefault(); startDrag(e.clientY); });
+  document.addEventListener('mousemove',e=>{ if(dragging) moveDrag(e.clientY); });
+  document.addEventListener('mouseup',e=>{ if(dragging) endDrag(e.clientY); });
+  handle.addEventListener('touchstart',e=>{ e.preventDefault(); startDrag(e.touches[0].clientY); },{passive:false});
+  document.addEventListener('touchmove',e=>{ if(dragging){ e.preventDefault(); moveDrag(e.touches[0].clientY); } },{passive:false});
+  document.addEventListener('touchend',e=>{ if(dragging) endDrag((e.changedTouches[0]||{}).clientY||0); });
+  // 右鍵/長按選單（僅工項表：插入/刪除列）
+  const menu=document.createElement('div'); menu.id='gsMenu'; menu.className='no-print';
+  menu.style.cssText='position:fixed;display:none;z-index:160;background:#fff;border:1px solid #dadce0;border-radius:6px;box-shadow:0 2px 10px rgba(0,0,0,.25);font-family:sans-serif;font-size:14px;overflow:hidden;min-width:160px';
+  menu.innerHTML='<div data-act="above" style="padding:9px 14px;cursor:pointer">在上方插入 1 列</div><div data-act="below" style="padding:9px 14px;cursor:pointer;border-top:1px solid #f1f3f4">在下方插入 1 列</div><div data-act="del" style="padding:9px 14px;cursor:pointer;border-top:1px solid #f1f3f4;color:#b3261e">刪除此列</div>';
+  document.body.appendChild(menu);
+  let menuRow=-1;
+  const showMenu=(x,y,ri)=>{ menuRow=ri; menu.style.left=Math.min(x,innerWidth-170)+'px'; menu.style.top=Math.min(y,innerHeight-120)+'px'; menu.style.display='block'; };
+  const hideMenu=()=>{ menu.style.display='none'; menuRow=-1; };
+  menu.querySelectorAll('div[data-act]').forEach(it=>{
+    it.addEventListener('mouseenter',()=>it.style.background='#f1f3f4');
+    it.addEventListener('mouseleave',()=>it.style.background='');
+    it.addEventListener('click',()=>{ const act=it.dataset.act, ri=menuRow; hideMenu(); if(ri<0)return;
+      if(act==='above') insertItemAt(ri);
+      else if(act==='below') insertItemAt(ri+1);
+      else if(act==='del'){ const t=DB.items[ri]; if(t&&confirm('刪除工項「'+(t.name||'(空白)')+'」？所有日報之該項數量將一併移除。')) deleteItemAt(ri); } });
+  });
+  function itemRowIdx(target){ const tr=target.closest&&target.closest('tr'); const tbl=target.closest&&target.closest('table'); if(tbl&&tbl.id==='itemTable'&&tr&&tr.parentElement&&tr.parentElement.id==='itemBody') return [].indexOf.call($('itemBody').children,tr); return -1; }
+  document.addEventListener('contextmenu',e=>{ if(!edit())return; const ri=itemRowIdx(e.target); if(ri>=0){ e.preventDefault(); showMenu(e.clientX,e.clientY,ri); } });
+  let lpTimer=null;
+  document.addEventListener('touchstart',e=>{ if(!edit())return; const ri=itemRowIdx(e.target); if(ri>=0){ const tc=e.touches[0]; lpTimer=setTimeout(()=>showMenu(tc.clientX,tc.clientY,ri),550); } },{passive:true});
+  const cancelLp=()=>{ if(lpTimer){ clearTimeout(lpTimer); lpTimer=null; } };
+  document.addEventListener('touchmove',cancelLp); document.addEventListener('touchend',cancelLp);
+  document.addEventListener('mousedown',e=>{ if(e.target!==menu&&!menu.contains(e.target)) hideMenu(); });
+  document.addEventListener('scroll',hideMenu,true);
+})();
 // 主體/雜項 分類選單
 $('itemTable').addEventListener('change',e=>{
   const t=e.target;
@@ -913,38 +1000,23 @@ function refreshLumpRows(){
   });
   $('s_dayUnit').textContent=lumpRowValue().toFixed(4);
 }
+function insertItemAt(at){                 // 在索引 at 插入空白工項（其後往下移）
+  DB.items.splice(at,0,{name:'',unit:'',cQty:0,price:0});
+  DB.reports.forEach(r=>{ const nq={}; Object.keys(r.qty).forEach(k=>{ const ki=+k; nq[ki<at?ki:ki+1]=r.qty[k]; }); r.qty=nq; });
+  renderItems(); renderTotals(); save();
+  const rows=$('itemBody').querySelectorAll('tr');
+  if(rows[at]){ const inp=rows[at].querySelector('input[data-f="name"]'); if(inp) inp.focus(); }
+}
+function deleteItemAt(idx){
+  DB.items.splice(idx,1);
+  DB.reports.forEach(r=>{ const nq={}; Object.keys(r.qty).forEach(k=>{ const ki=+k; if(ki<idx)nq[ki]=r.qty[k]; else if(ki>idx)nq[ki-1]=r.qty[k]; }); r.qty=nq; });
+  renderItems(); renderTotals(); save();
+}
 $('itemTable').addEventListener('click',e=>{
   const ins=e.target.dataset.ins;
-  if(ins!==undefined){
-    const at=+ins+1;                       // 在該列下方插入
-    DB.items.splice(at,0,{name:'',unit:'',cQty:0,price:0});
-    DB.reports.forEach(r=>{                 // 重編數量索引：>=at 的往後移一位
-      const nq={};
-      Object.keys(r.qty).forEach(k=>{
-        const ki=+k;
-        nq[ki<at?ki:ki+1]=r.qty[k];
-      });
-      r.qty=nq;
-    });
-    renderItems(); renderTotals(); save();
-    const rows=$('itemBody').querySelectorAll('tr');
-    if(rows[at]) rows[at].querySelector('input[data-f="name"]').focus();
-    return;
-  }
+  if(ins!==undefined){ insertItemAt(+ins+1); return; }   // 按鈕：在該列下方插入
   const d=e.target.dataset.del;
-  if(d!==undefined && confirm('刪除工項「'+(DB.items[+d].name||'(空白)')+'」？所有日報之該項數量將一併移除。')){
-    const idx=+d;
-    DB.items.splice(idx,1);
-    DB.reports.forEach(r=>{
-      const nq={};
-      Object.keys(r.qty).forEach(k=>{
-        const ki=+k;
-        if(ki<idx)nq[ki]=r.qty[k]; else if(ki>idx)nq[ki-1]=r.qty[k];
-      });
-      r.qty=nq;
-    });
-    renderItems(); renderTotals(); save();
-  }
+  if(d!==undefined && confirm('刪除工項「'+(DB.items[+d].name||'(空白)')+'」？所有日報之該項數量將一併移除。')){ deleteItemAt(+d); }
 });
 $('btnAddItem').addEventListener('click',()=>{
   DB.items.push({name:'',unit:'',cQty:0,price:0});

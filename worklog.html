@@ -182,7 +182,7 @@ body.show-money tr.money{display:table-row}
 
 <div id="toolbar">
   <span class="title">施工日誌</span>
-  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.17aj</span>
+  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.17al</span>
   <span id="saveState">已儲存</span>
   <button id="btnPrev" title="前一頁">◀</button>
   <select id="daySelect" title="切換日報"></select>
@@ -608,6 +608,8 @@ function renderItems(){
       <td><textarea data-f="note" data-i="${i}" class="gridwrap" rows="1" style="text-align:left">${esc(it.note||'')}</textarea></td>`;
     tb.appendChild(tr);
   });
+  // 名稱/備註 textarea 依內容長高（新增/刪除列、分類變更後也顯示完整文字、列高正確）
+  tb.querySelectorAll('textarea').forEach(autofit);
 }
 
 function esc(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;')}
@@ -1468,8 +1470,18 @@ async function buildPdf(idxs, onProgress){
       const clone=cloneSheetWithValues(idx);
       clone.style.cssText='width:1080px;background:#fff;padding:20px;box-shadow:none';
       holder.innerHTML=''; holder.appendChild(clone);
-      // 固定欄寬（與螢幕一致）；名稱/備註等 textarea 依內容換行長高，文字完整不截斷
-      clone.querySelectorAll('textarea').forEach(el=>autofit(el));
+      // html2canvas 對 textarea 換行渲染不穩 → 換成等效 div，確保文字完整換行顯示
+      clone.querySelectorAll('textarea').forEach(ta=>{
+        const cs=getComputedStyle(ta);
+        const div=document.createElement('div');
+        div.textContent=ta.value;
+        div.style.whiteSpace='pre-wrap'; div.style.wordBreak='break-word';
+        div.style.width='100%'; div.style.boxSizing='border-box';
+        div.style.minHeight=cs.minHeight; div.style.lineHeight=cs.lineHeight;
+        div.style.fontFamily=cs.fontFamily; div.style.fontSize=cs.fontSize;
+        div.style.textAlign=cs.textAlign; div.style.padding=cs.padding; div.style.color=cs.color;
+        ta.replaceWith(div);
+      });
       // 倍率 2.0 讓文字清晰銳利；JPEG 0.95 編碼快、檔小；白底已由移除陰影確保
       const canvas=await html2canvas(clone,{scale:2.0,backgroundColor:'#ffffff',useCORS:false,logging:false,imageTimeout:0,removeContainer:true});
       const maxW=A4W-2*M, maxH=A4H-2*M;

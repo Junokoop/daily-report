@@ -197,7 +197,7 @@ body.show-money tr.money{display:table-row}
 
 <div id="toolbar">
   <span class="title">施工日誌</span>
-  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.17au</span>
+  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.17av</span>
   <span id="saveState">已儲存</span>
   <button id="btnPrev" title="前一頁">◀</button>
   <select id="daySelect" title="切換日報"></select>
@@ -205,6 +205,7 @@ body.show-money tr.money{display:table-row}
   <button id="btnEditMode">編輯</button>
   <span class="edit-tools">
     <button id="btnRange" class="primary">＋區間新增</button>
+    <button id="btnResetLayout" title="清除拖曳的欄寬/列高/區塊高度，回復預設版面">重設版面</button>
     <button id="btnDelDay" class="danger">刪除</button>
     <button id="btnDelRange" class="danger">區間刪除</button>
     <button id="btnClearAll" class="danger">清除全部</button>
@@ -969,6 +970,8 @@ $('itemTable').addEventListener('input',e=>{
 // ── 通用欄寬／列高拖曳：所有表格皆可調整，藍線涵蓋整欄高與整列寬，設定會保存 ──
 function gridTables(){ return [].slice.call(document.querySelectorAll('#sheet table.grid')); }
 function tblKey(t){ return t.id || ('tbl'+gridTables().indexOf(t)); }
+// 記錄 HTML 原始欄寬，供「重設版面」復原
+const DEFAULT_COLW=(function(){ const m={}; try{ gridTables().forEach(t=>{ m[t.id||('tbl'+gridTables().indexOf(t))]=[].map.call(t.querySelectorAll('colgroup col'),c=>c.style.width||''); }); }catch(_){} return m; })();
 function migrateGridSizes(){
   if(Array.isArray(DB.colW)) DB.colW={itemTable:DB.colW};
   if(DB.colW&&typeof DB.colW!=='object') DB.colW={};
@@ -990,6 +993,16 @@ function applyRowHeights(){
     rows.forEach((tr,i)=>{ if(map[i]) tr.style.height=map[i]+'px'; });
   });
 }
+function resetLayout(){
+  DB.colW={}; DB.rowH={}; DB.boxH={};
+  document.querySelectorAll('#sheet table.grid tbody tr').forEach(tr=>tr.style.height='');
+  document.querySelectorAll('#sheet .free-text,#sheet .sign-row').forEach(b=>b.style.height='');
+  gridTables().forEach(t=>{
+    const cols=t.querySelectorAll('colgroup col'), def=DEFAULT_COLW[tblKey(t)];
+    cols.forEach((c,i)=>{ c.style.width = (def&&def[i]!=null) ? def[i] : ''; });
+  });
+  save(); renderAll();
+}
 // 為每個表格建立把手：欄把手高度=整個表格高、列把手寬度=整個表格寬
 function setupGrips(){
   gridTables().forEach(t=>{
@@ -997,13 +1010,18 @@ function setupGrips(){
     const H=t.offsetHeight, W=t.offsetWidth;
     const headRow=t.querySelector('thead tr')||t.querySelector('tbody tr');
     if(headRow){
-      const cells=headRow.children, n=t.querySelectorAll('colgroup col').length||cells.length;
-      for(let i=0;i<cells.length-1 && i<n-1;i++){
-        const c=cells[i]; c.style.position='relative';
-        const g=document.createElement('div'); g.className='colgrip no-print';
-        g.dataset.ci=i; g.style.height=H+'px';
-        c.appendChild(g);
-      }
+      const cols=t.querySelectorAll('colgroup col').length;
+      let acc=0;
+      [].forEach.call(headRow.children,c=>{
+        const span=c.colSpan||1;
+        acc+=span;                       // acc = 此儲存格右緣對應的欄索引
+        if(span===1 && acc<cols){        // 只有單欄儲存格才放把手，避免合併格算錯欄
+          c.style.position='relative';
+          const g=document.createElement('div'); g.className='colgrip no-print';
+          g.dataset.ci=acc-1; g.style.height=H+'px';
+          c.appendChild(g);
+        }
+      });
     }
     t.querySelectorAll('tbody tr').forEach((tr,ri)=>{
       const c=tr.children[0]; if(!c) return;
@@ -1034,10 +1052,12 @@ function applyBoxHeights(){
   const cStart=(el,x)=>{ if(!document.body.classList.contains('edit-on'))return false;
     if(!el||!el.classList||!el.classList.contains('colgrip'))return false;
     ct=el.closest('table'); ci=+el.dataset.ci;
-    const cells=(ct.querySelector('thead tr')||ct.querySelector('tbody tr')).children;
-    if(!cells[ci]||!cells[ci+1])return false;
+    const cols=ct.querySelectorAll('colgroup col');
+    if(!cols[ci]||!cols[ci+1])return false;
     ctw=ct.getBoundingClientRect().width||1; csx=x;
-    cw0=cells[ci].getBoundingClientRect().width; cw1=cells[ci+1].getBoundingClientRect().width;
+    // 以目前 col 的百分比換算像素寬（與 colspan 無關）
+    const pc=i=>{ const v=parseFloat(cols[i].style.width); return (isFinite(v)?v:100/cols.length)/100*ctw; };
+    cw0=pc(ci); cw1=pc(ci+1);
     document.body.style.userSelect='none'; return true; };
   const cMove=x=>{ if(!ct)return; const d=x-csx, cols=ct.querySelectorAll('colgroup col');
     if(!cols[ci]||!cols[ci+1])return;
@@ -1078,6 +1098,9 @@ function applyBoxHeights(){
   document.addEventListener('touchend',()=>{ if(ct)cEnd(); if(rtr)rEnd(); if(bx)bEnd(); });
   window.addEventListener('resize',()=>{ if(document.body.classList.contains('edit-on')) setupGrips(); });
 })();
+$('btnResetLayout').addEventListener('click',()=>{
+  if(confirm('重設版面？\n將清除所有拖曳調整的欄寬、列高與區塊高度，回復預設格式（資料不受影響）。')) resetLayout();
+});
 // 主體/雜項 分類選單
 $('itemTable').addEventListener('change',e=>{
   const t=e.target;

@@ -73,8 +73,9 @@ td.ctr{text-align:center}
 textarea.gridwrap{resize:none;line-height:1.3;overflow:hidden;white-space:pre-wrap;word-break:break-word;min-height:1.5em;display:block;padding:1px 3px}
 .colgrip{display:none}
 .rowgrip{display:none}
+.tgridwrap{position:relative;display:block}
 body.edit-on .colgrip{display:block;position:absolute;width:7px;cursor:col-resize;z-index:6;touch-action:none;background:linear-gradient(to right,transparent 2px,var(--accent) 2px,var(--accent) 4px,transparent 4px);opacity:.3}
-body.edit-on .rowgrip{display:block;position:absolute;bottom:-3px;height:7px;cursor:row-resize;z-index:5;touch-action:none;background:linear-gradient(to bottom,transparent 2px,var(--accent) 2px,var(--accent) 4px,transparent 4px);opacity:.3}
+body.edit-on .rowgrip{display:block;position:absolute;height:7px;cursor:row-resize;z-index:5;touch-action:none;background:linear-gradient(to bottom,transparent 2px,var(--accent) 2px,var(--accent) 4px,transparent 4px);opacity:.3}
 body.edit-on .colgrip:hover,body.edit-on .rowgrip:hover,body.edit-on .boxgrip:hover{opacity:.95}
 .boxgrip{display:none}
 body.edit-on .boxgrip{display:block;position:absolute;left:0;right:0;bottom:-3px;height:7px;cursor:row-resize;z-index:5;touch-action:none;background:linear-gradient(to bottom,transparent 2px,var(--accent) 2px,var(--accent) 4px,transparent 4px);opacity:.3}
@@ -185,7 +186,7 @@ body.show-money tr.money{display:table-row}
   .sign-row>div{min-height:30px;padding:2px 4px;font-size:8.5px}
   .note{font-size:6.6px;line-height:1.35;margin-top:2px}
   .calc{color:#000}.pct{color:#000}
-  table.grid,.section-title,.free-text,.sign-row{page-break-inside:avoid}
+  table.grid,.section-title,.free-text,.sign-row,.tgridwrap{page-break-inside:avoid}
   /* 拖曳設定的高度是螢幕像素，列印字級較小會爆版 → 列印時改為自動高度（欄寬%仍保留） */
   #sheet tr,.print-page tr{height:auto!important}
   #sheet .free-text,.print-page .free-text,#sheet .sign-row,.print-page .sign-row{height:auto!important;display:block!important}
@@ -197,7 +198,7 @@ body.show-money tr.money{display:table-row}
 
 <div id="toolbar">
   <span class="title">施工日誌</span>
-  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.17az</span>
+  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.17ba</span>
   <span id="saveState">已儲存</span>
   <button id="btnPrev" title="前一頁">◀</button>
   <select id="daySelect" title="切換日報"></select>
@@ -1012,43 +1013,50 @@ function scheduleGrips(){
   _gripTimer=1;
   if(typeof requestAnimationFrame==='function') requestAnimationFrame(()=>requestAnimationFrame(run)); else setTimeout(run,0);
 }
-// 為每個表格建立把手：欄把手高度=整個表格高、列把手寬度=整個表格寬
+// 為每個表格建立把手：藍線改用外框容器＋自動高寬，表格尺寸變動時自動跟隨
+function ensureGridWrap(t){
+  let w=t.parentElement;
+  if(!w||!w.classList||!w.classList.contains('tgridwrap')){
+    w=document.createElement('div'); w.className='tgridwrap';
+    t.parentNode.insertBefore(w,t); w.appendChild(t);
+  }
+  if(!t._ro && typeof ResizeObserver==='function'){
+    t._ro=new ResizeObserver(()=>scheduleGrips()); t._ro.observe(t);   // 新增/刪除列導致尺寸變動 → 自動重算
+  }
+  return w;
+}
 function setupGrips(){
   gridTables().forEach(t=>{
-    t.querySelectorAll('.colgrip,.rowgrip').forEach(g=>g.remove());
+    const wrap=ensureGridWrap(t);
+    [].forEach.call(wrap.children,()=>{});
+    [].slice.call(wrap.querySelectorAll('.colgrip,.rowgrip')).forEach(g=>g.remove());
     const tb=t.getBoundingClientRect();
-    const H=tb.height, W=tb.width;
-    const headRow=t.querySelector('thead tr')||t.querySelector('tbody tr');
-    if(headRow){
-      const cols=t.querySelectorAll('colgroup col');
-      const host=headRow.children[0];
-      if(host && cols.length>1){
-        host.style.position='relative';
-        const hr=host.getBoundingClientRect();
-        const w=[].map.call(cols,c=>c.getBoundingClientRect().width);
-        let x=tb.left;
-        for(let i=0;i<cols.length-1;i++){
-          x+=w[i];
-          if(w[i]<=0||w[i+1]<=0) continue;      // 跳過隱藏欄（如金額欄隱藏時）
-          const g=document.createElement('div'); g.className='colgrip no-print';
-          g.dataset.ci=i;
-          g.style.left=(x-hr.left-3.5)+'px';    // 對齊真正的欄界（不受合併儲存格影響）
-          g.style.top=(tb.top-hr.top)+'px';
-          g.style.height=H+'px';
-          host.appendChild(g);
-        }
+    if(tb.width<=0||tb.height<=0) return;
+    const wr=wrap.getBoundingClientRect();
+    const cols=t.querySelectorAll('colgroup col');
+    if(cols.length>1){
+      const cw=[].map.call(cols,c=>c.getBoundingClientRect().width);
+      let x=tb.left;
+      for(let i=0;i<cols.length-1;i++){
+        x+=cw[i];
+        if(cw[i]<=0||cw[i+1]<=0) continue;      // 跳過隱藏欄（如金額欄隱藏時）
+        const g=document.createElement('div'); g.className='colgrip no-print';
+        g.dataset.ci=i; g.dataset.tk=tblKey(t);
+        g.style.left=(x-wr.left-3.5)+'px';
+        g.style.top=(tb.top-wr.top)+'px';
+        g.style.height=tb.height+'px';
+        wrap.appendChild(g);
       }
     }
     t.querySelectorAll('tbody tr').forEach((tr,ri)=>{
-      const c=tr.children[0]; if(!c) return;
-      const cr=c.getBoundingClientRect();
-      if(cr.width<=0||cr.height<=0) return;      // 跳過隱藏列
-      c.style.position='relative';
+      const rr=tr.getBoundingClientRect();
+      if(rr.height<=0) return;
       const g=document.createElement('div'); g.className='rowgrip no-print';
-      g.dataset.ri=ri;
-      g.style.left=(tb.left-cr.left)+'px';     // 對齊表格左緣
-      g.style.width=W+'px';                    // 只涵蓋表格寬度，不外溢
-      c.appendChild(g);
+      g.dataset.ri=ri; g.dataset.tk=tblKey(t);
+      g.style.top=(rr.bottom-wr.top-3.5)+'px';
+      g.style.left=(tb.left-wr.left)+'px';
+      g.style.width=tb.width+'px';
+      wrap.appendChild(g);
     });
   });
   // 文字區塊（施工概況/取樣試驗/通知分包/重要事項…）與簽名列：可拖曳調整高度
@@ -1071,7 +1079,7 @@ function applyBoxHeights(){
   let ct=null, ci=-1, csx=0, cw0=0, cw1=0, ctw=1;
   const cStart=(el,x)=>{ if(!document.body.classList.contains('edit-on'))return false;
     if(!el||!el.classList||!el.classList.contains('colgrip'))return false;
-    ct=el.closest('table'); ci=+el.dataset.ci;
+    ct=gridTables().filter(t=>tblKey(t)===el.dataset.tk)[0]; ci=+el.dataset.ci;
     const cols=ct.querySelectorAll('colgroup col');
     if(!cols[ci]||!cols[ci+1])return false;
     ctw=ct.getBoundingClientRect().width||1; csx=x;
@@ -1091,8 +1099,8 @@ function applyBoxHeights(){
   let rt=null, rtr=null, rri=-1, rsy=0, rh0=0;
   const rStart=(el,y)=>{ if(!document.body.classList.contains('edit-on'))return false;
     if(!el||!el.classList||!el.classList.contains('rowgrip'))return false;
-    rtr=el.closest('tr'); rt=el.closest('table'); if(!rtr||!rt)return false;
-    rri=+el.dataset.ri; rsy=y; rh0=rtr.getBoundingClientRect().height;
+    rt=gridTables().filter(t=>tblKey(t)===el.dataset.tk)[0]; if(!rt)return false;
+    rri=+el.dataset.ri; rtr=rt.querySelectorAll('tbody tr')[rri]; if(!rtr)return false; rsy=y; rh0=rtr.getBoundingClientRect().height;
     document.body.style.userSelect='none'; return true; };
   const rMove=y=>{ if(!rtr)return; rtr.style.height=Math.max(20,rh0+(y-rsy))+'px'; };
   const rEnd=()=>{ if(!rtr)return; migrateGridSizes();

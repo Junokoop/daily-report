@@ -197,7 +197,7 @@ body.show-money tr.money{display:table-row}
 
 <div id="toolbar">
   <span class="title">施工日誌</span>
-  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.17at</span>
+  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.17au</span>
   <span id="saveState">已儲存</span>
   <button id="btnPrev" title="前一頁">◀</button>
   <select id="daySelect" title="切換日報"></select>
@@ -211,7 +211,7 @@ body.show-money tr.money{display:table-row}
     <button id="btnImportPdf">匯入PDF</button>
   </span>
   <button id="btnMoney">金額:隱藏</button>
-  <button id="btnPrintRange" class="browse-only">列印/儲存區間</button>
+  <button id="btnPrintRange" class="browse-only">儲存區間</button>
   <button id="btnSaveAll" class="primary browse-only">儲存全部</button>
   <input type="file" id="importPdfFile" style="display:none">
 </div>
@@ -244,16 +244,15 @@ body.show-money tr.money{display:table-row}
 
 <div id="printRangeDlg" class="no-print" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:99;align-items:center;justify-content:center">
   <div style="background:#fff;border-radius:8px;padding:20px;width:300px;font-family:'Microsoft JhengHei',sans-serif">
-    <b style="display:block;margin-bottom:12px">列印日期區間</b>
+    <b style="display:block;margin-bottom:12px">儲存日期區間</b>
     <div style="margin-bottom:8px">起：<input type="date" id="rp_from" style="border:1px solid var(--line);padding:4px;border-radius:4px;width:auto"></div>
     <div style="margin-bottom:14px">迄：<input type="date" id="rp_to" style="border:1px solid var(--line);padding:4px;border-radius:4px;width:auto"></div>
     <div style="margin-bottom:14px">輸出比例：<select id="rp_scale" style="border:1px solid var(--line);padding:4px;border-radius:4px;width:auto"><option value="0.7">70%</option><option value="0.8">80%</option><option value="0.9">90%</option><option value="1" selected>100%（原始）</option><option value="1.1">110%</option><option value="1.25">125%</option></select></div>
     <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">
       <button id="rp_cancel" style="padding:6px 14px;border:1px solid var(--line);background:#fff;border-radius:4px;cursor:pointer">取消</button>
       <button id="rp_pdf" style="padding:6px 14px;border:none;background:var(--accent-2);color:#fff;border-radius:4px;cursor:pointer;font-weight:700">存成PDF</button>
-      <button id="rp_ok" style="padding:6px 14px;border:none;background:var(--accent);color:#fff;border-radius:4px;cursor:pointer;font-weight:700">列印</button>
     </div>
-    <div style="font-size:12px;color:var(--muted);margin-top:10px">區間內每一天的日報各一頁；「存成PDF」可重新匯入編輯。</div>
+    <div style="font-size:12px;color:var(--muted);margin-top:10px">區間內每一天的日報各一頁；存成的PDF可重新匯入編輯。</div>
   </div>
 </div>
 <div id="printPages"></div>
@@ -1352,30 +1351,6 @@ $('btnPrintRange').addEventListener('click',()=>{
   $('rp_to').value=DB.reports[DB.reports.length-1].date;
 });
 $('rp_cancel').addEventListener('click',()=>$('printRangeDlg').style.display='none');
-$('rp_ok').addEventListener('click',()=>{
-  const a=$('rp_from').value, b=$('rp_to').value;
-  if(!a||!b||a>b){alert('日期區間不正確');return;}
-  const idxs=DB.reports.map((r,i)=>[r.date,i]).filter(([dt])=>dt>=a&&dt<=b).map(([,i])=>i);
-  if(!idxs.length){alert('區間內沒有日報');return;}
-  $('printRangeDlg').style.display='none';
-  const keep=curIdx;
-  const box=$('printPages'); box.innerHTML='';
-  idxs.forEach((idx,p)=>{
-    curIdx=idx; renderAll();
-    const pg=cloneSheetWithValues(p);
-    pg.querySelectorAll('.no-print,.addrow-btn,.rowdel,.insrow,.kindSel,.date-edit').forEach(el=>el.remove());   // 移除把手/✕/＋等編輯元件
-    box.appendChild(pg);
-  });
-  curIdx=keep; renderAll();
-  document.body.classList.add('multi-print');
-  const cleanup=()=>{
-    document.body.classList.remove('multi-print');
-    box.innerHTML='';
-    window.removeEventListener('afterprint',cleanup);
-  };
-  window.addEventListener('afterprint',cleanup);
-  setTimeout(()=>window.print(),50);
-});
 $('rp_pdf').addEventListener('click',async()=>{
   const a=$('rp_from').value, b=$('rp_to').value;
   if(!a||!b||a>b){alert('日期區間不正確');return;}

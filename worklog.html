@@ -71,6 +71,9 @@ td.ctr{text-align:center}
 #itemTable td:first-child{font-size:13px}
 #itemTable input[type=number]{padding-right:2px}
 textarea.gridwrap{resize:none;line-height:1.3;overflow:hidden;white-space:pre-wrap;word-break:break-word;min-height:1.5em;display:block;padding:1px 3px}
+.colgrip{display:none}
+body.edit-on .colgrip{display:block;background:linear-gradient(to right,transparent 2px,var(--accent) 2px,var(--accent) 4px,transparent 4px);opacity:.35}
+body.edit-on .colgrip:hover{opacity:.9}
 tr.item-row.has-qty td{background:#fff}
 /* 編輯態才顯示的報表內工具：紅色✕、新增列鈕、日期輸入 */
 .rowdel{display:none;color:var(--warn);cursor:pointer;border:none;background:none;font-size:13px;padding:0 2px}
@@ -182,7 +185,7 @@ body.show-money tr.money{display:table-row}
 
 <div id="toolbar">
   <span class="title">施工日誌</span>
-  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.17am</span>
+  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.17an</span>
   <span id="saveState">已儲存</span>
   <button id="btnPrev" title="前一頁">◀</button>
   <select id="daySelect" title="切換日報"></select>
@@ -232,6 +235,7 @@ body.show-money tr.money{display:table-row}
     <b style="display:block;margin-bottom:12px">列印日期區間</b>
     <div style="margin-bottom:8px">起：<input type="date" id="rp_from" style="border:1px solid var(--line);padding:4px;border-radius:4px;width:auto"></div>
     <div style="margin-bottom:14px">迄：<input type="date" id="rp_to" style="border:1px solid var(--line);padding:4px;border-radius:4px;width:auto"></div>
+    <div style="margin-bottom:14px">輸出比例：<select id="rp_scale" style="border:1px solid var(--line);padding:4px;border-radius:4px;width:auto"><option value="0.7">70%</option><option value="0.8">80%</option><option value="0.9">90%</option><option value="1" selected>100%（原始）</option><option value="1.1">110%</option><option value="1.25">125%</option></select></div>
     <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">
       <button id="rp_cancel" style="padding:6px 14px;border:1px solid var(--line);background:#fff;border-radius:4px;cursor:pointer">取消</button>
       <button id="rp_pdf" style="padding:6px 14px;border:none;background:var(--accent-2);color:#fff;border-radius:4px;cursor:pointer;font-weight:700">存成PDF</button>
@@ -765,6 +769,7 @@ function renderAll(){
   const hasReal = DB.reports.some(r=>!isSeedPlaceholder(r));
   document.body.classList.toggle('no-reports', !hasReal);
   renderDaySelect(); renderHeader(); renderItems(); renderSubTables(); renderTotals();
+  applyColWidths();
   if(typeof requestAnimationFrame==='function') requestAnimationFrame(autofitAll); else autofitAll();
 }
 
@@ -949,6 +954,46 @@ $('itemTable').addEventListener('input',e=>{
   document.addEventListener('touchmove',cancelLp); document.addEventListener('touchend',cancelLp);
   document.addEventListener('mousedown',e=>{ if(e.target!==menu&&!menu.contains(e.target)) hideMenu(); });
   document.addEventListener('scroll',hideMenu,true);
+})();
+// ── 欄寬拖曳（工項表）：拖表頭交界調整欄寬，設定會保存 ──
+function applyColWidths(){
+  const t=$('itemTable'); if(!t) return;
+  const cols=t.querySelectorAll('colgroup col');
+  const w=(DB.colW&&DB.colW.length===cols.length)?DB.colW:null;
+  if(w) cols.forEach((c,i)=>{ c.style.width=w[i]+'%'; });
+}
+(function(){
+  const t=$('itemTable'); if(!t) return;
+  const ths=t.querySelectorAll('thead th');
+  ths.forEach((th,i)=>{
+    if(i>=ths.length-0) return;
+    th.style.position='relative';
+    const g=document.createElement('div'); g.className='colgrip no-print';
+    g.style.cssText='position:absolute;top:0;right:-3px;width:7px;height:100%;cursor:col-resize;z-index:5;touch-action:none';
+    th.appendChild(g);
+    let sx=0, cols=null, w0=0, w1=0, tw=1;
+    const start=x=>{ if(!document.body.classList.contains('edit-on')) return false;
+      cols=t.querySelectorAll('colgroup col'); if(i+1>=cols.length) return false;
+      tw=t.getBoundingClientRect().width||1; sx=x;
+      w0=cols[i].getBoundingClientRect?0:0;
+      const cells=t.querySelectorAll('thead th');
+      w0=cells[i].getBoundingClientRect().width; w1=cells[i+1].getBoundingClientRect().width;
+      document.body.style.userSelect='none'; return true; };
+    const move=x=>{ if(!cols) return; let d=x-sx;
+      const nw0=Math.max(28,w0+d), nw1=Math.max(28,w1-d);
+      cols[i].style.width=(nw0/tw*100).toFixed(2)+'%';
+      cols[i+1].style.width=(nw1/tw*100).toFixed(2)+'%'; };
+    const end=()=>{ if(!cols) return;
+      DB.colW=[].map.call(t.querySelectorAll('colgroup col'),c=>parseFloat(c.style.width)||0);
+      cols=null; document.body.style.userSelect=''; save();
+      if(typeof requestAnimationFrame==='function') requestAnimationFrame(autofitAll); else autofitAll(); };
+    g.addEventListener('mousedown',e=>{ if(start(e.clientX)){ e.preventDefault(); e.stopPropagation(); } });
+    document.addEventListener('mousemove',e=>{ if(cols) move(e.clientX); });
+    document.addEventListener('mouseup',()=>{ if(cols) end(); });
+    g.addEventListener('touchstart',e=>{ if(start(e.touches[0].clientX)){ e.preventDefault(); e.stopPropagation(); } },{passive:false});
+    document.addEventListener('touchmove',e=>{ if(cols){ e.preventDefault(); move(e.touches[0].clientX); } },{passive:false});
+    document.addEventListener('touchend',()=>{ if(cols) end(); });
+  });
 })();
 // 主體/雜項 分類選單
 $('itemTable').addEventListener('change',e=>{
@@ -1255,7 +1300,7 @@ $('rp_pdf').addEventListener('click',async()=>{
   const btn=$('rp_pdf'), old=btn.textContent; btn.disabled=true;
   let pages=0; showPdfProgress(0,idxs.length,0);
   try{
-    const bytes=await buildPdf(idxs,(done,total,p)=>{ pages=p; showPdfProgress(done,total,p); });
+    const bytes=await buildPdf(idxs,(done,total,p)=>{ pages=p; showPdfProgress(done,total,p); }, +$('rp_scale').value||1);
     await writeOut(handle,bytes,name);
     donePdfProgress(pages,name);
   }catch(err){ hidePdfProgress(); alert('存檔失敗：'+(err&&err.message||err)); }
@@ -1455,7 +1500,7 @@ function donePdfProgress(pages,filename){
   setTimeout(hidePdfProgress,3000);
 }
 function hidePdfProgress(){ const el=document.getElementById('pdfProg'); if(el) el.style.display='none'; }
-async function buildPdf(idxs, onProgress){
+async function buildPdf(idxs, onProgress, outScale){
   await loadHtml2Canvas(); await loadPDFLib();
   const {PDFDocument}=PDFLib;
   const doc=await PDFDocument.create();
@@ -1486,14 +1531,16 @@ async function buildPdf(idxs, onProgress){
       });
       // 倍率 2.0 讓文字清晰銳利；JPEG 0.95 編碼快、檔小；白底已由移除陰影確保
       const canvas=await html2canvas(clone,{scale:2.0,backgroundColor:'#ffffff',useCORS:false,logging:false,imageTimeout:0,removeContainer:true});
-      const maxW=A4W-2*M, maxH=A4H-2*M;
-      const fullH=maxW*canvas.height/canvas.width;   // 以原始比例填滿版面寬度時的高度
+      const os=Math.max(0.5,Math.min(2,+outScale||1));   // 輸出比例（使用者可調）
+      const maxW=(A4W-2*M)*os, maxH=A4H-2*M;
+      const Mx=(A4W-maxW)/2;                              // 縮放後水平置中
+      const fullH=maxW*canvas.height/canvas.width;   // 以指定比例填滿版面寬度時的高度
       if(fullH<=maxH){
-        // 一頁裝得下：原始比例輸出
+        // 一頁裝得下：依比例輸出
         const blob=await new Promise(res=>canvas.toBlob(res,'image/jpeg',0.95));
         const img=await doc.embedJpg(new Uint8Array(await blob.arrayBuffer()));
         const page=doc.addPage([A4W,A4H]);
-        page.drawImage(img,{x:M,y:A4H-M-fullH,width:maxW,height:fullH});
+        page.drawImage(img,{x:Mx,y:A4H-M-fullH,width:maxW,height:fullH});
         pageCount++;
       }else{
         // 過長：維持原始比例逐頁裁切，但只在「列/區塊」邊界切，避免把欄位從中切斷
@@ -1508,7 +1555,7 @@ async function buildPdf(idxs, onProgress){
         const sliceCanvasH=Math.floor(canvas.width*maxH/maxW); // 每頁最大原圖像素高
         const line=PDFLib.rgb(0,0,0);
         const padX=20*maxW/(clone.offsetWidth||1080);          // clone 內距換算到 PDF，讓收邊線對齊表格左右框
-        const x0=M+padX, x1=M+maxW-padX;
+        const x0=Mx+padX, x1=Mx+maxW-padX;
         let sy=0;
         while(sy<canvas.height-1){
           const isCont=sy>0;                                   // 這頁頂端是接續（上一頁切下來的）
@@ -1527,7 +1574,7 @@ async function buildPdf(idxs, onProgress){
           const drawH=maxW*h/canvas.width;
           const page=doc.addPage([A4W,A4H]);
           const topY=A4H-M, botY=A4H-M-drawH;
-          page.drawImage(simg,{x:M,y:botY,width:maxW,height:drawH});
+          page.drawImage(simg,{x:Mx,y:botY,width:maxW,height:drawH});
           // 切口補收邊線（對齊表格左右框），讓被切開的儲存格封口
           if(cut<canvas.height) page.drawLine({start:{x:x0,y:botY},end:{x:x1,y:botY},thickness:0.8,color:line}); // 本頁底部切口
           if(isCont) page.drawLine({start:{x:x0,y:topY},end:{x:x1,y:topY},thickness:0.8,color:line});           // 本頁頂端接續處
@@ -1592,7 +1639,7 @@ $('btnSaveAll').addEventListener('click',async()=>{
   try{
     const idxs=DB.reports.map((_,i)=>i);   // 已依日期排序
     showPdfProgress(0,idxs.length,0);
-    const bytes=await buildPdf(idxs,(done,total,p)=>{ pages=p; showPdfProgress(done,total,p); });
+    const bytes=await buildPdf(idxs,(done,total,p)=>{ pages=p; showPdfProgress(done,total,p); }, (function(){var e=document.getElementById('rp_scale');return e?(+e.value||1):1;})());
     await writeOut(handle,bytes,name);
     donePdfProgress(pages,name);
   }catch(err){ hidePdfProgress(); alert('儲存失敗：'+(err&&err.message||err)); }

@@ -197,7 +197,7 @@ body.show-money tr.money{display:table-row}
 
 <div id="toolbar">
   <span class="title">施工日誌</span>
-  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.17ax</span>
+  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.17ay</span>
   <span id="saveState">已儲存</span>
   <button id="btnPrev" title="前一頁">◀</button>
   <select id="daySelect" title="切換日報"></select>
@@ -626,6 +626,7 @@ function renderItems(){
   });
   // 名稱/備註 textarea 依內容長高（新增/刪除列、分類變更後也顯示完整文字、列高正確）
   tb.querySelectorAll('textarea').forEach(autofit);
+  scheduleGrips();
 }
 
 function esc(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;')}
@@ -645,6 +646,7 @@ function listTable(tbodyId, rows, cols){
     }).join('');
     tb.appendChild(tr);
   });
+  scheduleGrips();
 }
 
 function cumMat(name, uptoDate){
@@ -782,7 +784,7 @@ function renderAll(){
   document.body.classList.toggle('no-reports', !hasReal);
   renderDaySelect(); renderHeader(); renderItems(); renderSubTables(); renderTotals();
   applyColWidths(); applyRowHeights(); applyBoxHeights();
-  if(typeof requestAnimationFrame==='function') requestAnimationFrame(()=>{ autofitAll(); setupGrips(); }); else { autofitAll(); setupGrips(); }
+  if(typeof requestAnimationFrame==='function') requestAnimationFrame(autofitAll); else autofitAll(); scheduleGrips();
 }
 
 /* ════════ 事件 ════════ */
@@ -1003,6 +1005,13 @@ function resetLayout(){
   });
   save(); renderAll();
 }
+let _gripTimer=null;
+function scheduleGrips(){
+  if(_gripTimer) return;
+  const run=()=>{ _gripTimer=null; applyRowHeights(); applyBoxHeights(); setupGrips(); };
+  _gripTimer=1;
+  if(typeof requestAnimationFrame==='function') requestAnimationFrame(()=>requestAnimationFrame(run)); else setTimeout(run,0);
+}
 // 為每個表格建立把手：欄把手高度=整個表格高、列把手寬度=整個表格寬
 function setupGrips(){
   gridTables().forEach(t=>{
@@ -1075,7 +1084,7 @@ function applyBoxHeights(){
     cols[ci+1].style.width=(n1/ctw*100).toFixed(2)+'%'; };
   const cEnd=()=>{ if(!ct)return; migrateGridSizes();
     DB.colW[tblKey(ct)]=[].map.call(ct.querySelectorAll('colgroup col'),c=>parseFloat(c.style.width)||0);
-    ct=null; document.body.style.userSelect=''; save(); setupGrips();
+    ct=null; document.body.style.userSelect=''; save(); scheduleGrips();
     if(typeof requestAnimationFrame==='function') requestAnimationFrame(autofitAll); else autofitAll(); };
   // 列高拖曳
   let rt=null, rtr=null, rri=-1, rsy=0, rh0=0;
@@ -1088,7 +1097,7 @@ function applyBoxHeights(){
   const rEnd=()=>{ if(!rtr)return; migrateGridSizes();
     const k=tblKey(rt); DB.rowH[k]=DB.rowH[k]||{};
     DB.rowH[k][rri]=Math.round(rtr.getBoundingClientRect().height);
-    rtr=null; rt=null; document.body.style.userSelect=''; save(); setupGrips(); };
+    rtr=null; rt=null; document.body.style.userSelect=''; save(); scheduleGrips(); };
   // 文字區塊高度拖曳
   let bx=null, bi=-1, bsy=0, bh0=0;
   const bStart=(el,y)=>{ if(!document.body.classList.contains('edit-on'))return false;
@@ -1098,14 +1107,14 @@ function applyBoxHeights(){
   const bMove=y=>{ if(!bx)return; bx.style.height=Math.max(28,bh0+(y-bsy))+'px'; };
   const bEnd=()=>{ if(!bx)return; DB.boxH=DB.boxH||{};
     DB.boxH[bi]=Math.round(bx.getBoundingClientRect().height);
-    bx=null; document.body.style.userSelect=''; save(); setupGrips(); };
+    bx=null; document.body.style.userSelect=''; save(); scheduleGrips(); };
   document.addEventListener('mousedown',e=>{ if(cStart(e.target,e.clientX)||rStart(e.target,e.clientY)||bStart(e.target,e.clientY)){ e.preventDefault(); e.stopPropagation(); } },true);
   document.addEventListener('mousemove',e=>{ if(ct)cMove(e.clientX); if(rtr)rMove(e.clientY); if(bx)bMove(e.clientY); });
   document.addEventListener('mouseup',()=>{ if(ct)cEnd(); if(rtr)rEnd(); if(bx)bEnd(); });
   document.addEventListener('touchstart',e=>{ const t0=e.touches[0]; if(cStart(e.target,t0.clientX)||rStart(e.target,t0.clientY)||bStart(e.target,t0.clientY)){ e.preventDefault(); e.stopPropagation(); } },{passive:false,capture:true});
   document.addEventListener('touchmove',e=>{ if(ct||rtr||bx){ e.preventDefault(); const t0=e.touches[0]; if(ct)cMove(t0.clientX); if(rtr)rMove(t0.clientY); if(bx)bMove(t0.clientY); } },{passive:false});
   document.addEventListener('touchend',()=>{ if(ct)cEnd(); if(rtr)rEnd(); if(bx)bEnd(); });
-  window.addEventListener('resize',()=>{ if(document.body.classList.contains('edit-on')) setupGrips(); });
+  window.addEventListener('resize',()=>{ if(document.body.classList.contains('edit-on')) scheduleGrips(); });
 })();
 $('btnResetLayout').addEventListener('click',()=>{
   if(confirm('重設版面？\n將清除所有拖曳調整的欄寬、列高與區塊高度，回復預設格式（資料不受影響）。')) resetLayout();
@@ -1208,7 +1217,7 @@ $('btnEditMode').addEventListener('click',()=>{
     document.body.classList.remove('show-money');
     $('btnMoney').textContent='金額:隱藏';
   }
-  if(typeof requestAnimationFrame==='function') requestAnimationFrame(()=>{ autofitAll(); setupGrips(); }); else { autofitAll(); setupGrips(); } // 版面改變 → 重新長高並重建把手
+  if(typeof requestAnimationFrame==='function') requestAnimationFrame(autofitAll); else autofitAll(); scheduleGrips(); // 版面改變 → 重新長高並重建把手
 });
 
 // 材料/人員機具

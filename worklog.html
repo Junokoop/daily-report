@@ -186,6 +186,10 @@ body.show-money tr.money{display:table-row}
   .note{font-size:6.6px;line-height:1.35;margin-top:2px}
   .calc{color:#000}.pct{color:#000}
   table.grid,.section-title,.free-text,.sign-row{page-break-inside:avoid}
+  /* 拖曳設定的高度是螢幕像素，列印字級較小會爆版 → 列印時改為自動高度（欄寬%仍保留） */
+  #sheet tr,.print-page tr{height:auto!important}
+  #sheet .free-text,.print-page .free-text,#sheet .sign-row,.print-page .sign-row{height:auto!important;display:block!important}
+  #sheet .free-text>textarea,.print-page .free-text>textarea{flex:none!important;height:auto!important}
 }
 </style>
 </head>
@@ -193,7 +197,7 @@ body.show-money tr.money{display:table-row}
 
 <div id="toolbar">
   <span class="title">施工日誌</span>
-  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.17ar</span>
+  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.17at</span>
   <span id="saveState">已儲存</span>
   <button id="btnPrev" title="前一頁">◀</button>
   <select id="daySelect" title="切換日報"></select>
@@ -1358,7 +1362,9 @@ $('rp_ok').addEventListener('click',()=>{
   const box=$('printPages'); box.innerHTML='';
   idxs.forEach((idx,p)=>{
     curIdx=idx; renderAll();
-    box.appendChild(cloneSheetWithValues(p));
+    const pg=cloneSheetWithValues(p);
+    pg.querySelectorAll('.no-print,.addrow-btn,.rowdel,.insrow,.kindSel,.date-edit').forEach(el=>el.remove());   // 移除把手/✕/＋等編輯元件
+    box.appendChild(pg);
   });
   curIdx=keep; renderAll();
   document.body.classList.add('multi-print');
@@ -1632,7 +1638,7 @@ async function buildPdf(idxs, onProgress, outScale){
       const clone=cloneSheetWithValues(idx);
       clone.style.cssText='width:1080px;background:#fff;padding:20px;box-shadow:none';
       holder.innerHTML=''; holder.appendChild(clone);
-      clone.querySelectorAll('.no-print').forEach(el=>el.remove());   // 移除把手/✕/＋/分類選單等編輯元件
+      clone.querySelectorAll('.no-print,.addrow-btn,.rowdel,.insrow,.kindSel,.date-edit').forEach(el=>el.remove());   // 移除把手/✕/＋/分類選單等編輯元件
       // html2canvas 對 textarea 換行渲染不穩 → 換成等效 div，確保文字完整換行顯示
       clone.querySelectorAll('textarea').forEach(ta=>{
         const cs=getComputedStyle(ta);

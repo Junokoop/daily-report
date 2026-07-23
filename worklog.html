@@ -73,9 +73,9 @@ td.ctr{text-align:center}
 textarea.gridwrap{resize:none;line-height:1.3;overflow:hidden;white-space:pre-wrap;word-break:break-word;min-height:1.5em;display:block;padding:1px 3px}
 .colgrip{display:none}
 .rowgrip{display:none}
-body.edit-on #itemBody td{position:relative}
-body.edit-on .rowgrip{display:block;position:absolute;left:0;right:0;bottom:-3px;height:7px;cursor:row-resize;z-index:4;touch-action:none;background:linear-gradient(to bottom,transparent 2px,var(--accent) 2px,var(--accent) 4px,transparent 4px);opacity:.3}
-body.edit-on .rowgrip:hover{opacity:.9}
+body.edit-on .colgrip{display:block;position:absolute;top:0;right:-3px;width:7px;cursor:col-resize;z-index:6;touch-action:none;background:linear-gradient(to right,transparent 2px,var(--accent) 2px,var(--accent) 4px,transparent 4px);opacity:.3}
+body.edit-on .rowgrip{display:block;position:absolute;left:0;bottom:-3px;height:7px;cursor:row-resize;z-index:5;touch-action:none;background:linear-gradient(to bottom,transparent 2px,var(--accent) 2px,var(--accent) 4px,transparent 4px);opacity:.3}
+body.edit-on .colgrip:hover,body.edit-on .rowgrip:hover{opacity:.95}
 body.edit-on .colgrip{display:block;background:linear-gradient(to right,transparent 2px,var(--accent) 2px,var(--accent) 4px,transparent 4px);opacity:.35}
 body.edit-on .colgrip:hover{opacity:.9}
 tr.item-row.has-qty td{background:#fff}
@@ -189,7 +189,7 @@ body.show-money tr.money{display:table-row}
 
 <div id="toolbar">
   <span class="title">施工日誌</span>
-  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.17ap</span>
+  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.17aq</span>
   <span id="saveState">已儲存</span>
   <button id="btnPrev" title="前一頁">◀</button>
   <select id="daySelect" title="切換日報"></select>
@@ -613,8 +613,7 @@ function renderItems(){
       <td class="num calc money">${fmt(da)}</td>
       <td class="num calc money">${fmt(ca)}</td>
       <td class="num calc money">${fmt(total)}</td>
-      <td><textarea data-f="note" data-i="${i}" class="gridwrap" rows="1" style="text-align:left">${esc(it.note||'')}</textarea><div class="rowgrip no-print" data-rg="${i}" title="拖曳調整列高"></div></td>`;
-    if(DB.rowH && DB.rowH[i]) tr.style.height=DB.rowH[i]+'px';
+      <td><textarea data-f="note" data-i="${i}" class="gridwrap" rows="1" style="text-align:left">${esc(it.note||'')}</textarea></td>`;
     tb.appendChild(tr);
   });
   // 名稱/備註 textarea 依內容長高（新增/刪除列、分類變更後也顯示完整文字、列高正確）
@@ -774,8 +773,8 @@ function renderAll(){
   const hasReal = DB.reports.some(r=>!isSeedPlaceholder(r));
   document.body.classList.toggle('no-reports', !hasReal);
   renderDaySelect(); renderHeader(); renderItems(); renderSubTables(); renderTotals();
-  applyColWidths();
-  if(typeof requestAnimationFrame==='function') requestAnimationFrame(autofitAll); else autofitAll();
+  applyColWidths(); applyRowHeights();
+  if(typeof requestAnimationFrame==='function') requestAnimationFrame(()=>{ autofitAll(); setupGrips(); }); else { autofitAll(); setupGrips(); }
 }
 
 /* ════════ 事件 ════════ */
@@ -960,62 +959,93 @@ $('itemTable').addEventListener('input',e=>{
   document.addEventListener('mousedown',e=>{ if(e.target!==menu&&!menu.contains(e.target)) hideMenu(); });
   document.addEventListener('scroll',hideMenu,true);
 })();
-// ── 欄寬拖曳（工項表）：拖表頭交界調整欄寬，設定會保存 ──
+// ── 通用欄寬／列高拖曳：所有表格皆可調整，藍線涵蓋整欄高與整列寬，設定會保存 ──
+function gridTables(){ return [].slice.call(document.querySelectorAll('#sheet table.grid')); }
+function tblKey(t){ return t.id || ('tbl'+gridTables().indexOf(t)); }
+function migrateGridSizes(){
+  if(Array.isArray(DB.colW)) DB.colW={itemTable:DB.colW};
+  if(DB.colW&&typeof DB.colW!=='object') DB.colW={};
+  if(DB.rowH&&Object.keys(DB.rowH).some(k=>/^\d+$/.test(k))) DB.rowH={itemTable:DB.rowH};
+  DB.colW=DB.colW||{}; DB.rowH=DB.rowH||{};
+}
 function applyColWidths(){
-  const t=$('itemTable'); if(!t) return;
-  const cols=t.querySelectorAll('colgroup col');
-  const w=(DB.colW&&DB.colW.length===cols.length)?DB.colW:null;
-  if(w) cols.forEach((c,i)=>{ c.style.width=w[i]+'%'; });
+  migrateGridSizes();
+  gridTables().forEach(t=>{
+    const cols=t.querySelectorAll('colgroup col'), w=DB.colW[tblKey(t)];
+    if(w&&w.length===cols.length) cols.forEach((c,i)=>{ if(w[i]) c.style.width=w[i]+'%'; });
+  });
+}
+function applyRowHeights(){
+  migrateGridSizes();
+  gridTables().forEach(t=>{
+    const map=DB.rowH[tblKey(t)]; if(!map) return;
+    const rows=t.querySelectorAll('tbody tr');
+    rows.forEach((tr,i)=>{ if(map[i]) tr.style.height=map[i]+'px'; });
+  });
+}
+// 為每個表格建立把手：欄把手高度=整個表格高、列把手寬度=整個表格寬
+function setupGrips(){
+  gridTables().forEach(t=>{
+    t.querySelectorAll('.colgrip,.rowgrip').forEach(g=>g.remove());
+    const H=t.offsetHeight, W=t.offsetWidth;
+    const headRow=t.querySelector('thead tr')||t.querySelector('tbody tr');
+    if(headRow){
+      const cells=headRow.children, n=t.querySelectorAll('colgroup col').length||cells.length;
+      for(let i=0;i<cells.length-1 && i<n-1;i++){
+        const c=cells[i]; c.style.position='relative';
+        const g=document.createElement('div'); g.className='colgrip no-print';
+        g.dataset.ci=i; g.style.height=H+'px';
+        c.appendChild(g);
+      }
+    }
+    t.querySelectorAll('tbody tr').forEach((tr,ri)=>{
+      const c=tr.children[0]; if(!c) return;
+      c.style.position='relative';
+      const g=document.createElement('div'); g.className='rowgrip no-print';
+      g.dataset.ri=ri; g.style.width=W+'px';
+      c.appendChild(g);
+    });
+  });
 }
 (function(){
-  const t=$('itemTable'); if(!t) return;
-  const ths=t.querySelectorAll('thead th');
-  ths.forEach((th,i)=>{
-    if(i>=ths.length-0) return;
-    th.style.position='relative';
-    const g=document.createElement('div'); g.className='colgrip no-print';
-    g.style.cssText='position:absolute;top:0;right:-3px;width:7px;height:100%;cursor:col-resize;z-index:5;touch-action:none';
-    th.appendChild(g);
-    let sx=0, cols=null, w0=0, w1=0, tw=1;
-    const start=x=>{ if(!document.body.classList.contains('edit-on')) return false;
-      cols=t.querySelectorAll('colgroup col'); if(i+1>=cols.length) return false;
-      tw=t.getBoundingClientRect().width||1; sx=x;
-      w0=cols[i].getBoundingClientRect?0:0;
-      const cells=t.querySelectorAll('thead th');
-      w0=cells[i].getBoundingClientRect().width; w1=cells[i+1].getBoundingClientRect().width;
-      document.body.style.userSelect='none'; return true; };
-    const move=x=>{ if(!cols) return; let d=x-sx;
-      const nw0=Math.max(28,w0+d), nw1=Math.max(28,w1-d);
-      cols[i].style.width=(nw0/tw*100).toFixed(2)+'%';
-      cols[i+1].style.width=(nw1/tw*100).toFixed(2)+'%'; };
-    const end=()=>{ if(!cols) return;
-      DB.colW=[].map.call(t.querySelectorAll('colgroup col'),c=>parseFloat(c.style.width)||0);
-      cols=null; document.body.style.userSelect=''; save();
-      if(typeof requestAnimationFrame==='function') requestAnimationFrame(autofitAll); else autofitAll(); };
-    g.addEventListener('mousedown',e=>{ if(start(e.clientX)){ e.preventDefault(); e.stopPropagation(); } });
-    document.addEventListener('mousemove',e=>{ if(cols) move(e.clientX); });
-    document.addEventListener('mouseup',()=>{ if(cols) end(); });
-    g.addEventListener('touchstart',e=>{ if(start(e.touches[0].clientX)){ e.preventDefault(); e.stopPropagation(); } },{passive:false});
-    document.addEventListener('touchmove',e=>{ if(cols){ e.preventDefault(); move(e.touches[0].clientX); } },{passive:false});
-    document.addEventListener('touchend',()=>{ if(cols) end(); });
-  });
-})();
-// ── 列高拖曳（工項表）：拖列底把手調整列高，設定會保存 ──
-(function(){
-  let tr=null, idx=-1, sy=0, h0=0;
-  const start=(t,y)=>{ if(!document.body.classList.contains('edit-on')) return false;
-    if(!t||!t.classList||!t.classList.contains('rowgrip')) return false;
-    idx=+t.dataset.rg; tr=t.closest('tr'); if(!tr) return false;
-    sy=y; h0=tr.getBoundingClientRect().height; document.body.style.userSelect='none'; return true; };
-  const move=y=>{ if(!tr) return; const nh=Math.max(24,h0+(y-sy)); tr.style.height=nh+'px'; };
-  const end=()=>{ if(!tr) return; DB.rowH=DB.rowH||{}; DB.rowH[idx]=Math.round(tr.getBoundingClientRect().height);
-    tr=null; idx=-1; document.body.style.userSelect=''; save(); };
-  document.addEventListener('mousedown',e=>{ if(start(e.target,e.clientY)){ e.preventDefault(); e.stopPropagation(); } },true);
-  document.addEventListener('mousemove',e=>{ if(tr) move(e.clientY); });
-  document.addEventListener('mouseup',()=>{ if(tr) end(); });
-  document.addEventListener('touchstart',e=>{ if(start(e.target,e.touches[0].clientY)){ e.preventDefault(); e.stopPropagation(); } },{passive:false,capture:true});
-  document.addEventListener('touchmove',e=>{ if(tr){ e.preventDefault(); move(e.touches[0].clientY); } },{passive:false});
-  document.addEventListener('touchend',()=>{ if(tr) end(); });
+  // 欄寬拖曳
+  let ct=null, ci=-1, csx=0, cw0=0, cw1=0, ctw=1;
+  const cStart=(el,x)=>{ if(!document.body.classList.contains('edit-on'))return false;
+    if(!el||!el.classList||!el.classList.contains('colgrip'))return false;
+    ct=el.closest('table'); ci=+el.dataset.ci;
+    const cells=(ct.querySelector('thead tr')||ct.querySelector('tbody tr')).children;
+    if(!cells[ci]||!cells[ci+1])return false;
+    ctw=ct.getBoundingClientRect().width||1; csx=x;
+    cw0=cells[ci].getBoundingClientRect().width; cw1=cells[ci+1].getBoundingClientRect().width;
+    document.body.style.userSelect='none'; return true; };
+  const cMove=x=>{ if(!ct)return; const d=x-csx, cols=ct.querySelectorAll('colgroup col');
+    if(!cols[ci]||!cols[ci+1])return;
+    const n0=Math.max(24,cw0+d), n1=Math.max(24,cw1-d);
+    cols[ci].style.width=(n0/ctw*100).toFixed(2)+'%';
+    cols[ci+1].style.width=(n1/ctw*100).toFixed(2)+'%'; };
+  const cEnd=()=>{ if(!ct)return; migrateGridSizes();
+    DB.colW[tblKey(ct)]=[].map.call(ct.querySelectorAll('colgroup col'),c=>parseFloat(c.style.width)||0);
+    ct=null; document.body.style.userSelect=''; save(); setupGrips();
+    if(typeof requestAnimationFrame==='function') requestAnimationFrame(autofitAll); else autofitAll(); };
+  // 列高拖曳
+  let rt=null, rtr=null, rri=-1, rsy=0, rh0=0;
+  const rStart=(el,y)=>{ if(!document.body.classList.contains('edit-on'))return false;
+    if(!el||!el.classList||!el.classList.contains('rowgrip'))return false;
+    rtr=el.closest('tr'); rt=el.closest('table'); if(!rtr||!rt)return false;
+    rri=+el.dataset.ri; rsy=y; rh0=rtr.getBoundingClientRect().height;
+    document.body.style.userSelect='none'; return true; };
+  const rMove=y=>{ if(!rtr)return; rtr.style.height=Math.max(20,rh0+(y-rsy))+'px'; };
+  const rEnd=()=>{ if(!rtr)return; migrateGridSizes();
+    const k=tblKey(rt); DB.rowH[k]=DB.rowH[k]||{};
+    DB.rowH[k][rri]=Math.round(rtr.getBoundingClientRect().height);
+    rtr=null; rt=null; document.body.style.userSelect=''; save(); setupGrips(); };
+  document.addEventListener('mousedown',e=>{ if(cStart(e.target,e.clientX)||rStart(e.target,e.clientY)){ e.preventDefault(); e.stopPropagation(); } },true);
+  document.addEventListener('mousemove',e=>{ if(ct)cMove(e.clientX); if(rtr)rMove(e.clientY); });
+  document.addEventListener('mouseup',()=>{ if(ct)cEnd(); if(rtr)rEnd(); });
+  document.addEventListener('touchstart',e=>{ const t0=e.touches[0]; if(cStart(e.target,t0.clientX)||rStart(e.target,t0.clientY)){ e.preventDefault(); e.stopPropagation(); } },{passive:false,capture:true});
+  document.addEventListener('touchmove',e=>{ if(ct||rtr){ e.preventDefault(); const t0=e.touches[0]; if(ct)cMove(t0.clientX); if(rtr)rMove(t0.clientY); } },{passive:false});
+  document.addEventListener('touchend',()=>{ if(ct)cEnd(); if(rtr)rEnd(); });
+  window.addEventListener('resize',()=>{ if(document.body.classList.contains('edit-on')) setupGrips(); });
 })();
 // 主體/雜項 分類選單
 $('itemTable').addEventListener('change',e=>{
@@ -1115,7 +1145,7 @@ $('btnEditMode').addEventListener('click',()=>{
     document.body.classList.remove('show-money');
     $('btnMoney').textContent='金額:隱藏';
   }
-  if(typeof requestAnimationFrame==='function') requestAnimationFrame(autofitAll); else autofitAll(); // 版面改變 → 名稱/備註重新長高
+  if(typeof requestAnimationFrame==='function') requestAnimationFrame(()=>{ autofitAll(); setupGrips(); }); else { autofitAll(); setupGrips(); } // 版面改變 → 重新長高並重建把手
 });
 
 // 材料/人員機具
@@ -1574,6 +1604,7 @@ async function buildPdf(idxs, onProgress, outScale){
       const clone=cloneSheetWithValues(idx);
       clone.style.cssText='width:1080px;background:#fff;padding:20px;box-shadow:none';
       holder.innerHTML=''; holder.appendChild(clone);
+      clone.querySelectorAll('.no-print').forEach(el=>el.remove());   // 移除把手/✕/＋/分類選單等編輯元件
       // html2canvas 對 textarea 換行渲染不穩 → 換成等效 div，確保文字完整換行顯示
       clone.querySelectorAll('textarea').forEach(ta=>{
         const cs=getComputedStyle(ta);

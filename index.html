@@ -565,12 +565,12 @@ function _buildReportHtml(rpt, money) {
          '<th style="background:#e5e7eb;border:1px solid #b0a99a;padding:6px">名稱</th>' +
          '<th style="background:#e5e7eb;border:1px solid #b0a99a;padding:6px">上午</th>' +
          '<th style="background:#e5e7eb;border:1px solid #b0a99a;padding:6px">下午</th>' +
-         '<th style="background:#e5e7eb;border:1px solid #b0a99a;padding:6px">加班(時)</th></tr>';
+         '<th style="background:#e5e7eb;border:1px solid #b0a99a;padding:6px">備註</th></tr>';
     eq.forEach(function(a){
       h += '<tr><td style="border:1px solid #b0a99a;padding:6px;text-align:center">' + esc(a.name||'') +
            '</td><td style="border:1px solid #b0a99a;padding:6px;text-align:center">' + (a.am?'✓':'') +
            '</td><td style="border:1px solid #b0a99a;padding:6px;text-align:center">' + (a.pm?'✓':'') +
-           '</td><td style="border:1px solid #b0a99a;padding:6px;text-align:center">' + (a.ot||0) + '</td></tr>';
+           '</td><td style="border:1px solid #b0a99a;padding:6px;text-align:center">' + esc(a.note||'') + '</td></tr>';
     });
     h += '</table>';
   }
@@ -886,7 +886,7 @@ function _clone(o){ try { return JSON.parse(JSON.stringify(o)); } catch(e){ retu
 function _editSig(r){
   if (!r) return '';
   var att = (r.attendance||[]).map(function(a){ return (a.name||'')+'|'+(a.am?1:0)+(a.pm?1:0)+'|'+(a.ot||0); }).join(',');
-  var eq = (r.equipment||[]).map(function(a){ return (a.name||'')+'|'+(a.am?1:0)+(a.pm?1:0)+'|'+(a.ot||0); }).join(',');
+  var eq = (r.equipment||[]).map(function(a){ return (a.name||'')+'|'+(a.am?1:0)+(a.pm?1:0)+'|'+(a.note||''); }).join(',');
   var exp = (r.expenses||[]).map(function(e){ return (e.item||'')+'|'+(Number(e.cash)||0)+'|'+(Number(e.card)||0)+'|'+(e.inv?1:0); }).join(',');
   return [r.date||'', r.project||'', r.workItems||'', Number(r.receiptCash)||0, Number(r.totalCash)||0,
           Number(r.totalCard)||0, Number(r.remaining)||0, r.receiptNote||'', att, eq, exp, r.editedAt||''].join('§');
@@ -1245,7 +1245,7 @@ function addEq() {
   if (!eqList) return;
   var n = eqList.querySelectorAll('.ac').length + 1;
   var c = document.createElement('div'); c.className = 'ac';
-  c.innerHTML = '<div class="atop"><span class="no">機具 ' + n + '</span><input type="text" placeholder="機具名稱／車號"><button class="db" type="button">&#x2715;</button></div><div class="achks"><label class="ci"><input type="checkbox"><span>上午</span></label><label class="ci"><input type="checkbox"><span>下午</span></label><div class="ci-ot"><span>加班(時)</span><input type="number" class="ot-input" min="0" max="24" step="0.5" placeholder="0"></div></div>';
+  c.innerHTML = '<div class="atop"><span class="no">機具 ' + n + '</span><input type="text" placeholder="機具名稱／車號"><button class="db" type="button">&#x2715;</button></div><div class="achks"><label class="ci"><input type="checkbox"><span>上午</span></label><label class="ci"><input type="checkbox"><span>下午</span></label><div class="ci-ot"><span>備註</span><input type="text" class="note-input" placeholder=""></div></div>';
   c.querySelector('.db').onclick = function() { eqList.removeChild(c); };
   eqList.insertBefore(c, addEqBtn);
 }
@@ -1356,6 +1356,7 @@ function doReset() {
   document.getElementById('M').value = d.getMonth() + 1;
   document.getElementById('D').value = d.getDate();
   if (attList) { while (attList.firstChild) attList.removeChild(attList.firstChild); attList.appendChild(addAttBtn); addAtt(); addAtt(); addAtt(); addAtt(); }
+  if (eqList) { while (eqList.firstChild) eqList.removeChild(eqList.firstChild); eqList.appendChild(addEqBtn); addEq(); addEq(); }
   if (expList) { while (expList.firstChild) expList.removeChild(expList.firstChild); expList.appendChild(addExpBtn); addExp(); addExp(); addExp(); addExp(); }
   calc();
 }
@@ -1392,12 +1393,12 @@ function submitReport() {
       var nameEl = c.querySelector('input[type="text"]');
       if (!nameEl || !nameEl.value.trim()) return;
       var cbs = c.querySelectorAll('input[type="checkbox"]');
-      var otEl = c.querySelector('.ot-input');
+      var noteEl = c.querySelector('.note-input');
       eq.push({
         name: nameEl.value.trim(),
         am: cbs[0] ? cbs[0].checked : false,
         pm: cbs[1] ? cbs[1].checked : false,
-        ot: otEl ? (parseFloat(otEl.value)||0) : 0
+        note: noteEl ? noteEl.value.trim() : ''
       });
     });
   }
@@ -2413,8 +2414,8 @@ function buildCard(rpt, isAdminView) {
     body.innerHTML += h + '</table></div>';
   }
   if (rpt.equipment && rpt.equipment.length) {
-    var he = '<div class="rbs"><div class="rbl">車輛機具使用紀錄</div><table class="rbt"><tr><th>名稱</th><th>上午</th><th>下午</th><th>加班(時)</th></tr>';
-    rpt.equipment.forEach(function(a) { he += '<tr><td>' + esc(a.name) + '</td><td>' + (a.am ? '✔' : '—') + '</td><td>' + (a.pm ? '✔' : '—') + '</td><td>' + (a.ot ? a.ot + 'h' : '—') + '</td></tr>'; });
+    var he = '<div class="rbs"><div class="rbl">車輛機具使用紀錄</div><table class="rbt"><tr><th>名稱</th><th>上午</th><th>下午</th><th>備註</th></tr>';
+    rpt.equipment.forEach(function(a) { he += '<tr><td>' + esc(a.name) + '</td><td>' + (a.am ? '✔' : '—') + '</td><td>' + (a.pm ? '✔' : '—') + '</td><td>' + (a.note ? esc(a.note) : '—') + '</td></tr>'; });
     body.innerHTML += he + '</table></div>';
   }
   if (rpt.expenses && rpt.expenses.length) {
@@ -2696,7 +2697,7 @@ function doOpenEditModal(rpt) {
   // 建立車輛機具 HTML
   var eqHtml = '';
   eq.forEach(function(a) {
-    eqHtml += '<div class="ec" style="margin-bottom:6px"><div class="er"><span class="el">名稱</span><input type="text" class="edit-eq-name" value="' + esc(a.name) + '"><button class="db" type="button" onclick="this.closest(\'.ec\').remove()">✕</button></div><div class="achks"><label class="ci"><input type="checkbox" class="edit-eq-am"' + (a.am ? ' checked' : '') + '><span>上午</span></label><label class="ci"><input type="checkbox" class="edit-eq-pm"' + (a.pm ? ' checked' : '') + '><span>下午</span></label><div class="ci-ot"><span>加班(時)</span><input type="number" class="edit-eq-ot" value="' + (a.ot || 0) + '" min="0" step="0.5" inputmode="numeric"></div></div></div>';
+    eqHtml += '<div class="ec" style="margin-bottom:6px"><div class="er"><span class="el">名稱</span><input type="text" class="edit-eq-name" value="' + esc(a.name) + '"><button class="db" type="button" onclick="this.closest(\'.ec\').remove()">✕</button></div><div class="achks"><label class="ci"><input type="checkbox" class="edit-eq-am"' + (a.am ? ' checked' : '') + '><span>上午</span></label><label class="ci"><input type="checkbox" class="edit-eq-pm"' + (a.pm ? ' checked' : '') + '><span>下午</span></label><div class="ci-ot"><span>備註</span><input type="text" class="edit-eq-note" value="' + esc(a.note || '') + '"></div></div></div>';
   });
 
   // 建立支出 HTML
@@ -2944,7 +2945,7 @@ function addEditAtt() {
 
 function addEditEq() {
   var div = document.createElement('div'); div.className = 'ec'; div.style.marginBottom = '6px';
-  div.innerHTML = '<div class="er"><span class="el">名稱</span><input type="text" class="edit-eq-name" placeholder="機具名稱／車號"><button class="db" type="button" onclick="this.closest(\'.ec\').remove()">✕</button></div><div class="achks"><label class="ci"><input type="checkbox" class="edit-eq-am"><span>上午</span></label><label class="ci"><input type="checkbox" class="edit-eq-pm"><span>下午</span></label><div class="ci-ot"><span>加班(時)</span><input type="number" class="edit-eq-ot" min="0" max="24" step="0.5" placeholder="0"></div></div>';
+  div.innerHTML = '<div class="er"><span class="el">名稱</span><input type="text" class="edit-eq-name" placeholder="機具名稱／車號"><button class="db" type="button" onclick="this.closest(\'.ec\').remove()">✕</button></div><div class="achks"><label class="ci"><input type="checkbox" class="edit-eq-am"><span>上午</span></label><label class="ci"><input type="checkbox" class="edit-eq-pm"><span>下午</span></label><div class="ci-ot"><span>備註</span><input type="text" class="edit-eq-note" placeholder=""></div></div>';
   document.getElementById('editEqList').appendChild(div);
 }
 
@@ -3043,9 +3044,9 @@ function getEditedNote(orig, newData) {
   if (origEq !== newEq) {
     changes.push('車輛機具：' + (origEq||'—') + ' → ' + (newEq||'—'));
   } else {
-    var origEqHrs = (orig.equipment||[]).map(function(a){return (a.am?'1':'0')+(a.pm?'1':'0')+(a.ot||0);}).join(',');
-    var newEqHrs = (newData.equipment||[]).map(function(a){return (a.am?'1':'0')+(a.pm?'1':'0')+(a.ot||0);}).join(',');
-    if (origEqHrs !== newEqHrs) changes.push('機具使用時段已修改');
+    var origEqHrs = (orig.equipment||[]).map(function(a){return (a.am?'1':'0')+(a.pm?'1':'0')+(a.note||'');}).join(',');
+    var newEqHrs = (newData.equipment||[]).map(function(a){return (a.am?'1':'0')+(a.pm?'1':'0')+(a.note||'');}).join(',');
+    if (origEqHrs !== newEqHrs) changes.push('機具使用紀錄已修改');
   }
 
   var origItems = (orig.expenses||[]).map(function(e){return String(e.item||'');}).join('、');
@@ -3111,9 +3112,9 @@ function refreshCardInPlace(patchData) {
   // 車輛機具
   if (patchData.equipment && patchData.equipment.length) {
     var eqs = document.createElement('div'); eqs.className = 'rbs';
-    var eqh = '<div class="rbl">車輛機具使用紀錄</div><table class="rbt"><tr><th>名稱</th><th>上午</th><th>下午</th><th>加班(時)</th></tr>';
+    var eqh = '<div class="rbl">車輛機具使用紀錄</div><table class="rbt"><tr><th>名稱</th><th>上午</th><th>下午</th><th>備註</th></tr>';
     patchData.equipment.forEach(function(a) {
-      eqh += '<tr><td>' + esc(a.name) + '</td><td>' + (a.am?'✔':'—') + '</td><td>' + (a.pm?'✔':'—') + '</td><td>' + (a.ot?a.ot+'h':'—') + '</td></tr>';
+      eqh += '<tr><td>' + esc(a.name) + '</td><td>' + (a.am?'✔':'—') + '</td><td>' + (a.pm?'✔':'—') + '</td><td>' + (a.note?esc(a.note):'—') + '</td></tr>';
     });
     eqs.innerHTML = eqh + '</table>';
     body.appendChild(eqs);
@@ -3285,7 +3286,8 @@ function saveEdit() {
     eqListEl.querySelectorAll('.ec').forEach(function(c) {
       var name = c.querySelector('.edit-eq-name').value.trim();
       if (!name) return;
-      eq.push({name:name, am:c.querySelector('.edit-eq-am').checked, pm:c.querySelector('.edit-eq-pm').checked, ot:parseFloat(c.querySelector('.edit-eq-ot').value)||0});
+      var noteEl = c.querySelector('.edit-eq-note');
+      eq.push({name:name, am:c.querySelector('.edit-eq-am').checked, pm:c.querySelector('.edit-eq-pm').checked, note: noteEl ? noteEl.value.trim() : ''});
     });
   }
 

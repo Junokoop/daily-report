@@ -270,6 +270,8 @@ table.st{width:100%;border-collapse:collapse;border-top:1.5px solid var(--bd)}
     <div class="wa"><textarea id="witem" placeholder="請填寫今日施工項目內容…"></textarea></div>
     <div class="sh">出工人數及人員簽到表</div>
     <div class="awrap" id="attList"></div>
+    <div class="sh">車輛機具使用紀錄</div>
+    <div class="awrap" id="eqList"></div>
     <div class="sh">公款支出每日明細表</div>
     <div class="ewrap" id="expList"></div>
     <div class="sh">本日接收公款</div>
@@ -615,35 +617,99 @@ function _buildReportHtml(rpt, money) {
   return h;
 }
 
-// 用瀏覽器列印對話框列印（不產 PDF；使用者可選印表機或用瀏覽器另存 PDF）
+// 用瀏覽器列印對話框列印（直接叫出印表機對話框、不彈新視窗）
 function browserPrintReport(rpt) {
   if (!rpt) return;
   function money(n) { return (Number(n) || 0).toLocaleString('en-US'); }
-  var h = _buildReportHtml(rpt, money);
-  var win = window.open('', '_blank');
-  if (!win) { showToast('請允許彈出視窗以列印'); return; }
-  var doc = win.document;
-  doc.open();
-  doc.write(
-    '<!DOCTYPE html><html lang="zh-TW"><head><meta charset="UTF-8">' +
-    '<title>施工日報表 - ' + esc(rpt.reporter||'') + ' ' + esc(rpt.date||'') + '</title>' +
-    '<style>' +
-      '@page { size: A4; margin: 12mm; }' +
-      'body { font-family: -apple-system, "PingFang TC", "Microsoft JhengHei", sans-serif; color: #1a1a1a; margin: 0; padding: 16px; }' +
-      '@media print { body { padding: 0 } }' +
-    '</style></head><body>' + h + '</body></html>'
-  );
-  doc.close();
-  // 等資源載入完再叫列印
-  var doPrint = function(){
-    try { win.focus(); win.print(); } catch(e) {}
-  };
-  if (win.document.readyState === 'complete') {
-    setTimeout(doPrint, 300);
+
+  showToast('準備列印…');
+
+  // 先確保發票照片在快取
+  var totalPC = (rpt.expenses || []).reduce(function(s, e) {
+    return s + (e.photoCount || (e.photos ? e.photos.length : 0) || 0);
+  }, 0);
+  var photoReady;
+  if (totalPC > 0) {
+    var cached = _photoCache[String(rpt.id)];
+    if (cached && cached.length) photoReady = Promise.resolve(cached);
+    else photoReady = getPhotosFromGAS(rpt.id).then(function(ph){ _photoCache[String(rpt.id)] = ph; return ph; }).catch(function(){ return []; });
   } else {
-    win.addEventListener('load', function(){ setTimeout(doPrint, 200); });
-    setTimeout(doPrint, 800); // 保險
+    photoReady = Promise.resolve([]);
   }
+
+  photoReady.then(function(photos){
+    photos = (photos || []).filter(function(p){ return !!p; });
+
+    var h = _buildReportHtml(rpt, money);
+
+    // 附上發票照片：每頁 4 張（2x2），跟 PDF 一致
+    if (photos.length) {
+      h += '<div style="page-break-before:always;font-weight:700;font-size:18px;padding:6px 0 10px;border-bottom:2px solid #333;margin-bottom:10px">發票照片</div>';
+      for (var i = 0; i < photos.length; i += 4) {
+        var group = photos.slice(i, i + 4);
+        h += (i === 0 ? '' : '<div style="page-break-before:always"></div>') +
+             '<div style="display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:8px;page-break-inside:avoid;height:calc(100vh - 30mm);max-height:250mm">' +
+             group.map(function(p){
+               return '<div style="border:1px solid #b0a99a;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#fff"><img src="' + p + '" style="max-width:100%;max-height:100%;object-fit:contain"></div>';
+             }).join('') +
+             '</div>';
+      }
+    }
+
+    var html =
+      '<!DOCTYPE html><html lang="zh-TW"><head><meta charset="UTF-8">' +
+      '<title>施工日報表 - ' + esc(rpt.reporter||'') + ' ' + esc(rpt.date||'') + '</title>' +
+      '<style>' +
+        '@page { size: A4; margin: 12mm; }' +
+        'html,body { margin:0; padding:0; }' +
+        'body { font-family: -apple-system, "PingFang TC", "Microsoft JhengHei", sans-serif; color:#1a1a1a; padding:16px; }' +
+        '@media print { body { padding:0 } }' +
+        'img { display:block; }' +
+      '</style></head><body>' + h + '</body></html>';
+
+    // 用隱藏 iframe 列印，不彈新視窗
+    var old = document.getElementById('__printFrame');
+    if (old) old.parentNode.removeChild(old);
+    var iframe = document.createElement('iframe');
+    iframe.id = '__printFrame';
+    iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden';
+    document.body.appendChild(iframe);
+
+    function doPrint() {
+      try {
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+      } catch(e) {}
+      // 列印對話框關閉後清掉（大多瀏覽器列印是同步阻塞）
+      setTimeout(function(){
+        if (iframe && iframe.parentNode) iframe.parentNode.removeChild(iframe);
+      }, 1000);
+    }
+
+    // 等所有圖片載入完再列印，避免發票是空的
+    iframe.onload = function() {
+      var doc = iframe.contentDocument;
+      var imgs = doc.images;
+      if (!imgs || imgs.length === 0) { doPrint(); return; }
+      var pending = 0;
+      Array.prototype.forEach.call(imgs, function(img){
+        if (!img.complete) {
+          pending++;
+          img.onload = img.onerror = function(){
+            pending--;
+            if (pending === 0) doPrint();
+          };
+        }
+      });
+      if (pending === 0) doPrint();
+    };
+
+    // 寫入 iframe
+    var idoc = iframe.contentDocument || iframe.contentWindow.document;
+    idoc.open(); idoc.write(html); idoc.close();
+  }).catch(function(){
+    showToast('列印失敗');
+  });
 }
 
 // 直接產生並儲存 PDF（不走列印對話框）；發票照片每頁 4 張(2x2)
@@ -802,8 +868,10 @@ var allReports = [];
 var editingId = null;
 var expPhotoMap = {};
 var addAttBtn = null;
+var addEqBtn = null;
 var addExpBtn = null;
 var attList = null;
+var eqList = null;
 var expList = null;
 var _reportCache = null;
 var _reportCacheTime = 0;
@@ -818,9 +886,10 @@ function _clone(o){ try { return JSON.parse(JSON.stringify(o)); } catch(e){ retu
 function _editSig(r){
   if (!r) return '';
   var att = (r.attendance||[]).map(function(a){ return (a.name||'')+'|'+(a.am?1:0)+(a.pm?1:0)+'|'+(a.ot||0); }).join(',');
+  var eq = (r.equipment||[]).map(function(a){ return (a.name||'')+'|'+(a.am?1:0)+(a.pm?1:0)+'|'+(a.ot||0); }).join(',');
   var exp = (r.expenses||[]).map(function(e){ return (e.item||'')+'|'+(Number(e.cash)||0)+'|'+(Number(e.card)||0)+'|'+(e.inv?1:0); }).join(',');
   return [r.date||'', r.project||'', r.workItems||'', Number(r.receiptCash)||0, Number(r.totalCash)||0,
-          Number(r.totalCard)||0, Number(r.remaining)||0, r.receiptNote||'', att, exp, r.editedAt||''].join('§');
+          Number(r.totalCard)||0, Number(r.remaining)||0, r.receiptNote||'', att, eq, exp, r.editedAt||''].join('§');
 }
 // 把暫存的本地編輯疊到從 GAS 抓回的列表上（就地覆蓋對應那筆）
 function applyPendingEdits(arr){
@@ -843,6 +912,7 @@ function applyPendingEdits(arr){
     merged.project     = p.project;
     merged.workItems   = p.workItems;
     merged.attendance  = p.attendance;
+    merged.equipment   = p.equipment;
     merged.expenses    = p.expenses;
     merged.receiptCash = p.receiptCash;
     merged.totalCash   = p.totalCash;
@@ -1073,6 +1143,7 @@ function checkPw() {
 
 function initForm() {
   attList = document.getElementById('attList');
+  eqList = document.getElementById('eqList');
   expList = document.getElementById('expList');
   expPhotoMap = {};
   if (!addAttBtn) {
@@ -1080,6 +1151,12 @@ function initForm() {
     addAttBtn.className = 'ab'; addAttBtn.type = 'button';
     addAttBtn.textContent = '＋ 新增人員';
     addAttBtn.onclick = addAtt;
+  }
+  if (!addEqBtn) {
+    addEqBtn = document.createElement('button');
+    addEqBtn.className = 'ab'; addEqBtn.type = 'button';
+    addEqBtn.textContent = '＋ 新增機具';
+    addEqBtn.onclick = addEq;
   }
   if (!addExpBtn) {
     addExpBtn = document.createElement('button');
@@ -1099,6 +1176,9 @@ function initForm() {
   while (attList.firstChild) attList.removeChild(attList.firstChild);
   attList.appendChild(addAttBtn);
   addAtt(); addAtt(); addAtt(); addAtt();
+  while (eqList.firstChild) eqList.removeChild(eqList.firstChild);
+  eqList.appendChild(addEqBtn);
+  addEq(); addEq();
   while (expList.firstChild) expList.removeChild(expList.firstChild);
   expList.appendChild(addExpBtn);
   addExp(); addExp(); addExp(); addExp();
@@ -1159,6 +1239,15 @@ function addAtt() {
   c.innerHTML = '<div class="atop"><span class="no">人員 ' + n + '</span><input type="text" placeholder="請輸入姓名"><button class="db" type="button">&#x2715;</button></div><div class="achks"><label class="ci"><input type="checkbox"><span>上午</span></label><label class="ci"><input type="checkbox"><span>下午</span></label><div class="ci-ot"><span>加班(時)</span><input type="number" class="ot-input" min="0" max="24" step="0.5" placeholder="0"></div></div>';
   c.querySelector('.db').onclick = function() { attList.removeChild(c); };
   attList.insertBefore(c, addAttBtn);
+}
+
+function addEq() {
+  if (!eqList) return;
+  var n = eqList.querySelectorAll('.ac').length + 1;
+  var c = document.createElement('div'); c.className = 'ac';
+  c.innerHTML = '<div class="atop"><span class="no">機具 ' + n + '</span><input type="text" placeholder="機具名稱／車號"><button class="db" type="button">&#x2715;</button></div><div class="achks"><label class="ci"><input type="checkbox"><span>上午</span></label><label class="ci"><input type="checkbox"><span>下午</span></label><div class="ci-ot"><span>加班(時)</span><input type="number" class="ot-input" min="0" max="24" step="0.5" placeholder="0"></div></div>';
+  c.querySelector('.db').onclick = function() { eqList.removeChild(c); };
+  eqList.insertBefore(c, addEqBtn);
 }
 
 function addExp() {
@@ -1295,6 +1384,24 @@ function submitReport() {
     });
   });
 
+  // 車輛機具
+  var eq = [];
+  var eqEl = document.getElementById('eqList');
+  if (eqEl) {
+    eqEl.querySelectorAll('.ac').forEach(function(c) {
+      var nameEl = c.querySelector('input[type="text"]');
+      if (!nameEl || !nameEl.value.trim()) return;
+      var cbs = c.querySelectorAll('input[type="checkbox"]');
+      var otEl = c.querySelector('.ot-input');
+      eq.push({
+        name: nameEl.value.trim(),
+        am: cbs[0] ? cbs[0].checked : false,
+        pm: cbs[1] ? cbs[1].checked : false,
+        ot: otEl ? (parseFloat(otEl.value)||0) : 0
+      });
+    });
+  }
+
   // 公款支出
   var exps = [];
   document.getElementById('expList').querySelectorAll('.ec').forEach(function(c) {
@@ -1327,6 +1434,7 @@ function submitReport() {
     project: document.getElementById('pname').value.trim(),
     workItems: document.getElementById('witem').value.trim(),
     attendance: att,
+    equipment: eq,
     expenses: exps,
     receiptCash: rc,
     totalCash: totalCash,
@@ -2304,6 +2412,11 @@ function buildCard(rpt, isAdminView) {
     rpt.attendance.forEach(function(a) { h += '<tr><td>' + esc(a.name) + '</td><td>' + (a.am ? '✔' : '—') + '</td><td>' + (a.pm ? '✔' : '—') + '</td><td>' + (a.ot ? a.ot + 'h' : '—') + '</td></tr>'; });
     body.innerHTML += h + '</table></div>';
   }
+  if (rpt.equipment && rpt.equipment.length) {
+    var he = '<div class="rbs"><div class="rbl">車輛機具使用紀錄</div><table class="rbt"><tr><th>名稱</th><th>上午</th><th>下午</th><th>加班(時)</th></tr>';
+    rpt.equipment.forEach(function(a) { he += '<tr><td>' + esc(a.name) + '</td><td>' + (a.am ? '✔' : '—') + '</td><td>' + (a.pm ? '✔' : '—') + '</td><td>' + (a.ot ? a.ot + 'h' : '—') + '</td></tr>'; });
+    body.innerHTML += he + '</table></div>';
+  }
   if (rpt.expenses && rpt.expenses.length) {
     var h2 = '<div class="rbs"><div class="rbl">公款支出</div><table class="rbt"><tr><th>項目</th><th>發票</th><th>現金</th><th>刷卡</th></tr>';
     rpt.expenses.forEach(function(e) {
@@ -2546,6 +2659,7 @@ function openEditModal(rpt) {
 function doOpenEditModal(rpt) {
   editingId = rpt.id;
   var att = rpt.attendance || [];
+  var eq = rpt.equipment || [];
   var exp = rpt.expenses || [];
   window._editExpPhotoMap = {};
 
@@ -2579,6 +2693,12 @@ function doOpenEditModal(rpt) {
     attHtml += '<div class="ec" style="margin-bottom:6px"><div class="er"><span class="el">姓名</span><input type="text" class="edit-att-name" value="' + esc(a.name) + '"><button class="db" type="button" onclick="this.closest(\'.ec\').remove()">✕</button></div><div class="achks"><label class="ci"><input type="checkbox" class="edit-att-am"' + (a.am ? ' checked' : '') + '><span>上午</span></label><label class="ci"><input type="checkbox" class="edit-att-pm"' + (a.pm ? ' checked' : '') + '><span>下午</span></label><div class="ci-ot"><span>加班(時)</span><input type="number" class="edit-att-ot" value="' + (a.ot || 0) + '" min="0" step="0.5" inputmode="numeric"></div></div></div>';
   });
 
+  // 建立車輛機具 HTML
+  var eqHtml = '';
+  eq.forEach(function(a) {
+    eqHtml += '<div class="ec" style="margin-bottom:6px"><div class="er"><span class="el">名稱</span><input type="text" class="edit-eq-name" value="' + esc(a.name) + '"><button class="db" type="button" onclick="this.closest(\'.ec\').remove()">✕</button></div><div class="achks"><label class="ci"><input type="checkbox" class="edit-eq-am"' + (a.am ? ' checked' : '') + '><span>上午</span></label><label class="ci"><input type="checkbox" class="edit-eq-pm"' + (a.pm ? ' checked' : '') + '><span>下午</span></label><div class="ci-ot"><span>加班(時)</span><input type="number" class="edit-eq-ot" value="' + (a.ot || 0) + '" min="0" step="0.5" inputmode="numeric"></div></div></div>';
+  });
+
   // 建立支出 HTML
   var expHtml = '';
   exp.forEach(function(ex, ei) {
@@ -2603,6 +2723,7 @@ function doOpenEditModal(rpt) {
     '<div class="mrow"><span class="mlbl">工程名稱</span><input id="editPname" class="mi" value="' + esc(rpt.project) + '"></div>' +
     '<div class="mrow"><span class="mlbl">施工項目</span><textarea id="editWitem" class="mi" rows="3" style="resize:vertical">' + esc(rpt.workItems) + '</textarea></div>' +
     '<div><div class="mlbl" style="margin-bottom:6px">出工人員</div><div id="editAttList">' + attHtml + '</div><button type="button" class="ab" onclick="addEditAtt()" style="margin-top:6px">＋ 新增人員</button></div>' +
+    '<div><div class="mlbl" style="margin-bottom:6px">車輛機具使用紀錄</div><div id="editEqList">' + eqHtml + '</div><button type="button" class="ab" onclick="addEditEq()" style="margin-top:6px">＋ 新增機具</button></div>' +
     '<div><div class="mlbl" style="margin-bottom:6px">公款支出</div><div id="editExpList">' + expHtml + '</div><button type="button" class="ab" onclick="addEditExp()" style="margin-top:6px">＋ 新增支出項目</button></div>' +
     '<div style="background:#eaf4ec;border-radius:8px;padding:12px;margin-top:4px">' +
       '<div style="font-weight:700;font-size:13px;margin-bottom:8px;color:var(--ac)">公款結算</div>' +
@@ -2821,6 +2942,12 @@ function addEditAtt() {
   document.getElementById('editAttList').appendChild(div);
 }
 
+function addEditEq() {
+  var div = document.createElement('div'); div.className = 'ec'; div.style.marginBottom = '6px';
+  div.innerHTML = '<div class="er"><span class="el">名稱</span><input type="text" class="edit-eq-name" placeholder="機具名稱／車號"><button class="db" type="button" onclick="this.closest(\'.ec\').remove()">✕</button></div><div class="achks"><label class="ci"><input type="checkbox" class="edit-eq-am"><span>上午</span></label><label class="ci"><input type="checkbox" class="edit-eq-pm"><span>下午</span></label><div class="ci-ot"><span>加班(時)</span><input type="number" class="edit-eq-ot" min="0" max="24" step="0.5" placeholder="0"></div></div>';
+  document.getElementById('editEqList').appendChild(div);
+}
+
 function addEditExp() {
   var epIdx = 'ep' + Date.now();
   if (!window._editExpPhotoMap) window._editExpPhotoMap = {};
@@ -2911,6 +3038,16 @@ function getEditedNote(orig, newData) {
     if (origHrs !== newHrs) changes.push('出工時段已修改');
   }
 
+  var origEq = (orig.equipment||[]).map(function(a){return a.name;}).sort().join('、');
+  var newEq = (newData.equipment||[]).map(function(a){return a.name;}).sort().join('、');
+  if (origEq !== newEq) {
+    changes.push('車輛機具：' + (origEq||'—') + ' → ' + (newEq||'—'));
+  } else {
+    var origEqHrs = (orig.equipment||[]).map(function(a){return (a.am?'1':'0')+(a.pm?'1':'0')+(a.ot||0);}).join(',');
+    var newEqHrs = (newData.equipment||[]).map(function(a){return (a.am?'1':'0')+(a.pm?'1':'0')+(a.ot||0);}).join(',');
+    if (origEqHrs !== newEqHrs) changes.push('機具使用時段已修改');
+  }
+
   var origItems = (orig.expenses||[]).map(function(e){return String(e.item||'');}).join('、');
   var newItems = (newData.expenses||[]).map(function(e){return String(e.item||'');}).join('、');
   if (origItems !== newItems)
@@ -2969,6 +3106,17 @@ function refreshCardInPlace(patchData) {
     });
     as.innerHTML = ah + '</table>';
     body.appendChild(as);
+  }
+
+  // 車輛機具
+  if (patchData.equipment && patchData.equipment.length) {
+    var eqs = document.createElement('div'); eqs.className = 'rbs';
+    var eqh = '<div class="rbl">車輛機具使用紀錄</div><table class="rbt"><tr><th>名稱</th><th>上午</th><th>下午</th><th>加班(時)</th></tr>';
+    patchData.equipment.forEach(function(a) {
+      eqh += '<tr><td>' + esc(a.name) + '</td><td>' + (a.am?'✔':'—') + '</td><td>' + (a.pm?'✔':'—') + '</td><td>' + (a.ot?a.ot+'h':'—') + '</td></tr>';
+    });
+    eqs.innerHTML = eqh + '</table>';
+    body.appendChild(eqs);
   }
 
   // 公款支出
@@ -3131,6 +3279,16 @@ function saveEdit() {
     att.push({name:name, am:c.querySelector('.edit-att-am').checked, pm:c.querySelector('.edit-att-pm').checked, ot:parseFloat(c.querySelector('.edit-att-ot').value)||0});
   });
 
+  var eq = [];
+  var eqListEl = document.getElementById('editEqList');
+  if (eqListEl) {
+    eqListEl.querySelectorAll('.ec').forEach(function(c) {
+      var name = c.querySelector('.edit-eq-name').value.trim();
+      if (!name) return;
+      eq.push({name:name, am:c.querySelector('.edit-eq-am').checked, pm:c.querySelector('.edit-eq-pm').checked, ot:parseFloat(c.querySelector('.edit-eq-ot').value)||0});
+    });
+  }
+
   var exp = [];
   document.getElementById('editExpList').querySelectorAll('.ec').forEach(function(c) {
     var item = c.querySelector('.edit-exp-item').value.trim();
@@ -3166,12 +3324,8 @@ function saveEdit() {
     project: document.getElementById('editPname').value.trim(),
     workItems: document.getElementById('editWitem').value.trim(),
     attendance: att,
+    equipment: eq,
     expenses: exp,
-    receiptCash: rc,
-    totalCash: totalCash,
-    totalCard: totalCard,
-    remaining: rc - totalCash,
-    receiptNote: document.getElementById('editRn').value.trim(),
     editedAt: patchOrig.editedAt   || '',
     editedBy: patchOrig.editedBy   || '',
     editedNote: patchOrig.editedNote  || '',
@@ -3190,6 +3344,7 @@ function saveEdit() {
     project: patchData.project, workItems: patchData.workItems,
     receiptCash: patchData.receiptCash, totalCash: patchData.totalCash,
     totalCard: patchData.totalCard, attendance: patchData.attendance,
+    equipment: patchData.equipment,
     expenses: patchData.expenses, receiptNote: patchData.receiptNote, date: patchData.date
   });
   if (_diffNote) {
@@ -3224,6 +3379,7 @@ function saveEdit() {
           cached.project     = patchData.project;
           cached.workItems   = patchData.workItems;
           cached.attendance  = patchData.attendance;
+          cached.equipment   = patchData.equipment;
           cached.expenses    = patchData.expenses;
           cached.receiptCash = patchData.receiptCash;
           cached.totalCash   = patchData.totalCash;
@@ -3245,6 +3401,7 @@ function saveEdit() {
           ar.project     = patchData.project;
           ar.workItems   = patchData.workItems;
           ar.attendance  = patchData.attendance;
+          ar.equipment   = patchData.equipment;
           ar.expenses    = patchData.expenses;
           ar.receiptCash = patchData.receiptCash;
           ar.totalCash   = patchData.totalCash;

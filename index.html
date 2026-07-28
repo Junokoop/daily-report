@@ -96,7 +96,6 @@ table.st{width:100%;border-collapse:collapse;border-top:1.5px solid var(--bd)}
 .action-wrap{display:flex;gap:8px;justify-content:flex-end;padding:10px 14px;flex-wrap:wrap}
 .action-wrap button{border-radius:6px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer;border:1.5px solid}
 .btn-pdf{background:var(--ac);color:#fff;border-color:var(--ac)}
-.btn-print{background:none;color:var(--grn);border-color:var(--grn)}
 .btn-del{background:none;color:var(--red);border-color:var(--red)}
 .btn-edit{background:none;color:#1a6ea8;border-color:#1a6ea8}
 .empty{text-align:center;padding:48px 20px;color:var(--mu)}
@@ -170,7 +169,7 @@ table.st{width:100%;border-collapse:collapse;border-top:1.5px solid var(--bd)}
 @media print{
   @page{margin:10mm;size:A4 portrait}
   body{background:#fff!important;padding:0!important}
-  .nav,.bottom-bar,.ab,.db,.action-wrap,.admin-header,.report-head,.page,.modal-overlay,.filter-bar,.toast{display:none!important}
+  .nav,.bottom-bar,.ab,.db,.action-wrap,.admin-header,.report-head,.page,.modal-overlay,.filter-bar{display:none!important}
   #printArea{display:block!important}
   *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
 }
@@ -271,8 +270,6 @@ table.st{width:100%;border-collapse:collapse;border-top:1.5px solid var(--bd)}
     <div class="wa"><textarea id="witem" placeholder="請填寫今日施工項目內容…"></textarea></div>
     <div class="sh">出工人數及人員簽到表</div>
     <div class="awrap" id="attList"></div>
-    <div class="sh">車輛機具使用紀錄表</div>
-    <div class="awrap" id="eqList"></div>
     <div class="sh">公款支出每日明細表</div>
     <div class="ewrap" id="expList"></div>
     <div class="sh">本日接收公款</div>
@@ -357,6 +354,12 @@ table.st{width:100%;border-collapse:collapse;border-top:1.5px solid var(--bd)}
   </div>
   <div id="filterReporter" style="display:none"></div>
   <div id="reportList" style="display:none"></div>
+  <div class="card" style="margin-top:16px">
+    <div class="sh">🔗 API 連線狀態</div>
+    <div id="apiStatusBox" style="padding:12px 14px;font-size:14px;line-height:1.7">
+      <div style="color:var(--mu)">載入中…</div>
+    </div>
+  </div>
   <div class="card" style="margin-top:16px">
     <div class="sh">&#x1F477; 填報者管理</div>
     <div class="reporter-mgmt" id="reporterMgmt"></div>
@@ -587,22 +590,6 @@ function _buildAndSavePdf(rpt, photos, money) {
     h += '</table>';
   }
 
-  var eq = rpt.equipment || [];
-  if (eq.length) {
-    h += sh('車輛機具使用紀錄') + '<table style="width:100%;border-collapse:collapse;font-size:14px"><tr>' +
-         '<th style="background:#e5e7eb;border:1px solid #b0a99a;padding:6px">車輛/機具</th>' +
-         '<th style="background:#e5e7eb;border:1px solid #b0a99a;padding:6px">上午</th>' +
-         '<th style="background:#e5e7eb;border:1px solid #b0a99a;padding:6px">下午</th>' +
-         '<th style="background:#e5e7eb;border:1px solid #b0a99a;padding:6px">備註</th></tr>';
-    eq.forEach(function(a){
-      h += '<tr><td style="border:1px solid #b0a99a;padding:6px;text-align:center">' + esc(a.name||'') +
-           '</td><td style="border:1px solid #b0a99a;padding:6px;text-align:center">' + (a.am?'✓':'') +
-           '</td><td style="border:1px solid #b0a99a;padding:6px;text-align:center">' + (a.pm?'✓':'') +
-           '</td><td style="border:1px solid #b0a99a;padding:6px;text-align:center">' + esc(a.note||'') + '</td></tr>';
-    });
-    h += '</table>';
-  }
-
   var exp = rpt.expenses || [];
   if (exp.length) {
     h += sh('公款支出') + '<table style="width:100%;border-collapse:collapse;font-size:14px"><tr>' +
@@ -619,7 +606,21 @@ function _buildAndSavePdf(rpt, photos, money) {
     h += '</table>';
   }
 
+  // 找上筆結餘來推算本日接收公款（同填報者、id 較小的最近一筆）
+  var _pool = (_reportCache && _reportCache.length ? _reportCache : (allReports || []));
+  var _prevRemaining = 0;
+  try {
+    var _mine = _pool.filter(function(x){ return x.reporter === rpt.reporter; });
+    _mine.sort(function(a,b){ return Number(b.id) - Number(a.id); });
+    var _idx = -1;
+    for (var _i=0; _i<_mine.length; _i++){ if (String(_mine[_i].id) === String(rpt.id)) { _idx = _i; break; } }
+    if (_idx >= 0 && _idx + 1 < _mine.length) _prevRemaining = Number(_mine[_idx+1].remaining) || 0;
+  } catch(e) {}
+  var _todayReceived = (Number(rpt.receiptCash) || 0) - _prevRemaining;
+
   h += sh('現金結算') + '<table style="width:100%;border-collapse:collapse;font-size:15px">' +
+       _sumRow('上筆結餘', money(_prevRemaining)) +
+       _sumRow('本日接收公款', money(_todayReceived)) +
        _sumRow('接收現金', money(rpt.receiptCash)) +
        _sumRow('支出現金', money(rpt.totalCash)) +
        _sumRow('支出刷卡', money(rpt.totalCard)) +
@@ -689,85 +690,6 @@ function _buildAndSavePdf(rpt, photos, money) {
     });
 }
 
-function printReportDirect(rpt) {
-  if (!rpt) return;
-  function money(n) { return (Number(n) || 0).toLocaleString('en-US'); }
-
-  var totalPC = (rpt.expenses || []).reduce(function(s, e) {
-    return s + (e.photoCount || (e.photos ? e.photos.length : 0) || 0);
-  }, 0);
-
-  var photoReady;
-  if (totalPC > 0) {
-    var cached = _photoCache[String(rpt.id)];
-    if (cached && cached.length) photoReady = Promise.resolve(cached);
-    else photoReady = getPhotosFromGAS(rpt.id).then(function(ph){ _photoCache[String(rpt.id)] = ph; return ph; }).catch(function(){ return []; });
-  } else {
-    photoReady = Promise.resolve([]);
-  }
-
-  photoReady.then(function(photos) {
-    photos = (photos || []).filter(function(p){ return !!p; });
-
-    var h = '';
-    h += '<div class="print-title">施工日報表</div>';
-    h += '<div class="print-meta">日期：' + esc(rpt.date || '') +
-         '<br>填報者：' + esc(rpt.reporter || '') +
-         '<br>工程名稱：' + esc(rpt.project || '') + '</div>';
-    function sh(t){ return '<div class="print-sh">' + t + '</div>'; }
-    h += sh('施工項目') + '<div class="print-content">' + esc(rpt.workItems || '（無）') + '</div>';
-
-    var att = rpt.attendance || [];
-    if (att.length) {
-      h += sh('出工人員') + '<table class="print-table"><tr><th>姓名</th><th>上午</th><th>下午</th><th>加班(時)</th></tr>';
-      att.forEach(function(a){
-        h += '<tr><td>' + esc(a.name||'') + '</td><td>' + (a.am?'✓':'') + '</td><td>' + (a.pm?'✓':'') + '</td><td>' + (a.ot||0) + '</td></tr>';
-      });
-      h += '</table>';
-    }
-
-    var eq = rpt.equipment || [];
-    if (eq.length) {
-      h += sh('車輛機具使用紀錄') + '<table class="print-table"><tr><th>車輛/機具</th><th>上午</th><th>下午</th><th>備註</th></tr>';
-      eq.forEach(function(a){
-        h += '<tr><td>' + esc(a.name||'') + '</td><td>' + (a.am?'✓':'') + '</td><td>' + (a.pm?'✓':'') + '</td><td>' + esc(a.note||'') + '</td></tr>';
-      });
-      h += '</table>';
-    }
-
-    var exp = rpt.expenses || [];
-    if (exp.length) {
-      h += sh('公款支出') + '<table class="print-table"><tr><th>項目</th><th>現金</th><th>刷卡</th><th>發票</th></tr>';
-      exp.forEach(function(e){
-        h += '<tr><td>' + esc(e.item||'') + '</td><td>' + money(e.cash) + '</td><td>' + money(e.card) + '</td><td>' + (e.inv?'有':'') + '</td></tr>';
-      });
-      h += '</table>';
-    }
-
-    h += sh('現金結算') + '<table class="print-sum">' +
-         _sumRow('接收現金', money(rpt.receiptCash)) +
-         _sumRow('支出現金', money(rpt.totalCash)) +
-         _sumRow('支出刷卡', money(rpt.totalCard)) +
-         _sumRow('現金剩餘', money(rpt.remaining)) + '</table>';
-
-    if (rpt.receiptNote) h += sh('備考') + '<div class="print-content">' + esc(rpt.receiptNote) + '</div>';
-    if (rpt.editedAt) h += '<div style="font-size:12px;color:#856404;margin-top:8px">修正：' + esc(rpt.editedAt) + ' / ' + esc(rpt.editedBy||'') + '</div>';
-
-    if (photos.length) {
-      h += sh('發票照片') + '<div style="display:flex;flex-wrap:wrap;gap:8px">';
-      photos.forEach(function(src){
-        h += '<img src="' + src + '" style="width:47%;max-height:260px;object-fit:contain;border:1px solid #b0a99a">';
-      });
-      h += '</div>';
-    }
-
-    document.getElementById('printArea').innerHTML = h;
-    setTimeout(function(){ window.print(); }, 100);
-  }).catch(function(){
-    showToast('列印資料準備失敗，請確認網路後再試');
-  });
-}
-
 function _sumRow(k, v) {
   return '<tr><td style="background:#e5e7eb;font-weight:700;width:130px;border-bottom:1px solid #b0a99a;padding:8px 12px">' + k +
          '</td><td style="border-bottom:1px solid #b0a99a;padding:8px 12px">' + v + '</td></tr>';
@@ -818,7 +740,7 @@ function showToast(msg) {
   t._timer = setTimeout(function() { t.classList.remove('show'); }, 2500);
 }
 
-var API = 'https://script.google.com/macros/s/AKfycbzxG1wR56BkvfitmURNaIaGqfDumG5CB8_l5TrwLzTisyI7SAhWDXqlMEbQi4lQK3Ci/exec';
+var API = 'https://script.google.com/macros/s/AKfycbzop5J3cnbFuy72J-ExONMxb1hcNUHEeOW-JKGucG68NE7x0JLCa-cLwnL9MaqDJTb2/exec';
 var ADMIN_PW = '86617383';
 var REPORTERS_KEY = 'gas_reporters';
 var currentReporter = '';
@@ -828,10 +750,8 @@ var editingId = null;
 var expPhotoMap = {};
 var addAttBtn = null;
 var addExpBtn = null;
-var addEqBtn = null;
 var attList = null;
 var expList = null;
-var eqList = null;
 var _reportCache = null;
 var _reportCacheTime = 0;
 var CACHE_TTL = 10000; // 60秒快取
@@ -1055,7 +975,7 @@ function showPage(p) {
   }
   if (p === 'form') { showRawPage('pageForm'); document.getElementById('navForm').classList.add('active'); }
   else if (p === 'history') { showRawPage('pageHistory'); document.getElementById('navHistory').classList.add('active'); _reportCache = null; loadHistory(); startHistoryRefresh(); }
-  else if (p === 'admin') { showRawPage('pageAdmin'); document.getElementById('navAdmin').classList.add('active'); loadAllReports(); renderReporterMgmt(); syncReportersFromServer(); }
+  else if (p === 'admin') { showRawPage('pageAdmin'); document.getElementById('navAdmin').classList.add('active'); loadAllReports(); renderReporterMgmt(); syncReportersFromServer(); renderApiStatus(); }
 }
 
 // 後端檢測：確認 App 連到的後端是否為含修正的新版 Code.gs
@@ -1090,6 +1010,7 @@ function checkPw() {
     loadAllReports();
     renderReporterMgmt();
     syncReportersFromServer();
+    renderApiStatus();
     startAdminRefresh();
   } else {
     showToast('密碼錯誤');
@@ -1100,19 +1021,12 @@ function checkPw() {
 function initForm() {
   attList = document.getElementById('attList');
   expList = document.getElementById('expList');
-  eqList = document.getElementById('eqList');
   expPhotoMap = {};
   if (!addAttBtn) {
     addAttBtn = document.createElement('button');
     addAttBtn.className = 'ab'; addAttBtn.type = 'button';
     addAttBtn.textContent = '＋ 新增人員';
     addAttBtn.onclick = addAtt;
-  }
-  if (!addEqBtn) {
-    addEqBtn = document.createElement('button');
-    addEqBtn.className = 'ab'; addEqBtn.type = 'button';
-    addEqBtn.textContent = '＋ 新增車輛機具';
-    addEqBtn.onclick = addEq;
   }
   if (!addExpBtn) {
     addExpBtn = document.createElement('button');
@@ -1132,9 +1046,6 @@ function initForm() {
   while (attList.firstChild) attList.removeChild(attList.firstChild);
   attList.appendChild(addAttBtn);
   addAtt(); addAtt(); addAtt(); addAtt();
-  while (eqList.firstChild) eqList.removeChild(eqList.firstChild);
-  eqList.appendChild(addEqBtn);
-  addEq(); addEq();
   while (expList.firstChild) expList.removeChild(expList.firstChild);
   expList.appendChild(addExpBtn);
   addExp(); addExp(); addExp(); addExp();
@@ -1195,15 +1106,6 @@ function addAtt() {
   c.innerHTML = '<div class="atop"><span class="no">人員 ' + n + '</span><input type="text" placeholder="請輸入姓名"><button class="db" type="button">&#x2715;</button></div><div class="achks"><label class="ci"><input type="checkbox"><span>上午</span></label><label class="ci"><input type="checkbox"><span>下午</span></label><div class="ci-ot"><span>加班(時)</span><input type="number" class="ot-input" min="0" max="24" step="0.5" placeholder="0"></div></div>';
   c.querySelector('.db').onclick = function() { attList.removeChild(c); };
   attList.insertBefore(c, addAttBtn);
-}
-
-function addEq() {
-  if (!eqList) return;
-  var n = eqList.querySelectorAll('.ac').length + 1;
-  var c = document.createElement('div'); c.className = 'ac';
-  c.innerHTML = '<div class="atop"><span class="no">車輛/機具 ' + n + '</span><input type="text" placeholder="請輸入車輛/機具名稱"><button class="db" type="button">&#x2715;</button></div><div class="achks"><label class="ci"><input type="checkbox"><span>上午</span></label><label class="ci"><input type="checkbox"><span>下午</span></label><div class="ci-ot"><span>備註</span><input type="text" class="eq-note-input" placeholder="備註"></div></div>';
-  c.querySelector('.db').onclick = function() { eqList.removeChild(c); };
-  eqList.insertBefore(c, addEqBtn);
 }
 
 function addExp() {
@@ -1312,7 +1214,6 @@ function doReset() {
   document.getElementById('M').value = d.getMonth() + 1;
   document.getElementById('D').value = d.getDate();
   if (attList) { while (attList.firstChild) attList.removeChild(attList.firstChild); attList.appendChild(addAttBtn); addAtt(); addAtt(); addAtt(); addAtt(); }
-  if (eqList) { while (eqList.firstChild) eqList.removeChild(eqList.firstChild); eqList.appendChild(addEqBtn); addEq(); addEq(); }
   if (expList) { while (expList.firstChild) expList.removeChild(expList.firstChild); expList.appendChild(addExpBtn); addExp(); addExp(); addExp(); addExp(); }
   calc();
 }
@@ -1338,21 +1239,6 @@ function submitReport() {
       am: cbs[0] ? cbs[0].checked : false,
       pm: cbs[1] ? cbs[1].checked : false,
       ot: otEl ? (parseFloat(otEl.value)||0) : 0
-    });
-  });
-
-  // 車輛機具使用紀錄
-  var eq = [];
-  document.getElementById('eqList').querySelectorAll('.ac').forEach(function(c) {
-    var nameEl = c.querySelector('input[type="text"]');
-    if (!nameEl || !nameEl.value.trim()) return;
-    var cbs = c.querySelectorAll('input[type="checkbox"]');
-    var noteEl = c.querySelector('.eq-note-input');
-    eq.push({
-      name: nameEl.value.trim(),
-      am: cbs[0] ? cbs[0].checked : false,
-      pm: cbs[1] ? cbs[1].checked : false,
-      note: noteEl ? noteEl.value.trim() : ''
     });
   });
 
@@ -1388,7 +1274,6 @@ function submitReport() {
     project: document.getElementById('pname').value.trim(),
     workItems: document.getElementById('witem').value.trim(),
     attendance: att,
-    equipment: eq,
     expenses: exps,
     receiptCash: rc,
     totalCash: totalCash,
@@ -2107,6 +1992,47 @@ function renderAllReports(data) {
   });
 }
 
+// API 連線狀態：確認資料真的有存入後端
+function renderApiStatus() {
+  var el = document.getElementById('apiStatusBox');
+  if (!el) return;
+  el.innerHTML = '<div style="color:var(--mu)">檢查中…</div>';
+  var t0 = Date.now();
+  fetch(API + '?action=list&noPhotos=1&t=' + Date.now(), {redirect:'follow', cache:'no-store'})
+    .then(function(r){ return r.json(); })
+    .then(function(res){
+      var ms = Date.now() - t0;
+      if (!res || !res.ok || !res.data) throw new Error('bad');
+      var data = res.data;
+      // 找最新一筆（依 id 遞減，或依 uploadedAt / editedAt 都可）
+      var sorted = data.slice().sort(function(a,b){ return Number(b.id) - Number(a.id); });
+      var latest = sorted[0];
+      var latestStr = latest
+        ? esc(latest.reporter||'—') + '　' + esc(latest.date||'—') + '　' + esc(latest.project||'—')
+        : '—';
+      el.innerHTML =
+        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">' +
+          '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--grn)"></span>' +
+          '<span style="font-weight:700;color:var(--grn)">已連線</span>' +
+          '<span style="color:var(--mu);font-size:12px">(' + ms + ' ms)</span>' +
+        '</div>' +
+        '<div>雲端筆數：<b>' + data.length + '</b> 筆</div>' +
+        '<div style="color:var(--mu);margin-top:4px">最新：' + latestStr + '</div>' +
+        '<button onclick="renderApiStatus()" style="margin-top:10px;background:#6b7280;color:#fff;border:none;border-radius:6px;padding:6px 14px;font-size:13px;font-weight:600;cursor:pointer">↻ 重新檢查</button>';
+    })
+    .catch(function(){
+      var ms = Date.now() - t0;
+      el.innerHTML =
+        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">' +
+          '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--red)"></span>' +
+          '<span style="font-weight:700;color:var(--red)">連線失敗</span>' +
+          '<span style="color:var(--mu);font-size:12px">(' + ms + ' ms)</span>' +
+        '</div>' +
+        '<div style="color:var(--mu)">請確認網路連線或 GAS 部署狀態。</div>' +
+        '<button onclick="renderApiStatus()" style="margin-top:10px;background:#6b7280;color:#fff;border:none;border-radius:6px;padding:6px 14px;font-size:13px;font-weight:600;cursor:pointer">↻ 重新檢查</button>';
+    });
+}
+
 function renderReporterMgmt() {
   var reporters = getReporters();
   var el = document.getElementById('reporterMgmt');
@@ -2325,11 +2251,6 @@ function buildCard(rpt, isAdminView) {
     rpt.attendance.forEach(function(a) { h += '<tr><td>' + esc(a.name) + '</td><td>' + (a.am ? '✔' : '—') + '</td><td>' + (a.pm ? '✔' : '—') + '</td><td>' + (a.ot ? a.ot + 'h' : '—') + '</td></tr>'; });
     body.innerHTML += h + '</table></div>';
   }
-  if (rpt.equipment && rpt.equipment.length) {
-    var heq = '<div class="rbs"><div class="rbl">車輛機具使用紀錄</div><table class="rbt"><tr><th>車輛/機具</th><th>上午</th><th>下午</th><th>備註</th></tr>';
-    rpt.equipment.forEach(function(a) { heq += '<tr><td>' + esc(a.name) + '</td><td>' + (a.am ? '✔' : '—') + '</td><td>' + (a.pm ? '✔' : '—') + '</td><td>' + (a.note ? esc(a.note) : '—') + '</td></tr>'; });
-    body.innerHTML += heq + '</table></div>';
-  }
   if (rpt.expenses && rpt.expenses.length) {
     var h2 = '<div class="rbs"><div class="rbl">公款支出</div><table class="rbt"><tr><th>項目</th><th>發票</th><th>現金</th><th>刷卡</th></tr>';
     rpt.expenses.forEach(function(e) {
@@ -2413,9 +2334,6 @@ function buildCard(rpt, isAdminView) {
   var pdfBtn = document.createElement('button'); pdfBtn.className = 'btn-pdf'; pdfBtn.textContent = '📄 PDF';
   pdfBtn.onclick = (function(r) { return function(e) { e.stopPropagation(); printReport(r); }; })(rpt);
   aw.appendChild(pdfBtn);
-  var printBtn = document.createElement('button'); printBtn.className = 'btn-print'; printBtn.textContent = '🖨 列印';
-  printBtn.onclick = (function(r) { return function(e) { e.stopPropagation(); printReportDirect(r); }; })(rpt);
-  aw.appendChild(printBtn);
   if (isAdminView) {
     var delBtn = document.createElement('button'); delBtn.className = 'btn-del'; delBtn.textContent = '🗑 刪除';
     delBtn.onclick = (function(r, w) { return function(e) {
@@ -2572,7 +2490,6 @@ function openEditModal(rpt) {
 function doOpenEditModal(rpt) {
   editingId = rpt.id;
   var att = rpt.attendance || [];
-  var eq = rpt.equipment || [];
   var exp = rpt.expenses || [];
   window._editExpPhotoMap = {};
 
@@ -2606,12 +2523,6 @@ function doOpenEditModal(rpt) {
     attHtml += '<div class="ec" style="margin-bottom:6px"><div class="er"><span class="el">姓名</span><input type="text" class="edit-att-name" value="' + esc(a.name) + '"><button class="db" type="button" onclick="this.closest(\'.ec\').remove()">✕</button></div><div class="achks"><label class="ci"><input type="checkbox" class="edit-att-am"' + (a.am ? ' checked' : '') + '><span>上午</span></label><label class="ci"><input type="checkbox" class="edit-att-pm"' + (a.pm ? ' checked' : '') + '><span>下午</span></label><div class="ci-ot"><span>加班(時)</span><input type="number" class="edit-att-ot" value="' + (a.ot || 0) + '" min="0" step="0.5" inputmode="numeric"></div></div></div>';
   });
 
-  // 建立車輛機具 HTML
-  var eqHtml = '';
-  eq.forEach(function(a) {
-    eqHtml += '<div class="ec" style="margin-bottom:6px"><div class="er"><span class="el">名稱</span><input type="text" class="edit-eq-name" value="' + esc(a.name) + '"><button class="db" type="button" onclick="this.closest(\'.ec\').remove()">✕</button></div><div class="achks"><label class="ci"><input type="checkbox" class="edit-eq-am"' + (a.am ? ' checked' : '') + '><span>上午</span></label><label class="ci"><input type="checkbox" class="edit-eq-pm"' + (a.pm ? ' checked' : '') + '><span>下午</span></label><div class="ci-ot"><span>備註</span><input type="text" class="edit-eq-note" value="' + esc(a.note || '') + '"></div></div></div>';
-  });
-
   // 建立支出 HTML
   var expHtml = '';
   exp.forEach(function(ex, ei) {
@@ -2636,7 +2547,6 @@ function doOpenEditModal(rpt) {
     '<div class="mrow"><span class="mlbl">工程名稱</span><input id="editPname" class="mi" value="' + esc(rpt.project) + '"></div>' +
     '<div class="mrow"><span class="mlbl">施工項目</span><textarea id="editWitem" class="mi" rows="3" style="resize:vertical">' + esc(rpt.workItems) + '</textarea></div>' +
     '<div><div class="mlbl" style="margin-bottom:6px">出工人員</div><div id="editAttList">' + attHtml + '</div><button type="button" class="ab" onclick="addEditAtt()" style="margin-top:6px">＋ 新增人員</button></div>' +
-    '<div><div class="mlbl" style="margin-bottom:6px">車輛機具使用紀錄</div><div id="editEqList">' + eqHtml + '</div><button type="button" class="ab" onclick="addEditEq()" style="margin-top:6px">＋ 新增車輛機具</button></div>' +
     '<div><div class="mlbl" style="margin-bottom:6px">公款支出</div><div id="editExpList">' + expHtml + '</div><button type="button" class="ab" onclick="addEditExp()" style="margin-top:6px">＋ 新增支出項目</button></div>' +
     '<div style="background:#eaf4ec;border-radius:8px;padding:12px;margin-top:4px">' +
       '<div style="font-weight:700;font-size:13px;margin-bottom:8px;color:var(--ac)">公款結算</div>' +
@@ -2855,12 +2765,6 @@ function addEditAtt() {
   document.getElementById('editAttList').appendChild(div);
 }
 
-function addEditEq() {
-  var div = document.createElement('div'); div.className = 'ec'; div.style.marginBottom = '6px';
-  div.innerHTML = '<div class="er"><span class="el">名稱</span><input type="text" class="edit-eq-name" placeholder="車輛/機具名稱"><button class="db" type="button" onclick="this.closest(\'.ec\').remove()">✕</button></div><div class="achks"><label class="ci"><input type="checkbox" class="edit-eq-am"><span>上午</span></label><label class="ci"><input type="checkbox" class="edit-eq-pm"><span>下午</span></label><div class="ci-ot"><span>備註</span><input type="text" class="edit-eq-note" placeholder="備註"></div></div>';
-  document.getElementById('editEqList').appendChild(div);
-}
-
 function addEditExp() {
   var epIdx = 'ep' + Date.now();
   if (!window._editExpPhotoMap) window._editExpPhotoMap = {};
@@ -2951,16 +2855,6 @@ function getEditedNote(orig, newData) {
     if (origHrs !== newHrs) changes.push('出工時段已修改');
   }
 
-  var origEqNames = (orig.equipment||[]).map(function(a){return a.name;}).sort().join('、');
-  var newEqNames = (newData.equipment||[]).map(function(a){return a.name;}).sort().join('、');
-  if (origEqNames !== newEqNames) {
-    changes.push('車輛機具：' + (origEqNames||'—') + ' → ' + (newEqNames||'—'));
-  } else {
-    var origEqHrs = (orig.equipment||[]).map(function(a){return (a.am?'1':'0')+(a.pm?'1':'0')+(a.note||'');}).join(',');
-    var newEqHrs = (newData.equipment||[]).map(function(a){return (a.am?'1':'0')+(a.pm?'1':'0')+(a.note||'');}).join(',');
-    if (origEqHrs !== newEqHrs) changes.push('車輛機具內容已修改');
-  }
-
   var origItems = (orig.expenses||[]).map(function(e){return String(e.item||'');}).join('、');
   var newItems = (newData.expenses||[]).map(function(e){return String(e.item||'');}).join('、');
   if (origItems !== newItems)
@@ -3019,17 +2913,6 @@ function refreshCardInPlace(patchData) {
     });
     as.innerHTML = ah + '</table>';
     body.appendChild(as);
-  }
-
-  // 車輛機具使用紀錄
-  if (patchData.equipment && patchData.equipment.length) {
-    var eqs = document.createElement('div'); eqs.className = 'rbs';
-    var eqh = '<div class="rbl">車輛機具使用紀錄</div><table class="rbt"><tr><th>車輛/機具</th><th>上午</th><th>下午</th><th>備註</th></tr>';
-    patchData.equipment.forEach(function(a) {
-      eqh += '<tr><td>' + esc(a.name) + '</td><td>' + (a.am?'✔':'—') + '</td><td>' + (a.pm?'✔':'—') + '</td><td>' + (a.note?esc(a.note):'—') + '</td></tr>';
-    });
-    eqs.innerHTML = eqh + '</table>';
-    body.appendChild(eqs);
   }
 
   // 公款支出
@@ -3117,9 +3000,6 @@ function refreshCardInPlace(patchData) {
     var pdfBtn = document.createElement('button'); pdfBtn.className = 'btn-pdf'; pdfBtn.textContent = '📄 PDF';
     pdfBtn.onclick = (function(r){ return function(e){ e.stopPropagation(); printReport(r); }; })(cachedRpt);
     aw.appendChild(pdfBtn);
-    var printBtn = document.createElement('button'); printBtn.className = 'btn-print'; printBtn.textContent = '🖨 列印';
-    printBtn.onclick = (function(r){ return function(e){ e.stopPropagation(); printReportDirect(r); }; })(cachedRpt);
-    aw.appendChild(printBtn);
     body.appendChild(aw);
   }
 
@@ -3192,13 +3072,6 @@ function saveEdit() {
     att.push({name:name, am:c.querySelector('.edit-att-am').checked, pm:c.querySelector('.edit-att-pm').checked, ot:parseFloat(c.querySelector('.edit-att-ot').value)||0});
   });
 
-  var eq = [];
-  document.getElementById('editEqList').querySelectorAll('.ec').forEach(function(c) {
-    var name = c.querySelector('.edit-eq-name').value.trim();
-    if (!name) return;
-    eq.push({name:name, am:c.querySelector('.edit-eq-am').checked, pm:c.querySelector('.edit-eq-pm').checked, note:c.querySelector('.edit-eq-note').value.trim()});
-  });
-
   var exp = [];
   document.getElementById('editExpList').querySelectorAll('.ec').forEach(function(c) {
     var item = c.querySelector('.edit-exp-item').value.trim();
@@ -3234,7 +3107,6 @@ function saveEdit() {
     project: document.getElementById('editPname').value.trim(),
     workItems: document.getElementById('editWitem').value.trim(),
     attendance: att,
-    equipment: eq,
     expenses: exp,
     receiptCash: rc,
     totalCash: totalCash,
@@ -3259,7 +3131,6 @@ function saveEdit() {
     project: patchData.project, workItems: patchData.workItems,
     receiptCash: patchData.receiptCash, totalCash: patchData.totalCash,
     totalCard: patchData.totalCard, attendance: patchData.attendance,
-    equipment: patchData.equipment,
     expenses: patchData.expenses, receiptNote: patchData.receiptNote, date: patchData.date
   });
   if (_diffNote) {

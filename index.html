@@ -531,6 +531,121 @@ function _loadImg(src) {
   });
 }
 
+// 產生報表主體 HTML（PDF 和瀏覽器列印共用）
+function _buildReportHtml(rpt, money) {
+  var h = '';
+  h += '<div style="text-align:center;font-size:26px;font-weight:700;letter-spacing:.2em;padding:8px 0 12px;border-bottom:3px solid #333;margin-bottom:14px">施工日報表</div>';
+  h += '<div style="font-size:16px;line-height:2.1;margin-bottom:8px">日期：' + esc(rpt.date || '') +
+       '<br>填報者：' + esc(rpt.reporter || '') +
+       '<br>工程名稱：' + esc(rpt.project || '') + '</div>';
+  function sh(t){ return '<div style="background:#e5e7eb;font-weight:700;font-size:15px;padding:7px 10px;margin:12px 0 6px;border:1px solid #b0a99a">' + t + '</div>'; }
+  h += sh('施工項目') + '<div style="font-size:15px;line-height:1.8;white-space:pre-wrap;padding:2px 2px">' + esc(rpt.workItems || '（無）') + '</div>';
+
+  var att = rpt.attendance || [];
+  if (att.length) {
+    h += sh('出工人員') + '<table style="width:100%;border-collapse:collapse;font-size:14px"><tr>' +
+         '<th style="background:#e5e7eb;border:1px solid #b0a99a;padding:6px">姓名</th>' +
+         '<th style="background:#e5e7eb;border:1px solid #b0a99a;padding:6px">上午</th>' +
+         '<th style="background:#e5e7eb;border:1px solid #b0a99a;padding:6px">下午</th>' +
+         '<th style="background:#e5e7eb;border:1px solid #b0a99a;padding:6px">加班(時)</th></tr>';
+    att.forEach(function(a){
+      h += '<tr><td style="border:1px solid #b0a99a;padding:6px;text-align:center">' + esc(a.name||'') +
+           '</td><td style="border:1px solid #b0a99a;padding:6px;text-align:center">' + (a.am?'✓':'') +
+           '</td><td style="border:1px solid #b0a99a;padding:6px;text-align:center">' + (a.pm?'✓':'') +
+           '</td><td style="border:1px solid #b0a99a;padding:6px;text-align:center">' + (a.ot||0) + '</td></tr>';
+    });
+    h += '</table>';
+  }
+
+  var eq = rpt.equipment || [];
+  if (eq.length) {
+    h += sh('車輛機具使用紀錄') + '<table style="width:100%;border-collapse:collapse;font-size:14px"><tr>' +
+         '<th style="background:#e5e7eb;border:1px solid #b0a99a;padding:6px">名稱</th>' +
+         '<th style="background:#e5e7eb;border:1px solid #b0a99a;padding:6px">上午</th>' +
+         '<th style="background:#e5e7eb;border:1px solid #b0a99a;padding:6px">下午</th>' +
+         '<th style="background:#e5e7eb;border:1px solid #b0a99a;padding:6px">加班(時)</th></tr>';
+    eq.forEach(function(a){
+      h += '<tr><td style="border:1px solid #b0a99a;padding:6px;text-align:center">' + esc(a.name||'') +
+           '</td><td style="border:1px solid #b0a99a;padding:6px;text-align:center">' + (a.am?'✓':'') +
+           '</td><td style="border:1px solid #b0a99a;padding:6px;text-align:center">' + (a.pm?'✓':'') +
+           '</td><td style="border:1px solid #b0a99a;padding:6px;text-align:center">' + (a.ot||0) + '</td></tr>';
+    });
+    h += '</table>';
+  }
+
+  var exp = rpt.expenses || [];
+  if (exp.length) {
+    h += sh('公款支出') + '<table style="width:100%;border-collapse:collapse;font-size:14px"><tr>' +
+         '<th style="background:#e5e7eb;border:1px solid #b0a99a;padding:6px">項目</th>' +
+         '<th style="background:#e5e7eb;border:1px solid #b0a99a;padding:6px">現金</th>' +
+         '<th style="background:#e5e7eb;border:1px solid #b0a99a;padding:6px">刷卡</th>' +
+         '<th style="background:#e5e7eb;border:1px solid #b0a99a;padding:6px">發票</th></tr>';
+    exp.forEach(function(e){
+      h += '<tr><td style="border:1px solid #b0a99a;padding:6px;text-align:center">' + esc(e.item||'') +
+           '</td><td style="border:1px solid #b0a99a;padding:6px;text-align:center">' + money(e.cash) +
+           '</td><td style="border:1px solid #b0a99a;padding:6px;text-align:center">' + money(e.card) +
+           '</td><td style="border:1px solid #b0a99a;padding:6px;text-align:center">' + (e.inv?'有':'') + '</td></tr>';
+    });
+    h += '</table>';
+  }
+
+  // 找上筆結餘來推算本日接收公款
+  var _pool = (_reportCache && _reportCache.length ? _reportCache : (allReports || []));
+  var _prevRemaining = 0;
+  try {
+    var _mine = _pool.filter(function(x){ return x.reporter === rpt.reporter; });
+    _mine.sort(function(a,b){ return Number(b.id) - Number(a.id); });
+    var _idx = -1;
+    for (var _i=0; _i<_mine.length; _i++){ if (String(_mine[_i].id) === String(rpt.id)) { _idx = _i; break; } }
+    if (_idx >= 0 && _idx + 1 < _mine.length) _prevRemaining = Number(_mine[_idx+1].remaining) || 0;
+  } catch(e) {}
+  var _todayReceived = (Number(rpt.receiptCash) || 0) - _prevRemaining;
+
+  h += sh('現金結算') + '<table style="width:100%;border-collapse:collapse;font-size:15px">' +
+       _sumRow('上筆結餘', money(_prevRemaining)) +
+       _sumRow('本日接收公款', money(_todayReceived)) +
+       _sumRow('接收現金', money(rpt.receiptCash)) +
+       _sumRow('支出現金', money(rpt.totalCash)) +
+       _sumRow('支出刷卡', money(rpt.totalCard)) +
+       _sumRow('現金剩餘', money(rpt.remaining)) + '</table>';
+
+  if (rpt.receiptNote) h += sh('備考') + '<div style="font-size:15px;line-height:1.8;white-space:pre-wrap;color:#000">' + esc(rpt.receiptNote) + '</div>';
+  if (rpt.editedAt) h += '<div style="font-size:12px;color:#856404;margin-top:8px">修正：' + esc(rpt.editedAt) + ' / ' + esc(rpt.editedBy||'') + '</div>';
+
+  return h;
+}
+
+// 用瀏覽器列印對話框列印（不產 PDF；使用者可選印表機或用瀏覽器另存 PDF）
+function browserPrintReport(rpt) {
+  if (!rpt) return;
+  function money(n) { return (Number(n) || 0).toLocaleString('en-US'); }
+  var h = _buildReportHtml(rpt, money);
+  var win = window.open('', '_blank');
+  if (!win) { showToast('請允許彈出視窗以列印'); return; }
+  var doc = win.document;
+  doc.open();
+  doc.write(
+    '<!DOCTYPE html><html lang="zh-TW"><head><meta charset="UTF-8">' +
+    '<title>施工日報表 - ' + esc(rpt.reporter||'') + ' ' + esc(rpt.date||'') + '</title>' +
+    '<style>' +
+      '@page { size: A4; margin: 12mm; }' +
+      'body { font-family: -apple-system, "PingFang TC", "Microsoft JhengHei", sans-serif; color: #1a1a1a; margin: 0; padding: 16px; }' +
+      '@media print { body { padding: 0 } }' +
+    '</style></head><body>' + h + '</body></html>'
+  );
+  doc.close();
+  // 等資源載入完再叫列印
+  var doPrint = function(){
+    try { win.focus(); win.print(); } catch(e) {}
+  };
+  if (win.document.readyState === 'complete') {
+    setTimeout(doPrint, 300);
+  } else {
+    win.addEventListener('load', function(){ setTimeout(doPrint, 200); });
+    setTimeout(doPrint, 800); // 保險
+  }
+}
+
 // 直接產生並儲存 PDF（不走列印對話框）；發票照片每頁 4 張(2x2)
 function printReport(rpt) {
   if (!rpt) return;
@@ -563,72 +678,10 @@ function printReport(rpt) {
 }
 
 function _buildAndSavePdf(rpt, photos, money) {
-  // 1) 文字/表格部分先用隱藏容器 + html2canvas 轉成影像（保留中文字）
+  // 用共用 helper 產生 HTML；隱藏容器 → html2canvas → PDF
   var box = document.createElement('div');
-  box.style.cssText = 'position:fixed;left:-99999px;top:0;width:760px;background:#fff;padding:24px;font-family:-apple-system,\"PingFang TC\",\"Microsoft JhengHei\",sans-serif;color:#1a1a1a';
-  var h = '';
-  h += '<div style="text-align:center;font-size:26px;font-weight:700;letter-spacing:.2em;padding:8px 0 12px;border-bottom:3px solid #333;margin-bottom:14px">施工日報表</div>';
-  h += '<div style="font-size:16px;line-height:2.1;margin-bottom:8px">日期：' + esc(rpt.date || '') +
-       '<br>填報者：' + esc(rpt.reporter || '') +
-       '<br>工程名稱：' + esc(rpt.project || '') + '</div>';
-  function sh(t){ return '<div style="background:#e5e7eb;font-weight:700;font-size:15px;padding:7px 10px;margin:12px 0 6px;border:1px solid #b0a99a">' + t + '</div>'; }
-  h += sh('施工項目') + '<div style="font-size:15px;line-height:1.8;white-space:pre-wrap;padding:2px 2px">' + esc(rpt.workItems || '（無）') + '</div>';
-
-  var att = rpt.attendance || [];
-  if (att.length) {
-    h += sh('出工人員') + '<table style="width:100%;border-collapse:collapse;font-size:14px"><tr>' +
-         '<th style="background:#e5e7eb;border:1px solid #b0a99a;padding:6px">姓名</th>' +
-         '<th style="background:#e5e7eb;border:1px solid #b0a99a;padding:6px">上午</th>' +
-         '<th style="background:#e5e7eb;border:1px solid #b0a99a;padding:6px">下午</th>' +
-         '<th style="background:#e5e7eb;border:1px solid #b0a99a;padding:6px">加班(時)</th></tr>';
-    att.forEach(function(a){
-      h += '<tr><td style="border:1px solid #b0a99a;padding:6px;text-align:center">' + esc(a.name||'') +
-           '</td><td style="border:1px solid #b0a99a;padding:6px;text-align:center">' + (a.am?'✓':'') +
-           '</td><td style="border:1px solid #b0a99a;padding:6px;text-align:center">' + (a.pm?'✓':'') +
-           '</td><td style="border:1px solid #b0a99a;padding:6px;text-align:center">' + (a.ot||0) + '</td></tr>';
-    });
-    h += '</table>';
-  }
-
-  var exp = rpt.expenses || [];
-  if (exp.length) {
-    h += sh('公款支出') + '<table style="width:100%;border-collapse:collapse;font-size:14px"><tr>' +
-         '<th style="background:#e5e7eb;border:1px solid #b0a99a;padding:6px">項目</th>' +
-         '<th style="background:#e5e7eb;border:1px solid #b0a99a;padding:6px">現金</th>' +
-         '<th style="background:#e5e7eb;border:1px solid #b0a99a;padding:6px">刷卡</th>' +
-         '<th style="background:#e5e7eb;border:1px solid #b0a99a;padding:6px">發票</th></tr>';
-    exp.forEach(function(e){
-      h += '<tr><td style="border:1px solid #b0a99a;padding:6px;text-align:center">' + esc(e.item||'') +
-           '</td><td style="border:1px solid #b0a99a;padding:6px;text-align:center">' + money(e.cash) +
-           '</td><td style="border:1px solid #b0a99a;padding:6px;text-align:center">' + money(e.card) +
-           '</td><td style="border:1px solid #b0a99a;padding:6px;text-align:center">' + (e.inv?'有':'') + '</td></tr>';
-    });
-    h += '</table>';
-  }
-
-  // 找上筆結餘來推算本日接收公款（同填報者、id 較小的最近一筆）
-  var _pool = (_reportCache && _reportCache.length ? _reportCache : (allReports || []));
-  var _prevRemaining = 0;
-  try {
-    var _mine = _pool.filter(function(x){ return x.reporter === rpt.reporter; });
-    _mine.sort(function(a,b){ return Number(b.id) - Number(a.id); });
-    var _idx = -1;
-    for (var _i=0; _i<_mine.length; _i++){ if (String(_mine[_i].id) === String(rpt.id)) { _idx = _i; break; } }
-    if (_idx >= 0 && _idx + 1 < _mine.length) _prevRemaining = Number(_mine[_idx+1].remaining) || 0;
-  } catch(e) {}
-  var _todayReceived = (Number(rpt.receiptCash) || 0) - _prevRemaining;
-
-  h += sh('現金結算') + '<table style="width:100%;border-collapse:collapse;font-size:15px">' +
-       _sumRow('上筆結餘', money(_prevRemaining)) +
-       _sumRow('本日接收公款', money(_todayReceived)) +
-       _sumRow('接收現金', money(rpt.receiptCash)) +
-       _sumRow('支出現金', money(rpt.totalCash)) +
-       _sumRow('支出刷卡', money(rpt.totalCard)) +
-       _sumRow('現金剩餘', money(rpt.remaining)) + '</table>';
-
-  if (rpt.receiptNote) h += sh('備考') + '<div style="font-size:15px;line-height:1.8;white-space:pre-wrap">' + esc(rpt.receiptNote) + '</div>';
-  if (rpt.editedAt) h += '<div style="font-size:12px;color:#856404;margin-top:8px">修正：' + esc(rpt.editedAt) + ' / ' + esc(rpt.editedBy||'') + '</div>';
-
+  box.style.cssText = 'position:fixed;left:-99999px;top:0;width:760px;background:#fff;padding:24px;font-family:-apple-system,"PingFang TC","Microsoft JhengHei",sans-serif;color:#1a1a1a';
+  var h = _buildReportHtml(rpt, money);
   box.innerHTML = h;
   document.body.appendChild(box);
 
@@ -2334,6 +2387,9 @@ function buildCard(rpt, isAdminView) {
   var pdfBtn = document.createElement('button'); pdfBtn.className = 'btn-pdf'; pdfBtn.textContent = '📄 PDF';
   pdfBtn.onclick = (function(r) { return function(e) { e.stopPropagation(); printReport(r); }; })(rpt);
   aw.appendChild(pdfBtn);
+  var printBtn = document.createElement('button'); printBtn.className = 'btn-pdf'; printBtn.textContent = '🖨 列印';
+  printBtn.onclick = (function(r) { return function(e) { e.stopPropagation(); browserPrintReport(r); }; })(rpt);
+  aw.appendChild(printBtn);
   if (isAdminView) {
     var delBtn = document.createElement('button'); delBtn.className = 'btn-del'; delBtn.textContent = '🗑 刪除';
     delBtn.onclick = (function(r, w) { return function(e) {
@@ -3000,6 +3056,9 @@ function refreshCardInPlace(patchData) {
     var pdfBtn = document.createElement('button'); pdfBtn.className = 'btn-pdf'; pdfBtn.textContent = '📄 PDF';
     pdfBtn.onclick = (function(r){ return function(e){ e.stopPropagation(); printReport(r); }; })(cachedRpt);
     aw.appendChild(pdfBtn);
+    var printBtn = document.createElement('button'); printBtn.className = 'btn-pdf'; printBtn.textContent = '🖨 列印';
+    printBtn.onclick = (function(r){ return function(e){ e.stopPropagation(); browserPrintReport(r); }; })(cachedRpt);
+    aw.appendChild(printBtn);
     body.appendChild(aw);
   }
 

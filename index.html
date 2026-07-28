@@ -363,7 +363,19 @@ table.st{width:100%;border-collapse:collapse;border-top:1.5px solid var(--bd)}
     </div>
   </div>
   <div class="card" style="margin-top:16px">
-    <div class="sh">&#x1F477; 填報者管理</div>
+    <button onclick="openReporterMgmt()" style="width:100%;display:flex;align-items:center;justify-content:space-between;background:none;border:none;padding:14px;font-size:15px;font-weight:700;cursor:pointer;color:var(--tx)">
+      <span>👷 填報者管理</span>
+      <span style="color:var(--mu);font-size:18px">›</span>
+    </button>
+  </div>
+</div>
+
+<div class="page" id="pageReporterMgmt">
+  <div class="admin-header">
+    <button onclick="showRawPage('pageAdmin');setNavMode('admin')" style="background:#6b7280;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;color:#fff;padding:5px 14px">← 返回</button>
+    <h2>&#x1F477; 填報者管理</h2>
+  </div>
+  <div class="card">
     <div class="reporter-mgmt" id="reporterMgmt"></div>
     <div style="padding:10px 14px;border-top:1px solid var(--br)">
       <div class="add-reporter-row">
@@ -1110,7 +1122,7 @@ function showRawPage(pid) {
   if (pid !== 'pageAdmin') stopAdminRefresh();
   // 離開 history 頁時停止 history refresh
   if (pid !== 'pageHistory') stopHistoryRefresh();
-  var pages = ['pageSelect','pageForm','pageHistory','pageAdminLogin','pageAdmin','pageReporterDetail'];
+  var pages = ['pageSelect','pageForm','pageHistory','pageAdminLogin','pageAdmin','pageReporterDetail','pageReporterMgmt'];
   for (var i = 0; i < pages.length; i++) {
     document.getElementById(pages[i]).classList.remove('show');
   }
@@ -1124,7 +1136,7 @@ function showPage(p) {
   }
   if (p === 'form') { showRawPage('pageForm'); document.getElementById('navForm').classList.add('active'); }
   else if (p === 'history') { showRawPage('pageHistory'); document.getElementById('navHistory').classList.add('active'); _reportCache = null; loadHistory(); startHistoryRefresh(); }
-  else if (p === 'admin') { showRawPage('pageAdmin'); document.getElementById('navAdmin').classList.add('active'); loadAllReports(); renderReporterMgmt(); syncReportersFromServer(); renderApiStatus(); }
+  else if (p === 'admin') { showRawPage('pageAdmin'); document.getElementById('navAdmin').classList.add('active'); loadAllReports(); renderApiStatus(); }
 }
 
 // 後端檢測：確認 App 連到的後端是否為含修正的新版 Code.gs
@@ -1157,8 +1169,6 @@ function checkPw() {
     setNavMode('admin');
     showRawPage('pageAdmin');
     loadAllReports();
-    renderReporterMgmt();
-    syncReportersFromServer();
     renderApiStatus();
     startAdminRefresh();
   } else {
@@ -2219,6 +2229,12 @@ function renderApiStatus() {
         '<div style="color:var(--mu)">請確認網路連線或 GAS 部署狀態。</div>' +
         '<button onclick="renderApiStatus()" style="margin-top:10px;background:#6b7280;color:#fff;border:none;border-radius:6px;padding:6px 14px;font-size:13px;font-weight:600;cursor:pointer">↻ 重新檢查</button>';
     });
+}
+
+function openReporterMgmt() {
+  showRawPage('pageReporterMgmt');
+  renderReporterMgmt();
+  syncReportersFromServer();
 }
 
 function renderReporterMgmt() {

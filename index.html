@@ -443,6 +443,32 @@ function getPhotosFromGAS(rptId, _retried) {
     });
 }
 
+// 照片懶載入：只有當卡片捲進畫面（或接近）才抓照片，避免一開啟就同時發數十個 getphotos
+var _photoObserver = null;
+function _ensurePhotoObserver() {
+  if (_photoObserver || typeof IntersectionObserver === 'undefined') return _photoObserver;
+  _photoObserver = new IntersectionObserver(function(entries) {
+    entries.forEach(function(entry) {
+      if (!entry.isIntersecting) return;
+      var wrap = entry.target;
+      _photoObserver.unobserve(wrap);
+      if (wrap.dataset.loaded !== '1' && wrap.dataset.rptId) {
+        loadPhotos(wrap.dataset.rptId, wrap);
+      }
+    });
+  }, { rootMargin: '300px 0px' }); // 提前 300px 開始載入，捲動時較無感
+  return _photoObserver;
+}
+
+// 註冊一個照片容器做懶載入；若瀏覽器不支援 IntersectionObserver 則直接載入
+function lazyLoadPhotos(rptId, wrap) {
+  if (!rptId || !wrap) return;
+  wrap.dataset.rptId = String(rptId);
+  var obs = _ensurePhotoObserver();
+  if (obs) { obs.observe(wrap); }
+  else { loadPhotos(String(rptId), wrap); }
+}
+
 function loadPhotos(rptId, wrap, forceRefresh) {
   rptId = String(rptId);
   if (!rptId || !wrap) return;
@@ -2081,10 +2107,10 @@ function renderSimpleView(data, containerEl, isAdmin) {
           chk.onchange = syncSelAll;
         }
         listArea.appendChild(card);
-        // 所有報表都嘗試載入照片
+        // 照片懶載入：捲到畫面內才抓，避免一次發數十個請求卡住
         var _pw = body ? body.querySelector('[data-rpt-id]') : null;
         if (_pw && _pw.dataset.loaded !== '1') {
-          loadPhotos(_pw.dataset.rptId, _pw);
+          lazyLoadPhotos(_pw.dataset.rptId, _pw);
         }
       } catch(e) {}
     });

@@ -642,13 +642,13 @@ function browserPrintReport(rpt) {
 
     var h = _buildReportHtml(rpt, money);
 
-    // 附上發票照片：每頁 4 張（2x2），跟 PDF 一致
+    // 附上發票照片：每頁 6 張（2x3），跟 PDF 一致
     if (photos.length) {
       h += '<div style="page-break-before:always;font-weight:700;font-size:18px;padding:6px 0 10px;border-bottom:2px solid #333;margin-bottom:10px">發票照片</div>';
-      for (var i = 0; i < photos.length; i += 4) {
-        var group = photos.slice(i, i + 4);
+      for (var i = 0; i < photos.length; i += 6) {
+        var group = photos.slice(i, i + 6);
         h += (i === 0 ? '' : '<div style="page-break-before:always"></div>') +
-             '<div style="display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:8px;page-break-inside:avoid;height:calc(100vh - 30mm);max-height:250mm">' +
+             '<div style="display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr 1fr;gap:8px;page-break-inside:avoid;height:calc(100vh - 30mm);max-height:250mm">' +
              group.map(function(p){
                return '<div style="border:1px solid #b0a99a;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#fff"><img src="' + p + '" style="max-width:100%;max-height:100%;object-fit:contain"></div>';
              }).join('') +
@@ -774,13 +774,13 @@ function _buildAndSavePdf(rpt, photos, money) {
     })
     .then(function(photos) {
       if (!photos.length) return;
-      // 2) 發票照片：每頁 4 張（2x2）
+      // 2) 發票照片：每頁 6 張（2x3）
       return Promise.all(photos.map(_loadImg)).then(function(imgs) {
         var gap = 6;
-        var cellW = (usableW - gap) / 2;       // 每格寬
-        var cellH = (usableH - gap - 8) / 2;    // 每格高（預留 8mm 給標題）
+        var cellW = (usableW - gap) / 2;               // 每格寬（2 欄）
+        var cellH = (usableH - gap*2 - 8) / 3;          // 每格高（3 列，預留 8mm 給標題）
         for (var i = 0; i < imgs.length; i++) {
-          var slot = i % 4;
+          var slot = i % 6;
           if (slot === 0) {
             doc.addPage();
             doc.setFontSize(13);

@@ -700,9 +700,9 @@ function browserPrintReport(rpt) {
       '<!DOCTYPE html><html lang="zh-TW"><head><meta charset="UTF-8">' +
       '<title>施工日報表 - ' + esc(rpt.reporter||'') + ' ' + esc(rpt.date||'') + '</title>' +
       '<style>' +
-        '@page { size: A4; margin: 12mm; }' +
-        'html,body { margin:0; padding:0; }' +
-        'body { font-family: -apple-system, "PingFang TC", "Microsoft JhengHei", sans-serif; color:#1a1a1a; padding:16px; }' +
+        '@page { size: A4 portrait; margin: 12mm; }' +
+        'html,body { margin:0; padding:0; width:210mm; }' +
+        'body { font-family: -apple-system, "PingFang TC", "Microsoft JhengHei", sans-serif; color:#1a1a1a; padding:16px; box-sizing:border-box; }' +
         '@media print { body { padding:0 } }' +
         'img { display:block; }' +
       '</style></head><body>' + h + '</body></html>';
@@ -712,7 +712,7 @@ function browserPrintReport(rpt) {
     if (old) old.parentNode.removeChild(old);
     var iframe = document.createElement('iframe');
     iframe.id = '__printFrame';
-    iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden';
+    iframe.style.cssText = 'position:fixed;left:-9999px;top:0;width:210mm;height:297mm;border:0;opacity:0;pointer-events:none';
     document.body.appendChild(iframe);
 
     function doPrint() {

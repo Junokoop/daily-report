@@ -424,8 +424,10 @@ function formatDate(d) {
   if (m) return m[1]+'年'+m[2]+'月'+m[3]+'日';
   var months = {Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12};
   var m3 = s.match(/([A-Z][a-z]{2})\s+(\d{1,2})\s+(\d{4})/);
-  if (m3 && months[m3[1]] && parseInt(m3[3]) > 1911) {
-    return (parseInt(m3[3])-1911)+'年'+months[m3[1]]+'月'+parseInt(m3[2])+'日';
+  if (m3 && months[m3[1]]) {
+    var _ry = parseInt(m3[3]);
+    var _y = _ry > 1911 ? _ry - 1911 : _ry; // >1911 西元轉民國；否則本身即民國年（修復 new Date(民國年,...) 產生的錯誤字串）
+    if (_y > 0) return _y + '年' + months[m3[1]] + '月' + parseInt(m3[2]) + '日';
   }
   return s;
 }
@@ -1290,11 +1292,11 @@ function addExp() {
   if (!expList) return;
   var idx = 'e' + Date.now() + Math.random();
   var c = document.createElement('div'); c.className = 'ec'; c.dataset.expIdx = idx;
-  c.innerHTML = '<div class="er"><span class="el">購買項目</span><input type="text" placeholder="項目名稱"><button class="db" type="button">&#x2715;</button></div>' +
+  c.innerHTML = '<div class="er"><span class="el">購買項目</span><input type="text" placeholder="項目名稱" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" name="expitem_' + idx + '"><button class="db" type="button">&#x2715;</button></div>' +
     '<div class="er"><span class="el">發票</span><div class="ivw"><input type="checkbox"><span>已附發票</span><button class="inv-photo-btn" type="button">&#x1F4C1; 上傳</button><button class="inv-camera-btn" type="button">&#x1F4F7; 拍照</button><input type="file" accept="image/*" multiple style="display:none" class="inv-file-input"><input type="file" accept="image/*" capture="environment" style="display:none" class="inv-camera-input"></div></div>' +
     '<div class="inv-photos-row" style="display:none"></div>' +
-    '<div class="er"><span class="el">現金金額</span><input type="number" class="cc" placeholder="0" min="0" inputmode="numeric"></div>' +
-    '<div class="er"><span class="el">刷卡金額</span><input type="number" class="kk" placeholder="0" min="0" inputmode="numeric"></div>';
+    '<div class="er"><span class="el">現金金額</span><input type="number" class="cc" placeholder="0" min="0" inputmode="numeric" autocomplete="off" name="expcash_' + idx + '"></div>' +
+    '<div class="er"><span class="el">刷卡金額</span><input type="number" class="kk" placeholder="0" min="0" inputmode="numeric" autocomplete="off" name="expcard_' + idx + '"></div>';
   expPhotoMap[idx] = [];
   c.querySelector('.db').onclick = function() { expList.removeChild(c); delete expPhotoMap[idx]; calc(); };
   c.querySelectorAll('.cc,.kk').forEach(function(el) { el.oninput = calc; });
@@ -1967,9 +1969,10 @@ function renderSimpleView(data, containerEl, isAdmin) {
     // 英文格式 Mon Jan 01 2026
     var months = {Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12};
     var m3 = s.match(/([A-Z][a-z]{2})\s+(\d{1,2})\s+(\d{4})/);
-    if (m3 && months[m3[1]] && parseInt(m3[3]) > 1911) {
-      var yr = parseInt(m3[3]) - 1911;
-      return {y:String(yr), mo:String(months[m3[1]]), full:yr+'年'+months[m3[1]]+'月'+parseInt(m3[2])+'日'};
+    if (m3 && months[m3[1]]) {
+      var _ry = parseInt(m3[3]);
+      var yr = _ry > 1911 ? _ry - 1911 : _ry; // >1911 西元轉民國；否則本身即民國年
+      if (yr > 0) return {y:String(yr), mo:String(months[m3[1]]), full:yr+'年'+months[m3[1]]+'月'+parseInt(m3[2])+'日'};
     }
     // 無法解析：歸到「其他」，用原始字串保留
     return {y:'其他', mo:'其他', full:s || '未知日期'};
@@ -2064,38 +2067,49 @@ function renderSimpleView(data, containerEl, isAdmin) {
     var checked = Array.from(listArea.querySelectorAll('.batch-check:checked'));
     if (!checked.length) return;
     if (!confirm('確定刪除選取的 ' + checked.length + ' 筆報表？')) return;
-    checked.forEach(function(c) {
-      fetch(API + '?action=delete&id=' + c.dataset.rptId, {mode:'no-cors'}).catch(function(){});
-    });
-    setTimeout(function() {
-      showToast('已刪除 ' + checked.length + ' 筆');
+    var total = checked.length, ok = 0, fail = 0, i = 0;
+    delBtn.disabled = true;
+
+    function reloadAfter() {
       _reportCache = null;
       _reportCacheTime = 0;
-      // 先從 UI 移除已刪除的卡片
-      checked.forEach(function(c) {
-        var card = c.closest('.report-card');
-        if (card) card.remove();
-      });
-      // 再重新載入確保同步
-      setTimeout(function() {
-        var curReporter = document.getElementById('reporterDetailTitle') ?
-          document.getElementById('reporterDetailTitle').textContent.replace(' 日報表','') : '';
-        if (isAdmin && document.getElementById('pageReporterDetail').classList.contains('show') && curReporter) {
-          // 詳情頁：重新載入並刷新公款總覽
-          fetchReports(true).then(function(data) {
-            allReports = data;
-            showReporterDetail(curReporter);
-            // 同時更新管理者主頁公款總覽
-            try { renderSummaryTable(allReports); } catch(e) {}
-          }).catch(function(){});
-        } else if (isAdmin) {
-          loadAllReports();
-        } else {
-          loadHistory();
-          setTimeout(loadAccum, 1000);
-        }
-      }, 1200);
-    }, 500);
+      var curReporter = document.getElementById('reporterDetailTitle') ?
+        document.getElementById('reporterDetailTitle').textContent.replace(' 日報表','') : '';
+      if (isAdmin && document.getElementById('pageReporterDetail').classList.contains('show') && curReporter) {
+        fetchReports(true).then(function(data) {
+          allReports = data;
+          showReporterDetail(curReporter);
+          try { renderSummaryTable(allReports); } catch(e) {}
+        }).catch(function(){});
+      } else if (isAdmin) {
+        loadAllReports();
+      } else {
+        loadHistory();
+        setTimeout(loadAccum, 1000);
+      }
+    }
+
+    function finish() {
+      delBtn.disabled = false;
+      showToast('已刪除 ' + ok + ' 筆' + (fail ? '，失敗 ' + fail + ' 筆' : ''));
+      reloadAfter();
+    }
+
+    // 逐筆依序刪除：等每筆完成（讀回應）再刪下一筆，避免搶鎖與時序問題
+    function step() {
+      if (i >= total) { finish(); return; }
+      var c = checked[i];
+      delBtn.textContent = '刪除中… (' + (i + 1) + '/' + total + ')';
+      fetch(API + '?action=delete&id=' + encodeURIComponent(c.dataset.rptId), {redirect:'follow', cache:'no-store'})
+        .then(function(r){ return r.json(); })
+        .then(function(res){
+          if (res && res.ok) { ok++; var card = c.closest('.report-card'); if (card) card.remove(); }
+          else { fail++; }
+        })
+        .catch(function(){ fail++; })
+        .then(function(){ i++; step(); });
+    }
+    step();
   };
 
   function showRpts(rpts) {

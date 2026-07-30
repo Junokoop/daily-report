@@ -1627,6 +1627,7 @@ function _dataSig(data) {
 function startHistoryRefresh() {
   stopHistoryRefresh();
   _historyRefreshTimer = setInterval(function() {
+    if (document.hidden) return; // 分頁在背景／手機鎖屏時暫停輪詢，省配額
     if (!document.getElementById('pageHistory').classList.contains('show')) { stopHistoryRefresh(); return; }
     // 只在紀錄頁且有填報者時才刷新
     if (!currentReporter) return;
@@ -1654,6 +1655,7 @@ function stopHistoryRefresh() {
 function startAdminRefresh() {
   stopAdminRefresh();
   _adminRefreshTimer = setInterval(function() {
+    if (document.hidden) return; // 分頁在背景／手機鎖屏時暫停輪詢，省配額
     if (!document.getElementById('pageAdmin').classList.contains('show')) return;
     // 只刷新通知欄，不重新載入整個報表列表
     var url = API + '?action=list&noPhotos=1&t=' + Date.now();
@@ -1683,6 +1685,21 @@ function startAdminRefresh() {
 function stopAdminRefresh() {
   if (_adminRefreshTimer) { clearInterval(_adminRefreshTimer); _adminRefreshTimer = null; }
 }
+
+// 從背景切回前景時立即刷新一次（避免暫停後要等下一個輪詢週期才更新）
+document.addEventListener('visibilitychange', function() {
+  if (document.hidden) return;
+  try {
+    if (document.getElementById('pageAdmin') && document.getElementById('pageAdmin').classList.contains('show')) {
+      _lastAdminSig = null; // 強制重繪一次
+    } else if (document.getElementById('pageHistory') && document.getElementById('pageHistory').classList.contains('show') && currentReporter) {
+      fetch(API + '?action=list&noPhotos=1&t=' + Date.now(), {redirect:'follow', cache:'no-store'})
+        .then(function(r){ return r.json(); })
+        .then(function(res){ if (res && res.ok && res.data) { applyPendingEdits(res.data); allReports = res.data; _reportCache = res.data; _reportCacheTime = Date.now(); var s = _dataSig(res.data); if (s !== _lastHistorySig) { _lastHistorySig = s; _updateHistoryUI(res.data); } } })
+        .catch(function(){});
+    }
+  } catch(e) {}
+});
 
 function loadAllReports() {
   var listEl = document.getElementById('reportList');

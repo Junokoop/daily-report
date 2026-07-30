@@ -1136,7 +1136,7 @@ function showPage(p) {
   for (var i = 0; i < navIds.length; i++) {
     document.getElementById(navIds[i]).classList.remove('active');
   }
-  if (p === 'form') { showRawPage('pageForm'); document.getElementById('navForm').classList.add('active'); }
+  if (p === 'form') { showRawPage('pageForm'); document.getElementById('navForm').classList.add('active'); refreshPrevRemaining(); }
   else if (p === 'history') { showRawPage('pageHistory'); document.getElementById('navHistory').classList.add('active'); _reportCache = null; loadHistory(); startHistoryRefresh(); }
   else if (p === 'admin') { showRawPage('pageAdmin'); document.getElementById('navAdmin').classList.add('active'); loadAllReports(); renderApiStatus(); }
 }
@@ -1249,6 +1249,20 @@ function fetchReports(forceRefresh) {
       _reportCacheTime = Date.now();
       return res.data;
     });
+}
+
+// 只刷新「上筆結餘公款」，不動使用者正在填的其他欄位（跨裝置切換時保持同步）
+function refreshPrevRemaining() {
+  if (!currentReporter) return;
+  _reportCache = null; _reportCacheTime = 0;
+  fetchReports(true)
+    .then(function(data) {
+      var mine = data.filter(function(r) { return r.reporter === currentReporter; });
+      var lastRemaining = mine.length > 0 ? (parseFloat(mine[0].remaining) || 0) : 0;
+      var rcEl = document.getElementById('rc');
+      if (rcEl) { rcEl.value = lastRemaining; try { calc(); } catch(e) {} }
+    })
+    .catch(function(){});
 }
 
 function loadAccum(retries) {
@@ -2112,23 +2126,36 @@ function renderSimpleView(data, containerEl, isAdmin) {
       reloadAfter();
     }
 
-    // 平行刪除：同時發出全部請求，等「全部真的完成」才重載（比逐筆快很多，也不會刪不掉）
-    var pending = total;
+    // 批次刪除：先試 deletemany（後端一次鎖、Photos 只重寫一次，最快）
+    var ids = checked.map(function(c){ return c.dataset.rptId; });
     delBtn.textContent = '刪除中…（' + total + ' 筆）';
-    checked.forEach(function(c) {
-      fetch(API + '?action=delete&id=' + encodeURIComponent(c.dataset.rptId), {redirect:'follow', cache:'no-store'})
-        .then(function(r){ return r.json(); })
-        .then(function(res){
-          if (res && res.ok) { ok++; var card = c.closest('.report-card'); if (card) card.remove(); }
-          else { fail++; }
-        })
-        .catch(function(){ fail++; })
-        .then(function(){
-          pending--;
-          delBtn.textContent = '刪除中…（' + (total - pending) + '/' + total + '）';
-          if (pending === 0) finish();
-        });
-    });
+
+    function fallbackParallel() {
+      // 後端沒有 deletemany（舊版）→ 退回平行逐筆刪除
+      var pending = total;
+      checked.forEach(function(c) {
+        fetch(API + '?action=delete&id=' + encodeURIComponent(c.dataset.rptId), {redirect:'follow', cache:'no-store'})
+          .then(function(r){ return r.json(); })
+          .then(function(res){ if (res && res.ok) { ok++; var card = c.closest('.report-card'); if (card) card.remove(); } else { fail++; } })
+          .catch(function(){ fail++; })
+          .then(function(){ pending--; delBtn.textContent = '刪除中…（' + (total - pending) + '/' + total + '）'; if (pending === 0) finish(); });
+      });
+    }
+
+    var form = new FormData();
+    form.append('payload', JSON.stringify({ action: 'deletemany', ids: ids }));
+    fetch(API, { method: 'POST', body: form, redirect: 'follow' })
+      .then(function(r){ return r.json(); })
+      .then(function(res){
+        if (res && res.ok) {
+          ok = res.deleted || total;
+          checked.forEach(function(c){ var card = c.closest('.report-card'); if (card) card.remove(); });
+          finish();
+        } else {
+          fallbackParallel(); // deletemany 不被支援 → 後備
+        }
+      })
+      .catch(function(){ fallbackParallel(); });
   };
 
   function showRpts(rpts) {

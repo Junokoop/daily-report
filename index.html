@@ -1073,6 +1073,7 @@ function onReporterSelectChange(val) {
 
 function selectReporter(name) {
   currentReporter = name;
+  warmUpBackend();
   document.getElementById('reporterDisplay').textContent = name;
   document.getElementById('navTitle').textContent = name;
   setNavMode('reporter');
@@ -1223,17 +1224,33 @@ function initForm() {
   calc();
 }
 
+// 帶逾時的 fetch：超過 timeoutMs 就中止，最多重試 tries 次（緩解 GAS 偶發的超長延遲/節流）
+function fetchTextWithRetry(url, opts, tries, timeoutMs) {
+  tries = tries || 2;
+  timeoutMs = timeoutMs || 12000;
+  function attempt(n) {
+    var ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+    var timer = setTimeout(function(){ if (ctrl) ctrl.abort(); }, timeoutMs);
+    var o = Object.assign({}, opts || {});
+    if (ctrl) o.signal = ctrl.signal;
+    return fetch(url, o)
+      .then(function(r){ clearTimeout(timer); return r.text(); })
+      .catch(function(err){
+        clearTimeout(timer);
+        if (n < tries) return attempt(n + 1);
+        throw err;
+      });
+  }
+  return attempt(0);
+}
+
 function fetchReports(forceRefresh) {
   var now = Date.now();
   if (!forceRefresh && _reportCache && (now - _reportCacheTime) < CACHE_TTL) {
     return Promise.resolve(_reportCache);
   }
   var url = API + '?action=list&noPhotos=1&t=' + now;
-  return fetch(url, { redirect: 'follow', cache: 'no-store' })
-    .then(function(r) {
-      if (!r.ok && r.type !== 'opaque') throw new Error('HTTP ' + r.status);
-      return r.text();
-    })
+  return fetchTextWithRetry(url, { redirect: 'follow', cache: 'no-store' }, 4, 15000)
     .then(function(text) {
       if (!text || text.trim() === '') throw new Error('empty response');
       var res;
@@ -1524,7 +1541,7 @@ function submitReport() {
           setTimeout(loadAccum, 300);
         }).catch(function(){ if (retries > 0) pollNewReport(retries - 1); });
       }, 3000);
-    })(8); // 最多 8 次 × 3 秒 = 24 秒
+    })(12); // 最多 12 次 × 3 秒 = 36 秒（涵蓋 GAS 冷啟動）
   }
 
   var flat = [];
@@ -1693,7 +1710,7 @@ function startAdminRefresh() {
         // 更新公款總覽
         try { renderSummaryTable(res.data); } catch(e) {}
       }).catch(function() {});
-  }, 8000); // 每 8 秒自動刷新通知
+  }, 20000); // 每 20 秒自動刷新通知（原 8 秒過於頻繁，易觸發 GAS 節流）
 }
 
 function stopAdminRefresh() {
@@ -3660,11 +3677,25 @@ function saveEdit() {
 }
 
 // 頁面初始化
+// 預熱後端：GAS 閒置後第一個請求會很慢（冷啟動），先打個 ping 叫醒它
+var _lastWarmAt = 0;
+function warmUpBackend() {
+  var now = Date.now();
+  if (now - _lastWarmAt < 60000) return; // 60 秒內不重複預熱
+  _lastWarmAt = now;
+  try {
+    fetch(API + '?action=ping&t=' + now, {redirect:'follow', cache:'no-store'}).catch(function(){});
+  } catch(e) {}
+}
+
 (function init() {
   renderSelectPage();
   syncReportersFromServer();
   showRawPage('pageSelect');
   setNavMode('none');
+  warmUpBackend(); // App 一開就預熱後端
+  // 從背景切回前景也預熱（手機切回來、鎖屏解開）
+  document.addEventListener('visibilitychange', function(){ if (!document.hidden) warmUpBackend(); });
   // 點選其他地方關閉自製下拉
   document.addEventListener('click', function(e) {
     var outer = document.getElementById('reporterSelOuter');

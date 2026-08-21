@@ -198,7 +198,7 @@ body.show-money tr.money{display:table-row}
 
 <div id="toolbar">
   <span class="title">施工日誌</span>
-  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.17ba</span>
+  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.17bb</span>
   <span id="saveState">已儲存</span>
   <button id="btnPrev" title="前一頁">◀</button>
   <select id="daySelect" title="切換日報"></select>
@@ -285,7 +285,7 @@ body.show-money tr.money{display:table-row}
       <td class="lbl">核定工期</td>
       <td class="num"><input type="number" id="f_totalDays" min="0" style="width:calc(100% - 18px)">天</td>
       <td class="lbl">累計工期</td>
-      <td class="num"><span id="f_elapsed" class="calc">－</span> 天</td>
+      <td class="num"><input id="f_elapsed" class="numfld" type="text" inputmode="numeric" placeholder="－" style="text-align:right"> 天</td>
       <td class="lbl">剩餘工期</td>
       <td class="num"><span id="f_remain" class="calc">－</span> 天</td>
       <td class="lbl">工期延展天數</td>
@@ -725,15 +725,17 @@ function renderHeader(){
     $('f_s3y').checked=r.s3==='y'; $('f_s3n').checked=r.s3==='n';
     $('f_safetyOther').value=r.safetyOther; $('f_sampling').value=r.sampling;
     $('f_subNotice').value=r.subNotice; $('f_important').value=r.important; $('f_sign').value=r.sign;
-    // 工期
+    // 工期：累計工期可手動輸入（r.elapsed），未填則自動 = 開工日→報表日
     let autoPlan=null;
-    if(p.startDate && r.date){
-      const elapsed=daysBetween(p.startDate, r.date);
-      $('f_elapsed').textContent=elapsed;
-      const tot=(effTotalDays!=null)?(effTotalDays+(+p.extDays||0)):null;
+    const autoElapsed=(p.startDate && r.date) ? daysBetween(p.startDate, r.date) : null;
+    const elapsed = (r.elapsed!=null && r.elapsed!=='') ? +r.elapsed : autoElapsed;   // 手動優先
+    $('f_elapsed').value = (elapsed!=null && !isNaN(elapsed)) ? elapsed : '';
+    $('f_elapsed').dataset.auto = (autoElapsed!=null) ? autoElapsed : '';
+    const tot=(effTotalDays!=null)?(effTotalDays+(+p.extDays||0)):null;
+    if(elapsed!=null && !isNaN(elapsed)){
       $('f_remain').textContent = tot!=null ? (tot-elapsed) : '－';
       if(tot>0) autoPlan=Math.min(100, elapsed/tot*100);
-    }else{ $('f_elapsed').textContent='－'; $('f_remain').textContent='－'; }
+    }else{ $('f_remain').textContent='－'; }
     // 預定進度：未手動輸入時自動 = 累計工期 ÷ 總工期 × 100
     $('f_planPct').value = (r.planPct!=null) ? r.planPct : (autoPlan!=null?+autoPlan.toFixed(2):'');
     $('f_planPct').dataset.auto = autoPlan!=null?autoPlan.toFixed(2):'';
@@ -836,6 +838,23 @@ $('f_planPct').addEventListener('input',e=>{
   const v=e.target.value;
   // 與自動值相同或清空 → 回到自動計算；否則記錄手動值
   DB.reports[curIdx].planPct = (v===''||v===e.target.dataset.auto) ? null : +v;
+  save();
+});
+$('f_elapsed').addEventListener('input',e=>{
+  if(curIdx<0)return;
+  const raw=e.target.value.trim();
+  const r=DB.reports[curIdx];
+  r.elapsed = (raw==='') ? null : (isNaN(+raw)? null : +raw);
+  // 連動剩餘工期與預定進度，但不重繪輸入框本身（避免打斷輸入）
+  const p=DB.project;
+  const autoEl=(p.startDate && r.date)? daysBetween(p.startDate,r.date):null;
+  const el=(r.elapsed!=null)? r.elapsed : autoEl;
+  let eff=null;
+  if(p.totalDays!=null && p.totalDays!==''){ eff=+p.totalDays; }
+  else if(p.startDate && p.endDate){ eff=daysBetween(p.startDate,p.endDate); }
+  const tot=(eff!=null)?(eff+(+p.extDays||0)):null;
+  $('f_remain').textContent = (el!=null && tot!=null) ? (tot-el) : '－';
+  if(r.planPct==null && el!=null && tot>0){ $('f_planPct').value=Math.min(100,el/tot*100).toFixed(2); }
   save();
 });
 $('f_techYes').addEventListener('change',()=>{if(curIdx>=0){DB.reports[curIdx].tech='yes';save();}});$('f_techNo').addEventListener('change',()=>{if(curIdx>=0){DB.reports[curIdx].tech='no';save();}});

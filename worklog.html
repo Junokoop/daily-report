@@ -201,7 +201,7 @@ body.show-money tr.money{display:table-row}
 
 <div id="toolbar">
   <span class="title">施工日誌</span>
-  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.17bc</span>
+  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.17be</span>
   <span id="saveState">已儲存</span>
   <button id="btnPrev" title="前一頁">◀</button>
   <select id="daySelect" title="切換日報"></select>
@@ -997,6 +997,8 @@ function gridTables(){ return [].slice.call(document.querySelectorAll('#sheet ta
 function tblKey(t){ return t.id || ('tbl'+gridTables().indexOf(t)); }
 // 記錄 HTML 原始欄寬，供「重設版面」復原
 const DEFAULT_COLW=(function(){ const m={}; try{ gridTables().forEach(t=>{ m[t.id||('tbl'+gridTables().indexOf(t))]=[].map.call(t.querySelectorAll('colgroup col'),c=>c.style.width||''); }); }catch(_){} return m; })();
+// 記錄各表原始表頭文字，供未編輯的報表還原
+const DEFAULT_HEAD=(function(){ const m={}; try{ gridTables().forEach(t=>{ m[t.id||('tbl'+gridTables().indexOf(t))]=[].map.call(t.querySelectorAll('thead th'),th=>th.textContent); }); }catch(_){} return m; })();
 function migrateGridSizes(){
   if(Array.isArray(DB.colW)) DB.colW={itemTable:DB.colW};
   if(DB.colW&&typeof DB.colW!=='object') DB.colW={};
@@ -1038,22 +1040,27 @@ function scheduleGrips(){
 function applyHeadText(){
   DB.headText=DB.headText||{};
   gridTables().forEach(t=>{
-    const k=tblKey(t), map=DB.headText[k]; if(!map) return;
-    t.querySelectorAll('thead th').forEach((th,i)=>{ if(map[i]!=null && map[i]!=='') th.textContent=map[i]; });
+    const k=tblKey(t), map=DB.headText[k]||{}, def=DEFAULT_HEAD[k]||[];
+    t.querySelectorAll('thead th').forEach((th,i)=>{
+      const v=(map[i]!=null && map[i]!=='') ? map[i] : (def[i]!=null?def[i]:th.textContent);
+      if(th.textContent!==v) th.textContent=v;
+    });
   });
 }
 function setupHeadEdit(){
+  const on=document.body.classList.contains('edit-on');
   gridTables().forEach(t=>{
     const k=tblKey(t);
     t.querySelectorAll('thead th').forEach((th,i)=>{
-      if(th._he) return; th._he=1;
       th.classList.add('headcell');
-      th.addEventListener('dblclick',()=>{ if(document.body.classList.contains('edit-on')) th.focus(); });
-      th.addEventListener('focus',()=>{ if(document.body.classList.contains('edit-on')) th.setAttribute('contenteditable','true'); });
+      if(on) th.setAttribute('contenteditable','true'); else th.removeAttribute('contenteditable'); // 編輯模式直接可改
+      if(th._he) return; th._he=1;
       th.addEventListener('blur',()=>{
-        th.removeAttribute('contenteditable');
+        const def=(DEFAULT_HEAD[k]||[])[i];
+        const val=th.textContent.trim();
         DB.headText=DB.headText||{}; DB.headText[k]=DB.headText[k]||{};
-        DB.headText[k][i]=th.textContent.trim();
+        if(val===''||val===def){ delete DB.headText[k][i]; th.textContent=def!=null?def:val; }  // 與預設相同/清空 → 回預設
+        else { DB.headText[k][i]=val; }
         save();
       });
       th.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); th.blur(); } });
@@ -1273,7 +1280,7 @@ $('btnEditMode').addEventListener('click',()=>{
     document.body.classList.remove('show-money');
     $('btnMoney').textContent='金額:隱藏';
   }
-  if(typeof requestAnimationFrame==='function') requestAnimationFrame(autofitAll); else autofitAll(); scheduleGrips(); // 版面改變 → 重新長高並重建把手
+  if(typeof requestAnimationFrame==='function') requestAnimationFrame(autofitAll); else autofitAll(); scheduleGrips(); setupHeadEdit(); // 版面改變 → 重新長高並重建把手、更新表頭可編輯
 });
 
 // 材料/人員機具

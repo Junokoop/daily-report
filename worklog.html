@@ -73,6 +73,9 @@ td.ctr{text-align:center}
 textarea.gridwrap{resize:none;line-height:1.3;overflow:hidden;white-space:pre-wrap;word-break:break-word;min-height:1.5em;display:block;padding:1px 3px}
 .colgrip{display:none}
 .rowgrip{display:none}
+.fillmark{color:#d33;font-weight:700;margin-left:6px;display:none}
+.fillmark.on{display:inline}
+.fillmark.black{color:#000}
 .tgridwrap{position:relative;display:block}
 body.edit-on .headcell{cursor:text}
 body.edit-on .headcell:hover{outline:1px dashed var(--accent);outline-offset:-1px}
@@ -201,7 +204,7 @@ body.show-money tr.money{display:table-row}
 
 <div id="toolbar">
   <span class="title">施工日誌</span>
-  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.17be</span>
+  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.17bg</span>
   <span id="saveState">已儲存</span>
   <button id="btnPrev" title="前一頁">◀</button>
   <select id="daySelect" title="切換日報"></select>
@@ -368,13 +371,13 @@ body.show-money tr.money{display:table-row}
     <textarea id="f_safetyOther" rows="2"></textarea>
   </div>
 
-  <div class="section-title">六、施工取樣試驗紀錄：</div>
+  <div class="section-title" data-fill="f_sampling">六、施工取樣試驗紀錄：<span class="fillmark"></span></div>
   <div class="free-text"><textarea id="f_sampling" rows="2"></textarea></div>
 
-  <div class="section-title">七、通知分包廠商辦理事項：</div>
+  <div class="section-title" data-fill="f_subNotice">七、通知分包廠商辦理事項：<span class="fillmark"></span></div>
   <div class="free-text"><textarea id="f_subNotice" rows="2"></textarea></div>
 
-  <div class="section-title">八、重要事項紀錄：</div>
+  <div class="section-title" data-fill="f_important">八、重要事項紀錄：<span class="fillmark"></span></div>
   <div class="free-text"><textarea id="f_important" rows="2"></textarea></div>
 
   <div class="sign-row">
@@ -789,7 +792,7 @@ function renderAll(){
   const hasReal = DB.reports.some(r=>!isSeedPlaceholder(r));
   document.body.classList.toggle('no-reports', !hasReal);
   renderDaySelect(); renderHeader(); renderItems(); renderSubTables(); renderTotals();
-  applyColWidths(); applyRowHeights(); applyBoxHeights(); applyHeadText();
+  applyColWidths(); applyRowHeights(); applyBoxHeights(); applyHeadText(); updateFillMarks();
   if(typeof requestAnimationFrame==='function') requestAnimationFrame(autofitAll); else autofitAll(); scheduleGrips(); setupHeadEdit();
 }
 
@@ -824,7 +827,9 @@ $('f_extDays').addEventListener('input',e=>{DB.project.extDays=e.target.value===
 // 日報欄位
 function bindR(id,f,checkbox){
   $(id).addEventListener('input',e=>{
-    if(curIdx<0)return; DB.reports[curIdx][f]=e.target.value; save();
+    if(curIdx<0)return; DB.reports[curIdx][f]=e.target.value;
+    if(e.target.closest('.free-text')) updateFillMarks();   // 六七八有無內容 → 即時更新紅勾
+    save();
   });
 }
 bindR('f_wxAM','wxAM');bindR('f_wxPM','wxPM');
@@ -885,6 +890,7 @@ $('itemTable').addEventListener('input',e=>{
     updateRowCalc(tr,i,r);
     const sel=$('daySelect'), opt=sel&&sel.options[curIdx];
     if(opt) opt.textContent=`#${curIdx+1}　${r.date?rocDate(r.date):'未設定日期'}${hasDayQty(r)?'　✔':''}`;
+    updateFillMarks();   // 施作數量有無 → 六七八勾色(紅/黑)即時更新
     renderTotals(); save();
   }else if(t.dataset.f){
     const i=+t.dataset.i, f=t.dataset.f;
@@ -1036,6 +1042,19 @@ function scheduleGrips(){
   const run=()=>{ _gripTimer=null; applyRowHeights(); applyBoxHeights(); setupGrips(); };
   _gripTimer=1;
   if(typeof requestAnimationFrame==='function') requestAnimationFrame(()=>requestAnimationFrame(run)); else setTimeout(run,0);
+}
+function updateFillMarks(){
+  const r = curIdx>=0 ? DB.reports[curIdx] : null;
+  const day = hasDayQty(r);   // 這份報表是否有當日施作數量
+  document.querySelectorAll('.section-title[data-fill]').forEach(t=>{
+    const inp=document.getElementById(t.dataset.fill);
+    const mark=t.querySelector('.fillmark');
+    if(!mark) return;
+    const has = inp && (inp.value||'').trim()!=='';
+    mark.textContent = has ? '✔' : '';
+    mark.classList.toggle('on', !!has);
+    mark.classList.toggle('black', !!(has && day));   // 同時有當日施作數量 → 黑勾(主要)；否則紅勾
+  });
 }
 function applyHeadText(){
   DB.headText=DB.headText||{};

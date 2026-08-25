@@ -73,9 +73,6 @@ td.ctr{text-align:center}
 textarea.gridwrap{resize:none;line-height:1.3;overflow:hidden;white-space:pre-wrap;word-break:break-word;min-height:1.5em;display:block;padding:1px 3px}
 .colgrip{display:none}
 .rowgrip{display:none}
-.fillmark{color:#d33;font-weight:700;margin-left:6px;display:none}
-.fillmark.on{display:inline}
-.fillmark.black{color:#000}
 .tgridwrap{position:relative;display:block}
 body.edit-on .headcell{cursor:text}
 body.edit-on .headcell:hover{outline:1px dashed var(--accent);outline-offset:-1px}
@@ -204,7 +201,7 @@ body.show-money tr.money{display:table-row}
 
 <div id="toolbar">
   <span class="title">施工日誌</span>
-  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.17bg</span>
+  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.17bh</span>
   <span id="saveState">已儲存</span>
   <button id="btnPrev" title="前一頁">◀</button>
   <select id="daySelect" title="切換日報"></select>
@@ -371,13 +368,13 @@ body.show-money tr.money{display:table-row}
     <textarea id="f_safetyOther" rows="2"></textarea>
   </div>
 
-  <div class="section-title" data-fill="f_sampling">六、施工取樣試驗紀錄：<span class="fillmark"></span></div>
+  <div class="section-title">六、施工取樣試驗紀錄：</div>
   <div class="free-text"><textarea id="f_sampling" rows="2"></textarea></div>
 
-  <div class="section-title" data-fill="f_subNotice">七、通知分包廠商辦理事項：<span class="fillmark"></span></div>
+  <div class="section-title">七、通知分包廠商辦理事項：</div>
   <div class="free-text"><textarea id="f_subNotice" rows="2"></textarea></div>
 
-  <div class="section-title" data-fill="f_important">八、重要事項紀錄：<span class="fillmark"></span></div>
+  <div class="section-title">八、重要事項紀錄：</div>
   <div class="free-text"><textarea id="f_important" rows="2"></textarea></div>
 
   <div class="sign-row">
@@ -527,15 +524,30 @@ function cumQty(itemIdx, uptoDate){
 
 /* ════════ 渲染 ════════ */
 function hasDayQty(r){ return !!(r && r.qty && Object.keys(r.qty).some(k=>(+r.qty[k]||0)>0)); }
+function reportHasSec(r){ return !!(r && (((r.sampling||'').trim())||((r.subNotice||'').trim())||((r.important||'').trim()))); } // 六七八任一有填
+function dayMark(r){
+  const day=hasDayQty(r), sec=reportHasSec(r);
+  if(sec) return {txt:'　✔', color: day?'#000':'#d33'};   // 有填六七八：同時有施作數量→黑✔，否則紅✔
+  if(day) return {txt:'　✔', color:''};                    // 只有施作數量→一般✔
+  return {txt:'', color:''};
+}
+function optLabel(r,i){ return `#${i+1}　${r.date?rocDate(r.date):'未設定日期'}`; }
 function renderDaySelect(){
   const sel=$('daySelect'); sel.innerHTML='';
   DB.reports.forEach((r,i)=>{
-    const o=document.createElement('option');
-    o.value=i; o.textContent=`#${i+1}　${r.date?rocDate(r.date):'未設定日期'}${hasDayQty(r)?'　✔':''}`;
+    const o=document.createElement('option'); const m=dayMark(r);
+    o.value=i; o.textContent=optLabel(r,i)+m.txt;
+    if(m.color){ o.style.color=m.color; o.style.fontWeight='700'; }
     sel.appendChild(o);
   });
   if(curIdx>=0) sel.value=curIdx;
   sel.style.display = DB.reports.length? '':'none';
+}
+function refreshDayOpt(){   // 目前報表狀態變動 → 即時更新該選項的勾與顏色
+  const sel=$('daySelect'); if(!sel||curIdx<0)return;
+  const r=DB.reports[curIdx], o=sel.options[curIdx]; if(!o)return;
+  const m=dayMark(r); o.textContent=optLabel(r,curIdx)+m.txt;
+  o.style.color=m.color||''; o.style.fontWeight=m.color?'700':'';
 }
 
 function progressData(){
@@ -792,7 +804,7 @@ function renderAll(){
   const hasReal = DB.reports.some(r=>!isSeedPlaceholder(r));
   document.body.classList.toggle('no-reports', !hasReal);
   renderDaySelect(); renderHeader(); renderItems(); renderSubTables(); renderTotals();
-  applyColWidths(); applyRowHeights(); applyBoxHeights(); applyHeadText(); updateFillMarks();
+  applyColWidths(); applyRowHeights(); applyBoxHeights(); applyHeadText();
   if(typeof requestAnimationFrame==='function') requestAnimationFrame(autofitAll); else autofitAll(); scheduleGrips(); setupHeadEdit();
 }
 
@@ -828,7 +840,7 @@ $('f_extDays').addEventListener('input',e=>{DB.project.extDays=e.target.value===
 function bindR(id,f,checkbox){
   $(id).addEventListener('input',e=>{
     if(curIdx<0)return; DB.reports[curIdx][f]=e.target.value;
-    if(e.target.closest('.free-text')) updateFillMarks();   // 六七八有無內容 → 即時更新紅勾
+    if(e.target.closest('.free-text')) refreshDayOpt();   // 六七八有無內容 → 即時更新下拉勾記
     save();
   });
 }
@@ -888,9 +900,7 @@ $('itemTable').addEventListener('input',e=>{
     const r=DB.reports[curIdx];
     tr.classList.toggle('has-qty',!!v);
     updateRowCalc(tr,i,r);
-    const sel=$('daySelect'), opt=sel&&sel.options[curIdx];
-    if(opt) opt.textContent=`#${curIdx+1}　${r.date?rocDate(r.date):'未設定日期'}${hasDayQty(r)?'　✔':''}`;
-    updateFillMarks();   // 施作數量有無 → 六七八勾色(紅/黑)即時更新
+    refreshDayOpt();   // 施作數量有無 → 下拉勾記(黑/紅/無)即時更新
     renderTotals(); save();
   }else if(t.dataset.f){
     const i=+t.dataset.i, f=t.dataset.f;
@@ -1042,19 +1052,6 @@ function scheduleGrips(){
   const run=()=>{ _gripTimer=null; applyRowHeights(); applyBoxHeights(); setupGrips(); };
   _gripTimer=1;
   if(typeof requestAnimationFrame==='function') requestAnimationFrame(()=>requestAnimationFrame(run)); else setTimeout(run,0);
-}
-function updateFillMarks(){
-  const r = curIdx>=0 ? DB.reports[curIdx] : null;
-  const day = hasDayQty(r);   // 這份報表是否有當日施作數量
-  document.querySelectorAll('.section-title[data-fill]').forEach(t=>{
-    const inp=document.getElementById(t.dataset.fill);
-    const mark=t.querySelector('.fillmark');
-    if(!mark) return;
-    const has = inp && (inp.value||'').trim()!=='';
-    mark.textContent = has ? '✔' : '';
-    mark.classList.toggle('on', !!has);
-    mark.classList.toggle('black', !!(has && day));   // 同時有當日施作數量 → 黑勾(主要)；否則紅勾
-  });
 }
 function applyHeadText(){
   DB.headText=DB.headText||{};

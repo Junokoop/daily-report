@@ -201,7 +201,7 @@ body.show-money tr.money{display:table-row}
 
 <div id="toolbar">
   <span class="title">施工日誌</span>
-  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.17bh</span>
+  <span id="appVer" style="font-size:11px;opacity:.6">v2026.06.17bi</span>
   <span id="saveState">已儲存</span>
   <button id="btnPrev" title="前一頁">◀</button>
   <select id="daySelect" title="切換日報"></select>
@@ -527,7 +527,7 @@ function hasDayQty(r){ return !!(r && r.qty && Object.keys(r.qty).some(k=>(+r.qt
 function reportHasSec(r){ return !!(r && (((r.sampling||'').trim())||((r.subNotice||'').trim())||((r.important||'').trim()))); } // 六七八任一有填
 function dayMark(r){
   const day=hasDayQty(r), sec=reportHasSec(r);
-  if(sec) return {txt:'　✔', color: day?'#000':'#d33'};   // 有填六七八：同時有施作數量→黑✔，否則紅✔
+  if(sec) return {txt:'　✔', color: day?'#0a8a3a':'#d33'};   // 有填六七八：同時有施作數量→綠✔，否則紅✔
   if(day) return {txt:'　✔', color:''};                    // 只有施作數量→一般✔
   return {txt:'', color:''};
 }
